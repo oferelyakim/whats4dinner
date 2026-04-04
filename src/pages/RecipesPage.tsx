@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, BookOpen, Clock, Users as UsersIcon } from 'lucide-react'
+import { Plus, Search, BookOpen, Clock, Users as UsersIcon, Link2, PenLine } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -116,13 +116,22 @@ export function RecipesPage() {
         </div>
       )}
 
-      {/* FAB */}
-      <button
-        onClick={() => navigate('/recipes/new')}
-        className="fixed bottom-20 right-4 h-14 w-14 rounded-full bg-brand-500 text-white shadow-lg flex items-center justify-center active:scale-90 transition-transform z-40"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
+      {/* FAB menu */}
+      <div className="fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2">
+        <button
+          onClick={() => navigate('/recipes/import')}
+          className="h-11 flex items-center gap-2 px-4 rounded-full bg-surface-dark-elevated text-white shadow-lg active:scale-95 transition-transform text-sm font-medium"
+        >
+          <Link2 className="h-4 w-4" />
+          Import from URL
+        </button>
+        <button
+          onClick={() => navigate('/recipes/new')}
+          className="h-14 w-14 rounded-full bg-brand-500 text-white shadow-lg flex items-center justify-center active:scale-90 transition-transform"
+        >
+          <PenLine className="h-6 w-6" />
+        </button>
+      </div>
     </div>
   )
 }

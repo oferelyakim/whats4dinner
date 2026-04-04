@@ -16,6 +16,7 @@ import { CircleDetailPage } from '@/pages/CircleDetailPage'
 import { JoinCirclePage } from '@/pages/JoinCirclePage'
 import { StoresPage } from '@/pages/StoresPage'
 import { StoreRoutePage } from '@/pages/StoreRoutePage'
+import { RecipeImportPage } from '@/pages/RecipeImportPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/recipes" element={<RecipesPage />} />
               <Route path="/recipes/new" element={<RecipeFormPage />} />
+              <Route path="/recipes/import" element={<RecipeImportPage />} />
               <Route path="/recipes/:id" element={<RecipeDetailPage />} />
               <Route path="/recipes/:id/edit" element={<RecipeFormPage />} />
               <Route path="/lists" element={<ListsPage />} />
