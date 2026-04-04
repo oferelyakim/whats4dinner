@@ -20,6 +20,7 @@ import { RecipeImportPage } from '@/pages/RecipeImportPage'
 import { SharedRecipePage } from '@/pages/SharedRecipePage'
 import { EventsPage } from '@/pages/EventsPage'
 import { EventDetailPage } from '@/pages/EventDetailPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +58,7 @@ export default function App() {
               <Route path="/more" element={<MorePage />} />
               <Route path="/more/circles" element={<CirclesPage />} />
               <Route path="/more/circles/:id" element={<CircleDetailPage />} />
+              <Route path="/more/profile" element={<ProfilePage />} />
               <Route path="/more/stores" element={<StoresPage />} />
               <Route path="/more/stores/:id" element={<StoreRoutePage />} />
             </Route>

@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart,
+  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
-import { getShoppingList, addListItem, toggleListItem, removeListItem } from '@/services/shoppingLists'
+import { getShoppingList, addListItem, toggleListItem, removeListItem, shareListWithUser } from '@/services/shoppingLists'
 import { getStores, getStoreRoutes } from '@/services/stores'
+import { getCircleMembers } from '@/services/circles'
 import { supabase } from '@/services/supabase'
 import type { ShoppingListItem } from '@/types'
 import { DEPARTMENTS, type Department } from '@/lib/constants'
@@ -19,11 +21,13 @@ export function ShoppingListPage() {
   const queryClient = useQueryClient()
 
   const [showAdd, setShowAdd] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [newItemName, setNewItemName] = useState('')
   const [newItemQty, setNewItemQty] = useState('')
   const [newItemCategory, setNewItemCategory] = useState<Department>('Other')
   const [sortBy, setSortBy] = useState<'default' | 'department' | 'route'>('default')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+  const [sharedUsers, setSharedUsers] = useState<Set<string>>(new Set())
 
   const { data, isLoading } = useQuery({
     queryKey: ['shopping-list', id],
@@ -40,6 +44,12 @@ export function ShoppingListPage() {
     queryKey: ['store-routes', selectedStoreId],
     queryFn: () => getStoreRoutes(selectedStoreId),
     enabled: !!selectedStoreId && sortBy === 'route',
+  })
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['circle-members', data?.circle_id],
+    queryFn: () => getCircleMembers(data!.circle_id),
+    enabled: showShare && !!data?.circle_id,
   })
 
   // Real-time subscription for list items
@@ -184,6 +194,9 @@ export function ShoppingListPage() {
             {checkedCount}/{totalCount} items done
           </p>
         </div>
+        <Button size="sm" variant="ghost" onClick={() => setShowShare(true)}>
+          <Share2 className="h-4 w-4" />
+        </Button>
         <Button size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" />
           Add
@@ -349,6 +362,63 @@ export function ShoppingListPage() {
           </Card>
         </div>
       )}
+
+      {/* Share Dialog */}
+      <Dialog.Root open={showShare} onOpenChange={setShowShare}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              Share List
+            </Dialog.Title>
+            <p className="text-xs text-slate-400 mb-4">
+              Circle members you share with can view and add items to this list.
+            </p>
+            <div className="space-y-1.5">
+              {members
+                .filter((m) => m.user_id !== data?.created_by)
+                .map((member) => {
+                  const isShared = sharedUsers.has(member.user_id)
+                  return (
+                    <button
+                      key={member.user_id}
+                      onClick={async () => {
+                        await shareListWithUser(id!, member.user_id, 'edit')
+                        setSharedUsers((prev) => new Set([...prev, member.user_id]))
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors"
+                    >
+                      <div className="h-9 w-9 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-500 font-bold text-sm shrink-0">
+                        {member.profile?.display_name?.[0]?.toUpperCase() ?? '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                          {member.profile?.display_name || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {member.profile?.email || ''}
+                        </p>
+                      </div>
+                      {isShared ? (
+                        <Check className="h-5 w-5 text-success" />
+                      ) : (
+                        <UserPlus className="h-4 w-4 text-slate-400" />
+                      )}
+                    </button>
+                  )
+                })}
+              {members.filter((m) => m.user_id !== data?.created_by).length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-4">
+                  No other members in this circle yet. Invite some first!
+                </p>
+              )}
+            </div>
+            <Button variant="secondary" className="w-full mt-4" onClick={() => setShowShare(false)}>
+              Done
+            </Button>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 }

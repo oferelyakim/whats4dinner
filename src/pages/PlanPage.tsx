@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
-import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates } from '@/services/mealPlans'
+import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates, copyWeekPlan } from '@/services/mealPlans'
 import { getRecipes } from '@/services/recipes'
+import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/services/shoppingLists'
 import { MEAL_TYPES, type MealType } from '@/lib/constants'
 import type { MealPlan, Recipe } from '@/types'
 
@@ -35,6 +37,8 @@ export function PlanPage() {
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedMealType, setSelectedMealType] = useState<MealType>('dinner')
   const [search, setSearch] = useState('')
+  const [showAddToList, setShowAddToList] = useState(false)
+  const [addingToList, setAddingToList] = useState(false)
 
   const week = useMemo(() => {
     const ref = new Date()
@@ -46,6 +50,12 @@ export function PlanPage() {
     queryKey: ['meal-plans', activeCircle?.id, week.start, week.end],
     queryFn: () => getMealPlans(activeCircle!.id, week.start, week.end),
     enabled: !!activeCircle,
+  })
+
+  const { data: lists = [] } = useQuery({
+    queryKey: ['shopping-lists'],
+    queryFn: getShoppingLists,
+    enabled: showAddToList,
   })
 
   const { data: recipes = [] } = useQuery({
@@ -70,6 +80,41 @@ export function PlanPage() {
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
     },
   })
+
+  const copyMutation = useMutation({
+    mutationFn: () => {
+      const nextWeek = getWeekDates(new Date(new Date().setDate(new Date().getDate() + (weekOffset + 1) * 7)))
+      return copyWeekPlan(activeCircle!.id, week.dates, nextWeek.dates)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
+      setWeekOffset((w) => w + 1)
+    },
+  })
+
+  async function handleAddWeekToList(listId: string) {
+    setAddingToList(true)
+    const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
+    if (planIds.length) {
+      await addMealPlansToList(listId, planIds)
+      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    }
+    setAddingToList(false)
+    setShowAddToList(false)
+  }
+
+  async function handleAddWeekToNewList() {
+    if (!activeCircle) return
+    setAddingToList(true)
+    const list = await createShoppingList(`${weekLabel} Groceries`, activeCircle.id)
+    const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
+    if (planIds.length) {
+      await addMealPlansToList(list.id, planIds)
+    }
+    queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    setAddingToList(false)
+    setShowAddToList(false)
+  }
 
   function openAddMeal(date: string, mealType: MealType) {
     setSelectedDate(date)
@@ -133,6 +178,30 @@ export function PlanPage() {
           <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </button>
       </div>
+
+      {/* Action buttons */}
+      {plans.length > 0 && (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="flex-1"
+            onClick={() => setShowAddToList(true)}
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Add Week to List
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => copyMutation.mutate()}
+            disabled={copyMutation.isPending}
+          >
+            <Copy className="h-4 w-4" />
+            {copyMutation.isPending ? 'Copying...' : 'Copy to Next Week'}
+          </Button>
+        </div>
+      )}
 
       {/* Day columns */}
       <div className="space-y-3">
@@ -263,6 +332,43 @@ export function PlanPage() {
                 ))}
               </div>
             )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Add Week to List Dialog */}
+      <Dialog.Root open={showAddToList} onOpenChange={setShowAddToList}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              Add Week's Ingredients to List
+            </Dialog.Title>
+            <p className="text-xs text-slate-400 mb-4">
+              All ingredients from {plans.filter((p) => p.recipe_id).length} planned recipes will be added and deduplicated.
+            </p>
+            <div className="space-y-2">
+              {lists.filter((l) => l.status === 'active').map((list) => (
+                <button
+                  key={list.id}
+                  onClick={() => handleAddWeekToList(list.id)}
+                  disabled={addingToList}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left active:scale-[0.98] transition-all hover:border-brand-500"
+                >
+                  <ShoppingCart className="h-5 w-5 text-slate-400 shrink-0" />
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex-1 truncate">{list.name}</p>
+                  <Plus className="h-4 w-4 text-slate-400" />
+                </button>
+              ))}
+              <button
+                onClick={handleAddWeekToNewList}
+                disabled={addingToList}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-left active:scale-[0.98]"
+              >
+                <Plus className="h-5 w-5 text-brand-500" />
+                <p className="text-sm font-medium text-brand-500">Create "{weekLabel} Groceries" list</p>
+              </button>
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

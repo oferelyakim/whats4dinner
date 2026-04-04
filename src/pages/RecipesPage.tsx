@@ -19,12 +19,21 @@ export function RecipesPage() {
     queryFn: () => getRecipes(activeCircle?.id),
   })
 
+  // Multi-word search: "carrot chicken" matches recipes containing both words
+  // in title, tags, or ingredient names
   const filtered = search
-    ? recipes.filter(
-        (r: Recipe) =>
-          r.title.toLowerCase().includes(search.toLowerCase()) ||
-          r.tags?.some((t: string) => t.toLowerCase().includes(search.toLowerCase()))
-      )
+    ? (() => {
+        const terms = search.toLowerCase().split(/\s+/).filter(Boolean)
+        return recipes.filter((r: Recipe) => {
+          const searchable = [
+            r.title.toLowerCase(),
+            ...(r.tags ?? []).map((t: string) => t.toLowerCase()),
+            ...(r.ingredients ?? []).map((i) => i.name.toLowerCase()),
+            r.description?.toLowerCase() ?? '',
+          ].join(' ')
+          return terms.every((term) => searchable.includes(term))
+        })
+      })()
     : recipes
 
   return (

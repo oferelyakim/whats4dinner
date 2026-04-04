@@ -110,6 +110,58 @@ export async function addRecipeToList(listId: string, recipeId: string): Promise
   if (error) throw error
 }
 
+export async function addMealPlansToList(listId: string, planIds: string[]): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Get all recipe IDs from the meal plans
+  const { data: plans } = await supabase
+    .from('meal_plans')
+    .select('recipe_id')
+    .in('id', planIds)
+
+  const recipeIds = [...new Set((plans ?? []).map((p) => p.recipe_id).filter(Boolean))] as string[]
+  if (!recipeIds.length) return
+
+  // Get all ingredients from those recipes
+  const { data: ingredients } = await supabase
+    .from('recipe_ingredients')
+    .select('*')
+    .in('recipe_id', recipeIds)
+
+  if (!ingredients?.length) return
+
+  // Deduplicate by name+unit (combine quantities)
+  const merged = new Map<string, { name: string; quantity: number; unit: string; recipe_id: string }>()
+  for (const ing of ingredients) {
+    const key = `${ing.name.toLowerCase()}|${(ing.unit || '').toLowerCase()}`
+    const existing = merged.get(key)
+    if (existing) {
+      existing.quantity = (existing.quantity || 0) + (ing.quantity || 0)
+    } else {
+      merged.set(key, {
+        name: ing.name,
+        quantity: ing.quantity || 0,
+        unit: ing.unit || '',
+        recipe_id: ing.recipe_id,
+      })
+    }
+  }
+
+  const items = [...merged.values()].map((ing) => ({
+    list_id: listId,
+    name: ing.name,
+    quantity: ing.quantity || null,
+    unit: ing.unit,
+    category: 'Other',
+    recipe_id: ing.recipe_id,
+    added_by: user.id,
+  }))
+
+  const { error } = await supabase.from('shopping_list_items').insert(items)
+  if (error) throw error
+}
+
 export async function shareListWithUser(listId: string, userId: string, permission: string = 'edit'): Promise<void> {
   const { error } = await supabase
     .from('shopping_list_access')

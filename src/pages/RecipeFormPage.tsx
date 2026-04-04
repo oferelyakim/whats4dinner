@@ -1,13 +1,13 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { DEPARTMENTS, UNITS, type Department, type Unit } from '@/lib/constants'
 import { cn } from '@/lib/cn'
-import { createRecipe } from '@/services/recipes'
+import { createRecipe, getRecipe, updateRecipe } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
 
 interface IngredientRow {
@@ -22,6 +22,8 @@ interface IngredientRow {
 let nextId = 1
 
 export function RecipeFormPage() {
+  const { id } = useParams<{ id: string }>()
+  const isEdit = !!id
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { activeCircle } = useAppStore()
@@ -34,6 +36,38 @@ export function RecipeFormPage() {
   const [servings, setServings] = useState('')
   const [tags, setTags] = useState('')
   const [ingredients, setIngredients] = useState<IngredientRow[]>([])
+  const [loaded, setLoaded] = useState(!isEdit)
+
+  // Load existing recipe for editing
+  const { data: existingRecipe } = useQuery({
+    queryKey: ['recipe', id],
+    queryFn: () => getRecipe(id!),
+    enabled: isEdit,
+  })
+
+  useEffect(() => {
+    if (existingRecipe && !loaded) {
+      setTitle(existingRecipe.title)
+      setDescription(existingRecipe.description ?? '')
+      setInstructions(existingRecipe.instructions ?? '')
+      setSourceUrl(existingRecipe.source_url ?? '')
+      setPrepTime(existingRecipe.prep_time_min?.toString() ?? '')
+      setCookTime(existingRecipe.cook_time_min?.toString() ?? '')
+      setServings(existingRecipe.servings?.toString() ?? '')
+      setTags(existingRecipe.tags?.join(', ') ?? '')
+      setIngredients(
+        (existingRecipe.ingredients ?? []).map((ing) => ({
+          id: `ing-${nextId++}`,
+          name: ing.name,
+          quantity: ing.quantity?.toString() ?? '',
+          unit: (ing.unit || '') as Unit,
+          category: 'Other' as Department,
+          notes: ing.notes ?? '',
+        }))
+      )
+      setLoaded(true)
+    }
+  }, [existingRecipe, loaded])
 
   function addIngredient() {
     setIngredients((prev) => [
@@ -49,19 +83,19 @@ export function RecipeFormPage() {
     ])
   }
 
-  function updateIngredient(id: string, field: keyof IngredientRow, value: string) {
+  function updateIngredient(rowId: string, field: keyof IngredientRow, value: string) {
     setIngredients((prev) =>
-      prev.map((ing) => (ing.id === id ? { ...ing, [field]: value } : ing))
+      prev.map((ing) => (ing.id === rowId ? { ...ing, [field]: value } : ing))
     )
   }
 
-  function removeIngredient(id: string) {
-    setIngredients((prev) => prev.filter((ing) => ing.id !== id))
+  function removeIngredient(rowId: string) {
+    setIngredients((prev) => prev.filter((ing) => ing.id !== rowId))
   }
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      createRecipe({
+    mutationFn: () => {
+      const data = {
         title: title.trim(),
         description: description.trim() || undefined,
         instructions: instructions.trim() || undefined,
@@ -84,15 +118,26 @@ export function RecipeFormPage() {
             notes: ing.notes || null,
             item_id: null,
           })),
-      }),
+      }
+      return isEdit ? updateRecipe(id!, data) : createRecipe(data)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recipes'] })
-      navigate('/recipes')
+      if (isEdit) queryClient.invalidateQueries({ queryKey: ['recipe', id] })
+      navigate(isEdit ? `/recipes/${id}` : '/recipes')
     },
   })
 
   function handleSave() {
     saveMutation.mutate()
+  }
+
+  if (isEdit && !loaded) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="h-6 w-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -105,7 +150,9 @@ export function RecipeFormPage() {
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">New Recipe</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+          {isEdit ? 'Edit Recipe' : 'New Recipe'}
+        </h2>
       </div>
 
       {/* Basic Info */}
@@ -114,20 +161,20 @@ export function RecipeFormPage() {
           label="Title"
           placeholder="e.g., Butter Chicken"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
           required
         />
         <Input
           label="Description"
           placeholder="Brief description (optional)"
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
         />
         <Input
           label="Source URL"
           placeholder="Link to original recipe (optional)"
           value={sourceUrl}
-          onChange={(e) => setSourceUrl(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSourceUrl(e.target.value)}
           type="url"
         />
         <div className="grid grid-cols-3 gap-3">
@@ -136,28 +183,28 @@ export function RecipeFormPage() {
             type="number"
             placeholder="15"
             value={prepTime}
-            onChange={(e) => setPrepTime(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrepTime(e.target.value)}
           />
           <Input
             label="Cook (min)"
             type="number"
             placeholder="30"
             value={cookTime}
-            onChange={(e) => setCookTime(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCookTime(e.target.value)}
           />
           <Input
             label="Servings"
             type="number"
             placeholder="4"
             value={servings}
-            onChange={(e) => setServings(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setServings(e.target.value)}
           />
         </div>
         <Input
           label="Tags"
           placeholder="e.g., indian, dinner, spicy"
           value={tags}
-          onChange={(e) => setTags(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
         />
       </div>
 
@@ -261,7 +308,7 @@ export function RecipeFormPage() {
           Cancel
         </Button>
         <Button className="flex-1" onClick={handleSave} disabled={!title.trim() || saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving...' : 'Save Recipe'}
+          {saveMutation.isPending ? 'Saving...' : isEdit ? 'Update Recipe' : 'Save Recipe'}
         </Button>
       </div>
     </div>

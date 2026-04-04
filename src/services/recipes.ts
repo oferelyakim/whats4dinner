@@ -58,6 +58,11 @@ export async function createRecipe(input: CreateRecipeInput): Promise<Recipe> {
 
   const { ingredients, ...recipeData } = input
 
+  // Auto-generate tags from ingredients and title if none provided
+  if (!recipeData.tags?.length && ingredients?.length) {
+    recipeData.tags = generateAutoTags(recipeData.title ?? '', ingredients.map((i) => i.name))
+  }
+
   const { data: recipe, error } = await supabase
     .from('recipes')
     .insert({ ...recipeData, created_by: user.id })
@@ -134,4 +139,48 @@ export async function createRecipeShare(recipeId: string): Promise<string> {
 
   if (error) throw error
   return data.share_code
+}
+
+const CUISINE_KEYWORDS: Record<string, string[]> = {
+  italian: ['pasta', 'parmesan', 'mozzarella', 'basil', 'oregano', 'marinara', 'risotto', 'lasagna'],
+  mexican: ['tortilla', 'salsa', 'cilantro', 'jalapeño', 'jalapeno', 'cumin', 'taco', 'burrito', 'enchilada'],
+  indian: ['curry', 'turmeric', 'garam masala', 'naan', 'tikka', 'masala', 'paneer', 'cardamom', 'cumin'],
+  asian: ['soy sauce', 'ginger', 'sesame', 'rice vinegar', 'tofu', 'wok', 'noodle'],
+  chinese: ['soy sauce', 'wok', 'hoisin', 'five spice', 'bok choy', 'szechuan'],
+  thai: ['coconut milk', 'lemongrass', 'fish sauce', 'thai basil', 'pad thai'],
+  japanese: ['miso', 'sake', 'wasabi', 'sushi', 'teriyaki', 'dashi', 'mirin'],
+  mediterranean: ['olive oil', 'feta', 'hummus', 'tahini', 'za\'atar', 'pita'],
+}
+
+const PROTEIN_KEYWORDS: Record<string, string[]> = {
+  chicken: ['chicken'],
+  beef: ['beef', 'steak', 'ground beef'],
+  fish: ['salmon', 'tuna', 'cod', 'fish', 'shrimp', 'prawn'],
+  pork: ['pork', 'bacon', 'ham'],
+  vegetarian: ['tofu', 'tempeh', 'lentil', 'chickpea', 'bean'],
+}
+
+const MEAL_KEYWORDS: Record<string, string[]> = {
+  breakfast: ['pancake', 'waffle', 'egg', 'omelette', 'granola', 'french toast', 'breakfast'],
+  dessert: ['cake', 'cookie', 'brownie', 'pie', 'ice cream', 'chocolate', 'dessert', 'sweet'],
+  soup: ['soup', 'stew', 'chili', 'broth', 'bisque', 'chowder'],
+  salad: ['salad', 'vinaigrette', 'dressing'],
+  quick: ['5 min', '10 min', '15 min', 'quick', 'easy'],
+}
+
+function generateAutoTags(title: string, ingredientNames: string[]): string[] {
+  const tags: Set<string> = new Set()
+  const searchText = [title, ...ingredientNames].join(' ').toLowerCase()
+
+  for (const [tag, keywords] of Object.entries(CUISINE_KEYWORDS)) {
+    if (keywords.some((kw) => searchText.includes(kw))) tags.add(tag)
+  }
+  for (const [tag, keywords] of Object.entries(PROTEIN_KEYWORDS)) {
+    if (keywords.some((kw) => searchText.includes(kw))) tags.add(tag)
+  }
+  for (const [tag, keywords] of Object.entries(MEAL_KEYWORDS)) {
+    if (keywords.some((kw) => searchText.includes(kw))) tags.add(tag)
+  }
+
+  return [...tags].slice(0, 5)
 }

@@ -51,6 +51,43 @@ export async function removeMealPlan(planId: string): Promise<void> {
   if (error) throw error
 }
 
+// Copy a week's meal plan to another week
+export async function copyWeekPlan(
+  circleId: string,
+  sourceDates: string[],
+  targetDates: string[]
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: sourcePlans } = await supabase
+    .from('meal_plans')
+    .select('*')
+    .eq('circle_id', circleId)
+    .in('plan_date', sourceDates)
+
+  if (!sourcePlans?.length) return
+
+  const newPlans = sourcePlans.map((plan) => {
+    const sourceIdx = sourceDates.indexOf(plan.plan_date)
+    return {
+      circle_id: circleId,
+      plan_date: targetDates[sourceIdx],
+      meal_type: plan.meal_type,
+      recipe_id: plan.recipe_id,
+      menu_id: plan.menu_id,
+      notes: plan.notes,
+      created_by: user.id,
+    }
+  })
+
+  const { error } = await supabase
+    .from('meal_plans')
+    .upsert(newPlans, { onConflict: 'circle_id,plan_date,meal_type' })
+
+  if (error) throw error
+}
+
 // Helper to get date range for a week
 export function getWeekDates(referenceDate: Date = new Date()): { start: string; end: string; dates: string[] } {
   const d = new Date(referenceDate)
