@@ -25,10 +25,22 @@ export async function importRecipeFromUrl(url: string): Promise<ParsedRecipe> {
     // Edge function not deployed yet, fall back to client-side
   }
 
-  // Client-side fallback: use allorigins.win as CORS proxy
-  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-  const response = await fetch(proxyUrl)
-  if (!response.ok) throw new Error('Failed to fetch recipe page')
+  // Client-side fallback: try multiple CORS proxies
+  const proxies = [
+    (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  ]
+
+  let response: Response | null = null
+  for (const proxy of proxies) {
+    try {
+      const r = await fetch(proxy(url))
+      if (r.ok) { response = r; break }
+    } catch { continue }
+  }
+
+  if (!response) throw new Error('Could not fetch recipe page. Try adding the recipe manually.')
 
   const html = await response.text()
 

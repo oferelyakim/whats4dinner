@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Link2, Loader2, Check, ChefHat } from 'lucide-react'
+import { ArrowLeft, Link2, Loader2, Check, ChefHat, Camera } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -21,7 +21,10 @@ export function RecipeImportPage() {
   const queryClient = useQueryClient()
   const { activeCircle } = useAppStore()
 
+  const [mode, setMode] = useState<'url' | 'image'>('url')
   const [url, setUrl] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imported, setImported] = useState<{
     title: string
     description?: string
@@ -100,45 +103,133 @@ export function RecipeImportPage() {
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Import Recipe</h2>
       </div>
 
-      {/* URL input */}
+      {/* Import options */}
       {!imported && (
         <div className="space-y-4">
-          <div className="flex flex-col items-center py-6">
-            <div className="h-14 w-14 rounded-2xl bg-brand-500/10 flex items-center justify-center mb-3">
-              <Link2 className="h-7 w-7 text-brand-500" />
-            </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-xs">
-              Paste a link to a recipe from any website. We'll extract the title, ingredients, and instructions.
-            </p>
+          {/* Mode toggle */}
+          <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-lg p-0.5">
+            <button
+              onClick={() => setMode('url')}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                mode === 'url'
+                  ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-500'
+              }`}
+            >
+              <Link2 className="h-4 w-4" />
+              From URL
+            </button>
+            <button
+              onClick={() => setMode('image')}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                mode === 'image'
+                  ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-500'
+              }`}
+            >
+              <Camera className="h-4 w-4" />
+              From Photo
+            </button>
           </div>
 
-          <Input
-            label="Recipe URL"
-            type="url"
-            placeholder="https://www.example.com/recipe/..."
-            value={url}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
-          />
+          {mode === 'url' ? (
+            <>
+              <div className="flex flex-col items-center py-4">
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-xs">
+                  Paste a link to a recipe from any website. We'll extract the title, ingredients, and instructions.
+                </p>
+              </div>
 
-          {error && (
-            <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
+              <Input
+                label="Recipe URL"
+                type="url"
+                placeholder="https://www.example.com/recipe/..."
+                value={url}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
+              />
+
+              {error && (
+                <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
+              )}
+
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => fetchMutation.mutate()}
+                disabled={!url.trim() || fetchMutation.isPending}
+              >
+                {fetchMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Extracting recipe...
+                  </>
+                ) : (
+                  'Import Recipe'
+                )}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col items-center py-4">
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-xs">
+                  Take a photo of a recipe card, cookbook page, or screenshot. We'll extract the text and ingredients.
+                </p>
+              </div>
+
+              {imagePreview ? (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="Recipe"
+                    className="w-full rounded-xl max-h-64 object-cover"
+                  />
+                  <button
+                    onClick={() => { setImageFile(null); setImagePreview(null) }}
+                    className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-48 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 cursor-pointer hover:border-brand-500 transition-colors">
+                  <Camera className="h-8 w-8 text-slate-400 mb-2" />
+                  <span className="text-sm text-slate-500">Tap to take or choose a photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setImageFile(file)
+                        setImagePreview(URL.createObjectURL(file))
+                      }
+                    }}
+                  />
+                </label>
+              )}
+
+              {error && (
+                <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
+              )}
+
+              <Button
+                className="w-full"
+                size="lg"
+                disabled={!imageFile}
+                onClick={() => {
+                  setError('Image parsing coming soon! For now, use the URL import or add the recipe manually.')
+                }}
+              >
+                Extract from Photo
+              </Button>
+
+              <p className="text-xs text-slate-400 text-center">
+                Photo import uses AI to read recipe text. Coming in a future update.
+              </p>
+            </>
           )}
-
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={() => fetchMutation.mutate()}
-            disabled={!url.trim() || fetchMutation.isPending}
-          >
-            {fetchMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Extracting recipe...
-              </>
-            ) : (
-              'Import Recipe'
-            )}
-          </Button>
         </div>
       )}
 

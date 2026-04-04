@@ -33,29 +33,16 @@ export async function createCircle(name: string, icon: string): Promise<Circle> 
 }
 
 export async function joinCircleByInviteCode(inviteCode: string): Promise<Circle> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const { data, error } = await supabase
+    .rpc('join_circle_by_invite', { p_code: inviteCode.trim() })
 
-  // Find circle by invite code
-  const { data: circle, error: findError } = await supabase
-    .from('circles')
-    .select('*')
-    .eq('invite_code', inviteCode.trim())
-    .single()
-
-  if (findError || !circle) throw new Error('Invalid invite code')
-
-  // Join as member
-  const { error: joinError } = await supabase
-    .from('circle_members')
-    .insert({ circle_id: circle.id, user_id: user.id, role: 'member' })
-
-  if (joinError) {
-    if (joinError.code === '23505') throw new Error('Already a member of this circle')
-    throw joinError
+  if (error) {
+    if (error.message.includes('Invalid invite code')) throw new Error('Invalid invite code')
+    if (error.message.includes('already') || error.code === '23505') throw new Error('Already a member of this circle')
+    throw error
   }
 
-  return circle as Circle
+  return data as Circle
 }
 
 export async function inviteByEmail(circleId: string, email: string): Promise<void> {

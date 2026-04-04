@@ -16,15 +16,25 @@ export async function getShoppingLists(): Promise<ShoppingList[]> {
 }
 
 export async function getShoppingList(id: string): Promise<ShoppingList & { items: ShoppingListItem[] }> {
-  const { data, error } = await supabase
-    .from('shopping_lists')
-    .select('*, items:shopping_list_items(*)')
-    .eq('id', id)
-    .order('sort_order', { referencedTable: 'shopping_list_items' })
-    .single()
+  const [listResult, itemsResult] = await Promise.all([
+    supabase
+      .from('shopping_lists')
+      .select('*')
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('shopping_list_items')
+      .select('*')
+      .eq('list_id', id)
+      .order('sort_order'),
+  ])
 
-  if (error) throw error
-  return data as ShoppingList & { items: ShoppingListItem[] }
+  if (listResult.error) throw listResult.error
+
+  return {
+    ...listResult.data,
+    items: itemsResult.data ?? [],
+  } as ShoppingList & { items: ShoppingListItem[] }
 }
 
 export async function createShoppingList(name: string, circleId: string): Promise<ShoppingList> {

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Clock, Users, Share2, ExternalLink, ShoppingCart, Plus, Check } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Share2, ExternalLink, ShoppingCart, Plus, Check, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
-import { getRecipe, createRecipeShare } from '@/services/recipes'
+import { getRecipe, createRecipeShare, deleteRecipe } from '@/services/recipes'
 import { getShoppingLists, createShoppingList, addRecipeToList } from '@/services/shoppingLists'
 import { getMyCircles } from '@/services/circles'
 
@@ -16,6 +16,7 @@ export function RecipeDetailPage() {
   const queryClient = useQueryClient()
   const [sharing, setSharing] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
+  const [showDelete, setShowDelete] = useState(false)
   const [showAddToList, setShowAddToList] = useState(false)
   const [showNewList, setShowNewList] = useState(false)
   const [newListName, setNewListName] = useState('')
@@ -59,6 +60,14 @@ export function RecipeDetailPage() {
       setShowNewList(false)
       setShowAddToList(false)
       setNewListName('')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteRecipe(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recipes'] })
+      navigate('/recipes')
     },
   })
 
@@ -209,7 +218,7 @@ export function RecipeDetailPage() {
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2 pb-4">
+      <div className="flex gap-3 pt-2">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(`/recipes/${id}/edit`)}>
           Edit
         </Button>
@@ -218,6 +227,41 @@ export function RecipeDetailPage() {
           Add to List
         </Button>
       </div>
+      <button
+        onClick={() => setShowDelete(true)}
+        className="w-full flex items-center justify-center gap-2 py-3 mb-4 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
+      >
+        <Trash2 className="h-4 w-4" />
+        Delete Recipe
+      </button>
+
+      {/* Delete Confirmation */}
+      <Dialog.Root open={showDelete} onOpenChange={setShowDelete}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              Delete Recipe
+            </Dialog.Title>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Are you sure you want to delete <strong>{recipe?.title}</strong>? This will also remove it from any shopping lists and meal plans. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowDelete(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Add to List Dialog */}
       <Dialog.Root open={showAddToList} onOpenChange={setShowAddToList}>
