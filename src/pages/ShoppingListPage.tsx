@@ -2,7 +2,23 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus,
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
+  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus, GripVertical,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -120,6 +136,35 @@ export function ShoppingListPage() {
       queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
     },
   })
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id || !data) return
+
+    const uncheckedItems = items.filter((i) => !i.is_checked)
+    const oldIndex = uncheckedItems.findIndex((i) => i.id === active.id)
+    const newIndex = uncheckedItems.findIndex((i) => i.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const reordered = arrayMove(uncheckedItems, oldIndex, newIndex)
+
+    // Optimistic update
+    queryClient.setQueryData(['shopping-list', id], {
+      ...data,
+      items: [...reordered, ...items.filter((i) => i.is_checked)],
+    })
+
+    // Persist sort order
+    const updates = reordered.map((item, i) =>
+      supabase.from('shopping_list_items').update({ sort_order: i }).eq('id', item.id)
+    )
+    Promise.all(updates)
+  }
 
   if (isLoading) {
     return (
@@ -271,7 +316,24 @@ export function ShoppingListPage() {
                 </p>
                 <Card className="divide-y divide-slate-100 dark:divide-slate-800">
                   {deptItems.map((item) => (
-                    <ListItemRow
+                    <div key={item.id} className="px-3 py-2.5">
+                      <ListItemRow
+                        item={item}
+                        onToggle={() => toggleMutation.mutate({ itemId: item.id, checked: true })}
+                        onRemove={() => removeMutation.mutate(item.id)}
+                      />
+                    </div>
+                  ))}
+                </Card>
+              </div>
+            ))
+          ) : (
+            // Flat list with drag-and-drop
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={sortedUnchecked.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {sortedUnchecked.map((item) => (
+                    <SortableListItem
                       key={item.id}
                       item={item}
                       onToggle={() => toggleMutation.mutate({ itemId: item.id, checked: true })}
@@ -279,20 +341,8 @@ export function ShoppingListPage() {
                     />
                   ))}
                 </Card>
-              </div>
-            ))
-          ) : (
-            // Flat list
-            <Card className="divide-y divide-slate-100 dark:divide-slate-800">
-              {sortedUnchecked.map((item) => (
-                <ListItemRow
-                  key={item.id}
-                  item={item}
-                  onToggle={() => toggleMutation.mutate({ itemId: item.id, checked: true })}
-                  onRemove={() => removeMutation.mutate(item.id)}
-                />
-              ))}
-            </Card>
+              </SortableContext>
+            </DndContext>
           )}
 
           {/* Checked items */}
@@ -303,12 +353,13 @@ export function ShoppingListPage() {
               </p>
               <Card className="divide-y divide-slate-100 dark:divide-slate-800 opacity-60">
                 {checked.map((item) => (
-                  <ListItemRow
-                    key={item.id}
-                    item={item}
-                    onToggle={() => toggleMutation.mutate({ itemId: item.id, checked: false })}
-                    onRemove={() => removeMutation.mutate(item.id)}
-                  />
+                  <div key={item.id} className="px-3 py-2.5">
+                    <ListItemRow
+                      item={item}
+                      onToggle={() => toggleMutation.mutate({ itemId: item.id, checked: false })}
+                      onRemove={() => removeMutation.mutate(item.id)}
+                    />
+                  </div>
                 ))}
               </Card>
             </div>
@@ -423,6 +474,45 @@ export function ShoppingListPage() {
   )
 }
 
+function SortableListItem({
+  item,
+  onToggle,
+  onRemove,
+}: {
+  item: ShoppingListItem
+  onToggle: () => void
+  onRemove: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.8 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1 px-2 py-2.5 group bg-white dark:bg-surface-dark-elevated">
+      <button
+        {...attributes}
+        {...listeners}
+        className="shrink-0 touch-none cursor-grab active:cursor-grabbing p-1"
+      >
+        <GripVertical className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+      </button>
+      <ListItemRow item={item} onToggle={onToggle} onRemove={onRemove} />
+    </div>
+  )
+}
+
 function ListItemRow({
   item,
   onToggle,
@@ -433,7 +523,7 @@ function ListItemRow({
   onRemove: () => void
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2.5 group">
+    <div className="flex items-center gap-2 flex-1 min-w-0">
       <button onClick={onToggle} className="shrink-0 active:scale-90 transition-transform">
         {item.is_checked ? (
           <CheckSquare className="h-5 w-5 text-success" />
