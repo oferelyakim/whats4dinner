@@ -7,6 +7,7 @@ import {
   LogOut,
   ChevronRight,
   User,
+  PartyPopper,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
@@ -24,6 +25,12 @@ export function MorePage() {
       label: 'My Circles',
       description: 'Manage family & friend groups',
       onClick: () => navigate('/more/circles'),
+    },
+    {
+      icon: PartyPopper,
+      label: 'Events',
+      description: 'Potlucks & dinner parties',
+      onClick: () => navigate('/events'),
     },
     {
       icon: Store,

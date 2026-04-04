@@ -17,6 +17,9 @@ import { JoinCirclePage } from '@/pages/JoinCirclePage'
 import { StoresPage } from '@/pages/StoresPage'
 import { StoreRoutePage } from '@/pages/StoreRoutePage'
 import { RecipeImportPage } from '@/pages/RecipeImportPage'
+import { SharedRecipePage } from '@/pages/SharedRecipePage'
+import { EventsPage } from '@/pages/EventsPage'
+import { EventDetailPage } from '@/pages/EventDetailPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +37,7 @@ export default function App() {
         <Routes>
           {/* Public routes (outside AuthGuard) */}
           <Route path="/join/:code" element={<JoinCirclePage />} />
+          <Route path="/r/:code" element={<SharedRecipePage />} />
         </Routes>
         <AuthGuard>
           <Routes>
@@ -48,6 +52,8 @@ export default function App() {
               <Route path="/lists/new" element={<NewListPage />} />
               <Route path="/lists/:id" element={<ShoppingListPage />} />
               <Route path="/plan" element={<PlanPage />} />
+              <Route path="/events" element={<EventsPage />} />
+              <Route path="/events/:id" element={<EventDetailPage />} />
               <Route path="/more" element={<MorePage />} />
               <Route path="/more/circles" element={<CirclesPage />} />
               <Route path="/more/circles/:id" element={<CircleDetailPage />} />

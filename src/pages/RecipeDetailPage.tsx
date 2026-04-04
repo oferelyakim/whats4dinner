@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
-import { getRecipe } from '@/services/recipes'
+import { getRecipe, createRecipeShare } from '@/services/recipes'
 import { getShoppingLists, createShoppingList, addRecipeToList } from '@/services/shoppingLists'
 import { getMyCircles } from '@/services/circles'
 
@@ -14,6 +14,8 @@ export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [sharing, setSharing] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
   const [showAddToList, setShowAddToList] = useState(false)
   const [showNewList, setShowNewList] = useState(false)
   const [newListName, setNewListName] = useState('')
@@ -92,10 +94,31 @@ export function RecipeDetailPage() {
         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1 min-w-0 truncate">
           {recipe.title}
         </h2>
-        <Button size="sm" variant="ghost">
-          <Share2 className="h-4 w-4" />
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={sharing}
+          onClick={async () => {
+            setSharing(true)
+            try {
+              const code = await createRecipeShare(id!)
+              const url = `${window.location.origin}/r/${code}`
+              setShareUrl(url)
+              await navigator.clipboard.writeText(url)
+            } catch { /* ignore */ }
+            setSharing(false)
+          }}
+        >
+          {shareUrl ? <Check className="h-4 w-4 text-success" /> : <Share2 className="h-4 w-4" />}
         </Button>
       </div>
+
+      {shareUrl && (
+        <div className="flex items-center gap-2 bg-success/10 text-success text-xs rounded-lg px-3 py-2">
+          <Check className="h-3.5 w-3.5" />
+          Share link copied! Anyone with the link can view this recipe.
+        </div>
+      )}
 
       {/* Description */}
       {recipe.description && (
