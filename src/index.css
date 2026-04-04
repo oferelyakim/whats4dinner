@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+
+  --color-surface-dark: #0f172a;
+  --color-surface-dark-elevated: #1e293b;
+  --color-surface-dark-overlay: #334155;
+
+  --color-surface-light: #f8fafc;
+  --color-surface-light-elevated: #ffffff;
+  --color-surface-light-overlay: #e2e8f0;
+
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  @apply font-sans antialiased;
+  @apply bg-surface-light text-slate-900;
+  @apply dark:bg-surface-dark dark:text-slate-100;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.pb-safe {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+/* Fix native select/option dark mode */
+.dark select,
+.dark option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+select {
+  color-scheme: light dark;
+}

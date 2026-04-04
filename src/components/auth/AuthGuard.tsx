@@ -1,0 +1,43 @@
+import { useEffect, type ReactNode } from 'react'
+import { useAuth } from '@/hooks/useAuth'
+import { isSupabaseConfigured } from '@/services/supabase'
+import { useAppStore } from '@/stores/appStore'
+import { LoginPage } from './LoginPage'
+
+export function AuthGuard({ children }: { children: ReactNode }) {
+  const { session, loading } = useAuth()
+  const { setProfile } = useAppStore()
+
+  // Dev mode: bypass auth when Supabase isn't configured
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setProfile({
+        id: 'dev-user',
+        display_name: 'Ofer (Dev)',
+        avatar_url: null,
+        email: 'dev@whats4dinner.app',
+        preferences: { theme: 'dark' },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    }
+  }, [setProfile])
+
+  if (!isSupabaseConfigured) {
+    return <>{children}</>
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark">
+        <div className="h-8 w-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <LoginPage />
+  }
+
+  return <>{children}</>
+}
