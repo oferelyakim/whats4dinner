@@ -12,8 +12,36 @@ interface ParsedRecipe {
   ingredients: { name: string; quantity?: number; unit?: string }[]
 }
 
+export async function importRecipeFromImage(file: File): Promise<ParsedRecipe> {
+  // Convert file to base64
+  const base64 = await fileToBase64(file)
+
+  const { data, error } = await supabase.functions.invoke('scrape-recipe', {
+    body: { image_base64: base64 },
+  })
+
+  if (error || !data?.title) {
+    throw new Error(error?.message || 'Could not extract recipe from image. Try a clearer photo or add manually.')
+  }
+
+  return { ...data, source_url: '' } as ParsedRecipe
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      // Strip the data:image/...;base64, prefix
+      resolve(result.split(',')[1])
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export async function importRecipeFromUrl(url: string): Promise<ParsedRecipe> {
-  // Try Supabase Edge Function first
+  // Try Supabase Edge Function first (AI-powered)
   try {
     const { data, error } = await supabase.functions.invoke('scrape-recipe', {
       body: { url },

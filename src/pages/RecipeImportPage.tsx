@@ -5,7 +5,7 @@ import { ArrowLeft, Link2, Loader2, Check, ChefHat, Camera } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
-import { importRecipeFromUrl } from '@/services/recipeImport'
+import { importRecipeFromUrl, importRecipeFromImage } from '@/services/recipeImport'
 import { createRecipe } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
 
@@ -40,6 +40,21 @@ export function RecipeImportPage() {
 
   const fetchMutation = useMutation({
     mutationFn: () => importRecipeFromUrl(url.trim()),
+    onSuccess: (data) => {
+      setImported({
+        ...data,
+        ingredients: data.ingredients.map((i) => ({ ...i, include: true })),
+      })
+      setError('')
+    },
+    onError: (err: Error) => setError(err.message),
+  })
+
+  const imageMutation = useMutation({
+    mutationFn: () => {
+      if (!imageFile) throw new Error('No image selected')
+      return importRecipeFromImage(imageFile)
+    },
     onSuccess: (data) => {
       setImported({
         ...data,
@@ -217,16 +232,21 @@ export function RecipeImportPage() {
               <Button
                 className="w-full"
                 size="lg"
-                disabled={!imageFile}
-                onClick={() => {
-                  setError('Image parsing coming soon! For now, use the URL import or add the recipe manually.')
-                }}
+                disabled={!imageFile || imageMutation.isPending}
+                onClick={() => imageMutation.mutate()}
               >
-                Extract from Photo
+                {imageMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Reading recipe...
+                  </>
+                ) : (
+                  'Extract from Photo'
+                )}
               </Button>
 
               <p className="text-xs text-slate-400 text-center">
-                Photo import uses AI to read recipe text. Coming in a future update.
+                Uses AI to read recipe text from photos. Works best with clear, well-lit images.
               </p>
             </>
           )}
