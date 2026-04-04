@@ -29,3 +29,6 @@ dist-ssr
 
 # Supabase
 supabase/.temp/
+
+# Salesforce (not part of this project)
+.sfdx/
