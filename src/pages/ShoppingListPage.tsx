@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
-import { getShoppingList, addListItem, toggleListItem, removeListItem, shareListWithUser } from '@/services/shoppingLists'
+import { getShoppingList, addListItem, toggleListItem, removeListItem, shareListWithUser, deleteShoppingList } from '@/services/shoppingLists'
 import { getStores, getStoreRoutes } from '@/services/stores'
 import { getCircleMembers } from '@/services/circles'
 import { supabase } from '@/services/supabase'
@@ -38,6 +38,7 @@ export function ShoppingListPage() {
 
   const [showAdd, setShowAdd] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showDeleteList, setShowDeleteList] = useState(false)
   const [newItemName, setNewItemName] = useState('')
   const [newItemQty, setNewItemQty] = useState('')
   const [newItemCategory, setNewItemCategory] = useState<Department>('Other')
@@ -93,6 +94,8 @@ export function ShoppingListPage() {
     }
   }, [id, queryClient])
 
+  const [mutationError, setMutationError] = useState('')
+
   const addMutation = useMutation({
     mutationFn: () =>
       addListItem(id!, {
@@ -106,14 +109,15 @@ export function ShoppingListPage() {
       setNewItemQty('')
       setNewItemCategory('Other')
       setShowAdd(false)
+      setMutationError('')
     },
+    onError: (err: Error) => setMutationError(err.message),
   })
 
   const toggleMutation = useMutation({
     mutationFn: ({ itemId, checked }: { itemId: string; checked: boolean }) =>
       toggleListItem(itemId, checked),
     onMutate: async ({ itemId, checked }) => {
-      // Optimistic update
       await queryClient.cancelQueries({ queryKey: ['shopping-list', id] })
       queryClient.setQueryData(['shopping-list', id], (old: typeof data) => {
         if (!old) return old
@@ -128,12 +132,22 @@ export function ShoppingListPage() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
     },
+    onError: (err: Error) => setMutationError(err.message),
   })
 
   const removeMutation = useMutation({
     mutationFn: (itemId: string) => removeListItem(itemId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
+    },
+    onError: (err: Error) => setMutationError(err.message),
+  })
+
+  const deleteListMutation = useMutation({
+    mutationFn: () => deleteShoppingList(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+      navigate('/lists')
     },
   })
 
@@ -239,6 +253,9 @@ export function ShoppingListPage() {
             {checkedCount}/{totalCount} items done
           </p>
         </div>
+        <Button size="sm" variant="ghost" onClick={() => setShowDeleteList(true)}>
+          <Trash2 className="h-4 w-4 text-slate-400" />
+        </Button>
         <Button size="sm" variant="ghost" onClick={() => setShowShare(true)}>
           <Share2 className="h-4 w-4" />
         </Button>
@@ -247,6 +264,16 @@ export function ShoppingListPage() {
           Add
         </Button>
       </div>
+
+      {/* Error banner */}
+      {mutationError && (
+        <button
+          onClick={() => setMutationError('')}
+          className="w-full text-left text-sm text-danger bg-danger/10 rounded-lg px-3 py-2"
+        >
+          {mutationError} (tap to dismiss)
+        </button>
+      )}
 
       {/* Progress bar */}
       {totalCount > 0 && (
@@ -467,6 +494,29 @@ export function ShoppingListPage() {
             <Button variant="secondary" className="w-full mt-4" onClick={() => setShowShare(false)}>
               Done
             </Button>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Delete List Dialog */}
+      <Dialog.Root open={showDeleteList} onOpenChange={setShowDeleteList}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              Delete List
+            </Dialog.Title>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Are you sure you want to delete <strong>{data?.name}</strong> and all its items? This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowDeleteList(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" className="flex-1" onClick={() => deleteListMutation.mutate()} disabled={deleteListMutation.isPending}>
+                {deleteListMutation.isPending ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

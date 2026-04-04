@@ -141,3 +141,8 @@ export async function joinEvent(eventId: string): Promise<void> {
 
   if (error) throw error
 }
+
+export async function deleteEvent(eventId: string): Promise<void> {
+  const { error } = await supabase.from('events').delete().eq('id', eventId)
+  if (error) throw error
+}

@@ -126,9 +126,13 @@ export function RecipeFormPage() {
       if (isEdit) queryClient.invalidateQueries({ queryKey: ['recipe', id] })
       navigate(isEdit ? `/recipes/${id}` : '/recipes')
     },
+    onError: (err: Error) => setSaveError(err.message),
   })
 
+  const [saveError, setSaveError] = useState('')
+
   function handleSave() {
+    setSaveError('')
     saveMutation.mutate()
   }
 
@@ -301,6 +305,10 @@ export function RecipeFormPage() {
           )}
         />
       </div>
+
+      {saveError && (
+        <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{saveError}</p>
+      )}
 
       {/* Save button */}
       <div className="flex gap-3 pt-2 pb-4">

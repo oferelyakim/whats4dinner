@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, UtensilsCrossed,
-  User, HandPlatter,
+  User, HandPlatter, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -12,7 +12,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import {
   getEvent, getEventParticipants, getEventAssignments,
-  addAssignment, claimAssignment,
+  addAssignment, claimAssignment, deleteEvent,
   type EventAssignment, type EventParticipant,
 } from '@/services/events'
 const CATEGORIES = [
@@ -29,6 +29,7 @@ export function EventDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showAddDish, setShowAddDish] = useState(false)
+  const [showDeleteEvent, setShowDeleteEvent] = useState(false)
   const [dishName, setDishName] = useState('')
   const [dishCategory, setDishCategory] = useState('main')
   const [dishNotes, setDishNotes] = useState('')
@@ -52,6 +53,8 @@ export function EventDetailPage() {
     enabled: !!id,
   })
 
+  const [eventError, setEventError] = useState('')
+
   const addDishMutation = useMutation({
     mutationFn: () => addAssignment(id!, {
       dish_name: dishName.trim(),
@@ -64,6 +67,7 @@ export function EventDetailPage() {
       setDishName('')
       setDishNotes('')
     },
+    onError: (err: Error) => setEventError(err.message),
   })
 
   const claimMutation = useMutation({
@@ -71,6 +75,16 @@ export function EventDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-assignments', id] })
     },
+    onError: (err: Error) => setEventError(err.message),
+  })
+
+  const deleteEventMutation = useMutation({
+    mutationFn: () => deleteEvent(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      navigate('/events')
+    },
+    onError: (err: Error) => setEventError(err.message),
   })
 
   if (!event) {
@@ -125,6 +139,12 @@ export function EventDetailPage() {
           </div>
         </div>
       </div>
+
+      {eventError && (
+        <button onClick={() => setEventError('')} className="w-full text-left text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">
+          {eventError} (tap to dismiss)
+        </button>
+      )}
 
       {event.description && (
         <p className="text-sm text-slate-600 dark:text-slate-400">{event.description}</p>
@@ -274,6 +294,37 @@ export function EventDetailPage() {
                   {addDishMutation.isPending ? 'Adding...' : 'Add Dish'}
                 </Button>
               </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Delete event */}
+      <button
+        onClick={() => setShowDeleteEvent(true)}
+        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
+      >
+        <Trash2 className="h-4 w-4" />
+        Delete Event
+      </button>
+
+      <Dialog.Root open={showDeleteEvent} onOpenChange={setShowDeleteEvent}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              Delete Event
+            </Dialog.Title>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Are you sure you want to delete <strong>{event.name}</strong>? All dishes and assignments will be removed. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowDeleteEvent(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" className="flex-1" onClick={() => deleteEventMutation.mutate()} disabled={deleteEventMutation.isPending}>
+                {deleteEventMutation.isPending ? 'Deleting...' : 'Delete'}
+              </Button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

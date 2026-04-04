@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User } from 'lucide-react'
+import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
-import { getMyCircles, getCircleMembers, inviteByEmail } from '@/services/circles'
+import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle } from '@/services/circles'
+import { useAppStore } from '@/stores/appStore'
 import type { CircleMember } from '@/types'
 
 const ROLE_ICONS = {
@@ -29,6 +30,8 @@ export function CircleDetailPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [showLeave, setShowLeave] = useState(false)
+  const { activeCircle, setActiveCircle } = useAppStore()
 
   const { data: circles = [] } = useQuery({
     queryKey: ['circles'],
@@ -51,6 +54,15 @@ export function CircleDetailPage() {
       setError('')
     },
     onError: (err: Error) => setError(err.message),
+  })
+
+  const leaveMutation = useMutation({
+    mutationFn: () => leaveCircle(id!),
+    onSuccess: () => {
+      if (activeCircle?.id === id) setActiveCircle(null)
+      queryClient.invalidateQueries({ queryKey: ['circles'] })
+      navigate('/more/circles')
+    },
   })
 
   async function copyInviteCode() {
@@ -214,6 +226,38 @@ export function CircleDetailPage() {
                   {inviteMutation.isPending ? 'Adding...' : 'Add'}
                 </Button>
               </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Leave button */}
+      <button
+        onClick={() => setShowLeave(true)}
+        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
+      >
+        <LogOut className="h-4 w-4" />
+        Leave Circle
+      </button>
+
+      {/* Leave Confirmation */}
+      <Dialog.Root open={showLeave} onOpenChange={setShowLeave}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              Leave Circle
+            </Dialog.Title>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Are you sure you want to leave <strong>{circle.name}</strong>? You'll lose access to shared recipes, lists, and meal plans.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowLeave(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" className="flex-1" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>
+                {leaveMutation.isPending ? 'Leaving...' : 'Leave'}
+              </Button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

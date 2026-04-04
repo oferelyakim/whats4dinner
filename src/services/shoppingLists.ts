@@ -85,6 +85,11 @@ export async function toggleListItem(itemId: string, isChecked: boolean): Promis
   if (error) throw error
 }
 
+export async function deleteShoppingList(listId: string): Promise<void> {
+  const { error } = await supabase.from('shopping_lists').delete().eq('id', listId)
+  if (error) throw error
+}
+
 export async function removeListItem(itemId: string): Promise<void> {
   const { error } = await supabase
     .from('shopping_list_items')
