@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { DEPARTMENTS, UNITS, type Department, type Unit } from '@/lib/constants'
 import { cn } from '@/lib/cn'
-import { createRecipe, getRecipe, updateRecipe } from '@/services/recipes'
+import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
+import { createRecipe, getRecipe, updateRecipe, getIngredientSuggestions } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
 
 interface IngredientRow {
@@ -37,6 +38,11 @@ export function RecipeFormPage() {
   const [tags, setTags] = useState('')
   const [ingredients, setIngredients] = useState<IngredientRow[]>([])
   const [loaded, setLoaded] = useState(!isEdit)
+
+  const { data: ingredientSuggestions = [] } = useQuery({
+    queryKey: ['ingredient-suggestions'],
+    queryFn: getIngredientSuggestions,
+  })
 
   // Load existing recipe for editing
   const { data: existingRecipe } = useQuery({
@@ -237,11 +243,11 @@ export function RecipeFormPage() {
                 <div className="flex items-start gap-2">
                   <GripVertical className="h-5 w-5 text-slate-300 dark:text-slate-600 mt-2 shrink-0 cursor-grab" />
                   <div className="flex-1 space-y-2">
-                    <input
+                    <AutocompleteInput
                       placeholder="Ingredient name"
                       value={ing.name}
-                      onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)}
-                      className="w-full text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
+                      onChange={(val) => updateIngredient(ing.id, 'name', val)}
+                      suggestions={ingredientSuggestions}
                     />
                     <div className="flex gap-2">
                       <input

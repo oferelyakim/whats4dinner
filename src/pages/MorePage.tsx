@@ -8,6 +8,7 @@ import {
   ChevronRight,
   User,
   PartyPopper,
+  UtensilsCrossed,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
@@ -25,6 +26,12 @@ export function MorePage() {
       label: 'My Circles',
       description: 'Manage family & friend groups',
       onClick: () => navigate('/more/circles'),
+    },
+    {
+      icon: UtensilsCrossed,
+      label: 'Meal Templates',
+      description: 'Taco Night, BBQ, etc.',
+      onClick: () => navigate('/more/menus'),
     },
     {
       icon: PartyPopper,

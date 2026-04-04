@@ -103,26 +103,63 @@ export async function addRecipeToList(listId: string, recipeId: string): Promise
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  // Fetch recipe ingredients
-  const { data: ingredients } = await supabase
-    .from('recipe_ingredients')
-    .select('*')
-    .eq('recipe_id', recipeId)
+  // Fetch recipe name and ingredients
+  const [{ data: recipe }, { data: ingredients }] = await Promise.all([
+    supabase.from('recipes').select('title').eq('id', recipeId).single(),
+    supabase.from('recipe_ingredients').select('*').eq('recipe_id', recipeId),
+  ])
 
   if (!ingredients?.length) return
+  const recipeName = recipe?.title || ''
 
-  const items = ingredients.map((ing) => ({
-    list_id: listId,
-    name: ing.name,
-    quantity: ing.quantity,
-    unit: ing.unit || '',
-    category: 'Other',
-    recipe_id: recipeId,
-    added_by: user.id,
-  }))
+  // Fetch existing items on the list to deduplicate
+  const { data: existingItems } = await supabase
+    .from('shopping_list_items')
+    .select('*')
+    .eq('list_id', listId)
 
-  const { error } = await supabase.from('shopping_list_items').insert(items)
-  if (error) throw error
+  interface ExistingItem { id: string; name: string; quantity: number | null; notes: string | null }
+  const existingMap = new Map<string, ExistingItem>()
+  for (const item of (existingItems ?? []) as ExistingItem[]) {
+    existingMap.set(item.name.toLowerCase().trim(), item)
+  }
+
+  const toInsert: { list_id: string; name: string; quantity: number | null; unit: string; category: string; recipe_id: string; notes: string | null; added_by: string }[] = []
+  const toUpdate: { id: string; quantity: number | null; notes: string | null }[] = []
+
+  for (const ing of ingredients) {
+    const key = ing.name.toLowerCase().trim()
+    const existing = existingMap.get(key)
+
+    if (existing) {
+      const newQty = (existing.quantity || 0) + (ing.quantity || 0)
+      const sources = existing.notes?.startsWith('From: ') ? existing.notes : existing.notes ? `From: ${existing.notes}` : ''
+      const newNotes = sources
+        ? (sources.includes(recipeName) ? sources : `${sources}, ${recipeName}`)
+        : `From: ${recipeName}`
+      toUpdate.push({ id: existing.id, quantity: newQty || null, notes: newNotes })
+    } else {
+      toInsert.push({
+        list_id: listId,
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit || '',
+        category: 'Other',
+        recipe_id: recipeId,
+        notes: `From: ${recipeName}`,
+        added_by: user.id,
+      })
+      existingMap.set(key, { id: 'new', name: ing.name, quantity: ing.quantity, notes: null })
+    }
+  }
+
+  // Execute updates and inserts
+  for (const upd of toUpdate) {
+    await supabase.from('shopping_list_items').update({ quantity: upd.quantity, notes: upd.notes }).eq('id', upd.id)
+  }
+  if (toInsert.length) {
+    await supabase.from('shopping_list_items').insert(toInsert)
+  }
 }
 
 export async function addMealPlansToList(listId: string, planIds: string[]): Promise<void> {

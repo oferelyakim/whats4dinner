@@ -1,6 +1,23 @@
 import { supabase } from './supabase'
 import type { Recipe, RecipeIngredient } from '@/types'
 
+// Get unique ingredient names for autocomplete
+export async function getIngredientSuggestions(): Promise<string[]> {
+  const { data } = await supabase
+    .from('recipe_ingredients')
+    .select('name')
+
+  if (!data) return []
+
+  // Deduplicate and normalize (lowercase comparison, keep original casing of first occurrence)
+  const seen = new Map<string, string>()
+  for (const row of data) {
+    const key = row.name.toLowerCase().trim()
+    if (!seen.has(key)) seen.set(key, row.name.trim())
+  }
+  return [...seen.values()].sort()
+}
+
 export async function getRecipes(circleId?: string): Promise<Recipe[]> {
   let query = supabase
     .from('recipes')

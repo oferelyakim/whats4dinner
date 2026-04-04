@@ -598,7 +598,10 @@ function ListItemRow({
           )}
           {item.name}
         </p>
-        {item.category && item.category !== 'Other' && (
+        {item.notes && item.notes.startsWith('From:') && (
+          <p className="text-[10px] text-brand-400">{item.notes}</p>
+        )}
+        {item.category && item.category !== 'Other' && !item.notes?.startsWith('From:') && (
           <p className="text-[10px] text-slate-400">{item.category}</p>
         )}
       </div>

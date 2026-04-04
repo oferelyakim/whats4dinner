@@ -68,3 +68,8 @@ export async function leaveCircle(circleId: string): Promise<void> {
 
   if (error) throw error
 }
+
+export async function deleteCircle(circleId: string): Promise<void> {
+  const { error } = await supabase.from('circles').delete().eq('id', circleId)
+  if (error) throw error
+}
