@@ -9,6 +9,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle, deleteCircle } from '@/services/circles'
 import { getEvents, type Event } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 import type { CircleMember } from '@/types'
 
 const ROLE_ICONS = {
@@ -33,6 +34,7 @@ export function CircleDetailPage() {
   const [copied, setCopied] = useState(false)
   const [showLeave, setShowLeave] = useState(false)
   const { activeCircle, setActiveCircle } = useAppStore()
+  const { t } = useI18n()
 
   const { data: circles = [] } = useQuery({
     queryKey: ['circles'],
@@ -135,11 +137,11 @@ export function CircleDetailPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-            Members ({members.length})
+            {t('circle.members')} ({members.length})
           </h3>
           <Button size="sm" onClick={() => { setShowInvite(true); setError('') }}>
             <UserPlus className="h-4 w-4" />
-            Invite
+            {t('circle.invite')}
           </Button>
         </div>
 
@@ -183,11 +185,11 @@ export function CircleDetailPage() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <PartyPopper className="h-4 w-4" />
-            Events
+            {t('event.events')}
           </h3>
           <Button size="sm" onClick={() => navigate(`/events?circle=${id}`)}>
             <Plus className="h-4 w-4" />
-            New Event
+            {t('event.newEvent')}
           </Button>
         </div>
         {circleEvents.length === 0 ? (
@@ -272,14 +274,14 @@ export function CircleDetailPage() {
               )}
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setShowInvite(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   className="flex-1"
                   onClick={() => inviteMutation.mutate()}
                   disabled={!inviteEmail.trim() || inviteMutation.isPending}
                 >
-                  {inviteMutation.isPending ? 'Adding...' : 'Add'}
+                  {inviteMutation.isPending ? t('common.loading') : t('common.add')}
                 </Button>
               </div>
             </div>
@@ -293,7 +295,7 @@ export function CircleDetailPage() {
         className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
       >
         <LogOut className="h-4 w-4" />
-        {isOwner ? 'Delete Circle' : 'Leave Circle'}
+        {isOwner ? t('circle.delete') : t('circle.leave')}
       </button>
 
       {/* Leave/Delete Confirmation */}
@@ -302,7 +304,7 @@ export function CircleDetailPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              {isOwner ? 'Delete Circle' : 'Leave Circle'}
+              {isOwner ? t('circle.delete') : t('circle.leave')}
             </Dialog.Title>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               {isOwner
@@ -312,7 +314,7 @@ export function CircleDetailPage() {
             </p>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setShowLeave(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -320,7 +322,7 @@ export function CircleDetailPage() {
                 onClick={() => isOwner ? deleteCircleMutation.mutate() : leaveMutation.mutate()}
                 disabled={leaveMutation.isPending || deleteCircleMutation.isPending}
               >
-                {(leaveMutation.isPending || deleteCircleMutation.isPending) ? 'Please wait...' : isOwner ? 'Delete' : 'Leave'}
+                {(leaveMutation.isPending || deleteCircleMutation.isPending) ? t('common.loading') : isOwner ? t('common.delete') : t('circle.leave')}
               </Button>
             </div>
           </Dialog.Content>

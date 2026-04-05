@@ -9,11 +9,13 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { getRecipe, createRecipeShare, deleteRecipe } from '@/services/recipes'
 import { getShoppingLists, createShoppingList, addRecipeToList } from '@/services/shoppingLists'
 import { getMyCircles } from '@/services/circles'
+import { useI18n } from '@/lib/i18n'
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useI18n()
   const [sharing, setSharing] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
   const [showDelete, setShowDelete] = useState(false)
@@ -113,8 +115,19 @@ export function RecipeDetailPage() {
               const code = await createRecipeShare(id!)
               const url = `${window.location.origin}/r/${code}`
               setShareUrl(url)
-              await navigator.clipboard.writeText(url)
-            } catch { /* ignore */ }
+              // Try native share first (mobile), fallback to clipboard
+              if (navigator.share) {
+                await navigator.share({ title: recipe?.title, url })
+              } else {
+                await navigator.clipboard.writeText(url)
+              }
+            } catch (err) {
+              // clipboard copy as final fallback
+              if (shareUrl) {
+                try { await navigator.clipboard.writeText(shareUrl) } catch {}
+              }
+              console.error('Share error:', err)
+            }
             setSharing(false)
           }}
         >
@@ -183,7 +196,7 @@ export function RecipeDetailPage() {
       {recipe.ingredients && recipe.ingredients.length > 0 && (
         <section>
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
-            Ingredients ({recipe.ingredients.length})
+            {t('recipe.ingredients')} ({recipe.ingredients.length})
           </h3>
           <Card className="divide-y divide-slate-100 dark:divide-slate-800">
             {recipe.ingredients.map((ing) => (
@@ -207,7 +220,7 @@ export function RecipeDetailPage() {
       {recipe.instructions && (
         <section>
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
-            Instructions
+            {t('recipe.instructions')}
           </h3>
           <Card className="p-4">
             <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
@@ -220,11 +233,11 @@ export function RecipeDetailPage() {
       {/* Actions */}
       <div className="flex gap-3 pt-2">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(`/recipes/${id}/edit`)}>
-          Edit
+          {t('common.edit')}
         </Button>
         <Button className="flex-1" onClick={() => setShowAddToList(true)}>
           <ShoppingCart className="h-4 w-4" />
-          Add to List
+          {t('recipe.addToList')}
         </Button>
       </div>
       <button
@@ -232,7 +245,7 @@ export function RecipeDetailPage() {
         className="w-full flex items-center justify-center gap-2 py-3 mb-4 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
       >
         <Trash2 className="h-4 w-4" />
-        Delete Recipe
+        {t('recipe.delete')}
       </button>
 
       {/* Delete Confirmation */}
@@ -241,14 +254,14 @@ export function RecipeDetailPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              Delete Recipe
+              {t('recipe.delete')}
             </Dialog.Title>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Are you sure you want to delete <strong>{recipe?.title}</strong>? This will also remove it from any shopping lists and meal plans. This cannot be undone.
             </p>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setShowDelete(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="danger"
@@ -256,7 +269,7 @@ export function RecipeDetailPage() {
                 onClick={() => deleteMutation.mutate()}
                 disabled={deleteMutation.isPending}
               >
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                {deleteMutation.isPending ? t('common.loading') : t('common.delete')}
               </Button>
             </div>
           </Dialog.Content>
@@ -269,7 +282,7 @@ export function RecipeDetailPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              Add to Shopping List
+              {t('recipe.addToList')}
             </Dialog.Title>
 
             {showNewList ? (
@@ -287,7 +300,7 @@ export function RecipeDetailPage() {
                 )}
                 <div className="flex gap-3">
                   <Button variant="secondary" className="flex-1" onClick={() => setShowNewList(false)}>
-                    Back
+                    {t('common.back')}
                   </Button>
                   <Button
                     className="flex-1"

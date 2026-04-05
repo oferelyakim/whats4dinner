@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/Input'
 import { createShoppingList } from '@/services/shoppingLists'
 import { getMyCircles } from '@/services/circles'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 
 export function NewListPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const queryClient = useQueryClient()
   const { activeCircle } = useAppStore()
   const [name, setName] = useState('')
@@ -40,7 +42,7 @@ export function NewListPage() {
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">New Shopping List</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('list.newList')}</h2>
       </div>
 
       <div className="space-y-4">
@@ -79,14 +81,14 @@ export function NewListPage() {
 
         <div className="flex gap-3 pt-2">
           <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             className="flex-1"
             onClick={() => createMutation.mutate()}
             disabled={!name.trim() || !circleId || createMutation.isPending}
           >
-            {createMutation.isPending ? 'Creating...' : 'Create List'}
+            {createMutation.isPending ? t('common.loading') : t('list.createList')}
           </Button>
         </div>
       </div>

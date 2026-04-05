@@ -17,13 +17,9 @@ import {
   type EventItem, type EventParticipant, type EventOrganizer,
 } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 
-const TABS = [
-  { id: 'overview', label: 'Overview', icon: Users },
-  { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
-  { id: 'supplies', label: 'Supplies', icon: Package },
-  { id: 'tasks', label: 'Tasks', icon: ListTodo },
-] as const
+// TABS moved inside component for i18n
 
 type Tab = (typeof TABS)[number]['id']
 
@@ -48,6 +44,14 @@ export function EventDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { profile } = useAppStore()
+  const { t } = useI18n()
+
+  const TABS = [
+    { id: 'overview', label: t('event.overview'), icon: Users },
+    { id: 'menu', label: t('event.menu'), icon: UtensilsCrossed },
+    { id: 'supplies', label: t('event.supplies'), icon: Package },
+    { id: 'tasks', label: t('event.tasks'), icon: ListTodo },
+  ] as const
 
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showAddItem, setShowAddItem] = useState(false)

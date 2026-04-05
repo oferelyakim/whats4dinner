@@ -10,6 +10,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { getMyCircles, createCircle, joinCircleByInviteCode } from '@/services/circles'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 
 const CIRCLE_ICONS = ['👨‍👩‍👧‍👦', '👪', '🏠', '❤️', '🍽️', '👫', '🫂', '✨']
 
@@ -17,6 +18,7 @@ export function CirclesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { activeCircle, setActiveCircle } = useAppStore()
+  const { t } = useI18n()
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [newName, setNewName] = useState('')
@@ -64,15 +66,15 @@ export function CirclesPage() {
   return (
     <div className="px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">My Circles</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('circle.myCircles')}</h2>
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" onClick={() => { setShowJoin(true); setError('') }}>
             <Link2 className="h-4 w-4" />
-            Join
+            {t('circle.join')}
           </Button>
           <Button size="sm" onClick={() => { setShowCreate(true); setError('') }}>
             <Plus className="h-4 w-4" />
-            Create
+            {t('common.create')}
           </Button>
         </div>
       </div>
@@ -84,12 +86,12 @@ export function CirclesPage() {
       ) : circles.length === 0 ? (
         <EmptyState
           icon={<Users className="h-12 w-12" />}
-          title="No circles yet"
+          title={t('circle.noCircles')}
           description="Create a circle for your family or join one with an invite code"
           action={
             <Button onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4" />
-              Create Circle
+              {t('circle.create')}
             </Button>
           }
         />
@@ -140,7 +142,7 @@ export function CirclesPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              Create Circle
+              {t('circle.create')}
             </Dialog.Title>
             <div className="space-y-4">
               <div>
@@ -175,14 +177,14 @@ export function CirclesPage() {
               )}
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   className="flex-1"
                   onClick={() => createMutation.mutate()}
                   disabled={!newName.trim() || createMutation.isPending}
                 >
-                  {createMutation.isPending ? 'Creating...' : 'Create'}
+                  {createMutation.isPending ? t('common.loading') : t('common.create')}
                 </Button>
               </div>
             </div>
@@ -196,11 +198,11 @@ export function CirclesPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              Join Circle
+              {t('circle.join')}
             </Dialog.Title>
             <div className="space-y-4">
               <Input
-                label="Invite Code"
+                label={t('circle.inviteCode')}
                 placeholder="Paste the invite code"
                 value={inviteCode}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteCode(e.target.value)}
@@ -210,14 +212,14 @@ export function CirclesPage() {
               )}
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setShowJoin(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   className="flex-1"
                   onClick={() => joinMutation.mutate()}
                   disabled={!inviteCode.trim() || joinMutation.isPending}
                 >
-                  {joinMutation.isPending ? 'Joining...' : 'Join'}
+                  {joinMutation.isPending ? t('common.loading') : t('circle.join')}
                 </Button>
               </div>
             </div>

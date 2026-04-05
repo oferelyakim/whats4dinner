@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getShoppingLists } from '@/services/shoppingLists'
+import { useI18n } from '@/lib/i18n'
 
 export function ListsPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
 
   const { data: lists = [], isLoading } = useQuery({
     queryKey: ['shopping-lists'],
@@ -20,10 +22,10 @@ export function ListsPage() {
   return (
     <div className="px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Shopping Lists</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('list.shoppingLists')}</h2>
         <Button size="sm" onClick={() => navigate('/lists/new')}>
           <Plus className="h-4 w-4" />
-          New List
+          {t('list.newList')}
         </Button>
       </div>
 
@@ -34,12 +36,12 @@ export function ListsPage() {
       ) : lists.length === 0 ? (
         <EmptyState
           icon={<ShoppingCart className="h-12 w-12" />}
-          title="No shopping lists"
+          title={t('list.noLists')}
           description="Create a list and add items from your recipes or manually"
           action={
             <Button onClick={() => navigate('/lists/new')}>
               <Plus className="h-4 w-4" />
-              Create List
+              {t('list.createList')}
             </Button>
           }
         />

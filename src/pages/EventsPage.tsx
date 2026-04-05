@@ -8,12 +8,14 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
 import { getEvents, createEvent, type Event } from '@/services/events'
+import { useI18n } from '@/lib/i18n'
 
 export function EventsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const circleId = searchParams.get('circle')
   const queryClient = useQueryClient()
+  const { t } = useI18n()
   const [showCreate, setShowCreate] = useState(false)
 
   // Auto-open create dialog if coming from a circle
@@ -55,10 +57,10 @@ export function EventsPage() {
   return (
     <div className="px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Events</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('event.events')}</h2>
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
-          New Event
+          {t('event.newEvent')}
         </Button>
       </div>
 
@@ -131,7 +133,7 @@ export function EventsPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              Plan an Event
+              {t('event.newEvent')}
             </Dialog.Title>
             <div className="space-y-3">
               <Input label="Event Name" placeholder="e.g., Friday Potluck" value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} />
@@ -139,9 +141,9 @@ export function EventsPage() {
               <Input label="Date" type="datetime-local" value={eventDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEventDate(e.target.value)} />
               <Input label="Location (optional)" placeholder="Our place" value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} />
               <div className="flex gap-3 pt-2">
-                <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
                 <Button className="flex-1" onClick={() => createMutation.mutate()} disabled={!name.trim() || createMutation.isPending}>
-                  {createMutation.isPending ? 'Creating...' : 'Create'}
+                  {createMutation.isPending ? t('common.loading') : t('common.create')}
                 </Button>
               </div>
             </div>

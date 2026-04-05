@@ -20,36 +20,36 @@ export function MorePage() {
   const navigate = useNavigate()
   const { theme, setTheme, profile } = useAppStore()
   const { signOut } = useAuth()
-  const { locale, setLocale } = useI18n()
+  const { t, locale, setLocale } = useI18n()
 
   const menuItems = [
     {
       icon: Users,
-      label: 'My Circles',
+      label: t('circle.myCircles'),
       description: 'Manage family & friend groups',
       onClick: () => navigate('/more/circles'),
     },
     {
       icon: UtensilsCrossed,
-      label: 'Meal Templates',
+      label: t('more.mealTemplates'),
       description: 'Taco Night, BBQ, etc.',
       onClick: () => navigate('/more/menus'),
     },
     {
       icon: PartyPopper,
-      label: 'Events',
+      label: t('more.events'),
       description: 'Potlucks & dinner parties',
       onClick: () => navigate('/events'),
     },
     {
       icon: Store,
-      label: 'My Stores',
+      label: t('more.myStores'),
       description: 'Store routes & aisle order',
       onClick: () => navigate('/more/stores'),
     },
     {
       icon: User,
-      label: 'Profile',
+      label: t('more.profile'),
       description: profile?.email ?? 'Manage your account',
       onClick: () => navigate('/more/profile'),
     },
@@ -57,7 +57,7 @@ export function MorePage() {
 
   return (
     <div className="px-4 py-4 space-y-4">
-      <h2 className="text-xl font-bold text-slate-900 dark:text-white">More</h2>
+      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('more.more')}</h2>
 
       {/* Profile card */}
       <Card variant="elevated" className="p-4 flex items-center gap-3">
@@ -102,22 +102,22 @@ export function MorePage() {
               <Sun className="h-5 w-5 text-slate-500" />
             )}
             <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-              Theme
+              {t('more.theme')}
             </span>
           </div>
           <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5">
-            {(['light', 'dark', 'system'] as const).map((t) => (
+            {(['light', 'dark', 'system'] as const).map((themeOption) => (
               <button
-                key={t}
-                onClick={() => setTheme(t)}
+                key={themeOption}
+                onClick={() => setTheme(themeOption)}
                 className={cn(
                   'px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize',
-                  theme === t
+                  theme === themeOption
                     ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-500'
                 )}
               >
-                {t}
+                {t(`more.${themeOption}`)}
               </button>
             ))}
           </div>
@@ -130,7 +130,7 @@ export function MorePage() {
           <div className="flex items-center gap-3">
             <span className="text-lg">🌐</span>
             <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-              Language
+              {t('more.language')}
             </span>
           </div>
           <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5">
@@ -158,7 +158,7 @@ export function MorePage() {
         className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
       >
         <LogOut className="h-4 w-4" />
-        Sign Out
+        {t('auth.signOut')}
       </button>
     </div>
   )

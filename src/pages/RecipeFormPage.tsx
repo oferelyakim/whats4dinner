@@ -10,6 +10,7 @@ import { cn } from '@/lib/cn'
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
 import { createRecipe, getRecipe, updateRecipe, getIngredientSuggestions } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 
 interface IngredientRow {
   id: string
@@ -28,6 +29,7 @@ export function RecipeFormPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { activeCircle } = useAppStore()
+  const { t, locale } = useI18n()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -40,8 +42,8 @@ export function RecipeFormPage() {
   const [loaded, setLoaded] = useState(!isEdit)
 
   const { data: ingredientSuggestions = [] } = useQuery({
-    queryKey: ['ingredient-suggestions'],
-    queryFn: getIngredientSuggestions,
+    queryKey: ['ingredient-suggestions', locale],
+    queryFn: () => getIngredientSuggestions(locale),
   })
 
   // Load existing recipe for editing
@@ -161,21 +163,21 @@ export function RecipeFormPage() {
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-          {isEdit ? 'Edit Recipe' : 'New Recipe'}
+          {isEdit ? t('recipe.edit') : t('recipe.new')}
         </h2>
       </div>
 
       {/* Basic Info */}
       <div className="space-y-3">
         <Input
-          label="Title"
+          label={t('recipe.title')}
           placeholder="e.g., Butter Chicken"
           value={title}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
           required
         />
         <Input
-          label="Description"
+          label={t('recipe.description')}
           placeholder="Brief description (optional)"
           value={description}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
@@ -189,21 +191,21 @@ export function RecipeFormPage() {
         />
         <div className="grid grid-cols-3 gap-3">
           <Input
-            label="Prep (min)"
+            label={t('recipe.prepTime')}
             type="number"
             placeholder="15"
             value={prepTime}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrepTime(e.target.value)}
           />
           <Input
-            label="Cook (min)"
+            label={t('recipe.cookTime')}
             type="number"
             placeholder="30"
             value={cookTime}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCookTime(e.target.value)}
           />
           <Input
-            label="Servings"
+            label={t('recipe.servings')}
             type="number"
             placeholder="4"
             value={servings}
@@ -211,7 +213,7 @@ export function RecipeFormPage() {
           />
         </div>
         <Input
-          label="Tags"
+          label={t('recipe.tags')}
           placeholder="e.g., indian, dinner, spicy"
           value={tags}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
@@ -222,11 +224,11 @@ export function RecipeFormPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-            Ingredients
+            {t('recipe.ingredients')}
           </h3>
           <Button size="sm" variant="ghost" onClick={addIngredient}>
             <Plus className="h-4 w-4" />
-            Add
+            {t('common.add')}
           </Button>
         </div>
 
@@ -296,7 +298,7 @@ export function RecipeFormPage() {
       {/* Instructions */}
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-          Instructions
+          {t('recipe.instructions')}
         </label>
         <textarea
           placeholder="Step-by-step instructions..."
@@ -319,10 +321,10 @@ export function RecipeFormPage() {
       {/* Save button */}
       <div className="flex gap-3 pt-2 pb-4">
         <Button variant="secondary" className="flex-1" onClick={() => navigate(-1)}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button className="flex-1" onClick={handleSave} disabled={!title.trim() || saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving...' : isEdit ? 'Update Recipe' : 'Save Recipe'}
+          {saveMutation.isPending ? t('common.loading') : isEdit ? t('recipe.update') : t('recipe.save')}
         </Button>
       </div>
     </div>

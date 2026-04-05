@@ -1,21 +1,40 @@
 import { supabase } from './supabase'
 import type { Recipe, RecipeIngredient } from '@/types'
 
-// Get unique ingredient names for autocomplete
-export async function getIngredientSuggestions(): Promise<string[]> {
-  const { data } = await supabase
-    .from('recipe_ingredients')
-    .select('name')
+// Get unique ingredient names for autocomplete (merges common + user ingredients)
+export async function getIngredientSuggestions(locale: string = 'en'): Promise<string[]> {
+  const [{ data: userIngredients }, { data: commonIngredients }] = await Promise.all([
+    supabase.from('recipe_ingredients').select('name'),
+    supabase.from('common_ingredients').select('name, name_he'),
+  ])
 
-  if (!data) return []
-
-  // Deduplicate and normalize (lowercase comparison, keep original casing of first occurrence)
   const seen = new Map<string, string>()
-  for (const row of data) {
+
+  // Add common ingredients first (canonical names)
+  for (const row of commonIngredients ?? []) {
+    const displayName = locale === 'he' && row.name_he ? row.name_he : row.name
+    const key = row.name.toLowerCase().trim()
+    if (!seen.has(key)) seen.set(key, displayName)
+  }
+
+  // Add user ingredients (may override or add new)
+  for (const row of userIngredients ?? []) {
     const key = row.name.toLowerCase().trim()
     if (!seen.has(key)) seen.set(key, row.name.trim())
   }
+
   return [...seen.values()].sort()
+}
+
+// Normalize an ingredient name against common ingredients
+export async function normalizeIngredientName(name: string): Promise<string> {
+  const { data } = await supabase
+    .from('common_ingredients')
+    .select('name')
+    .ilike('name', name.trim())
+    .limit(1)
+
+  return data?.[0]?.name ?? name.trim()
 }
 
 export async function getRecipes(circleId?: string): Promise<Recipe[]> {
@@ -135,27 +154,11 @@ export async function deleteRecipe(id: string): Promise<void> {
 }
 
 export async function createRecipeShare(recipeId: string): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  // Check if share already exists
-  const { data: existing } = await supabase
-    .from('recipe_shares')
-    .select('share_code')
-    .eq('recipe_id', recipeId)
-    .eq('created_by', user.id)
-    .single()
-
-  if (existing) return existing.share_code
-
   const { data, error } = await supabase
-    .from('recipe_shares')
-    .insert({ recipe_id: recipeId, created_by: user.id })
-    .select('share_code')
-    .single()
+    .rpc('create_recipe_share', { p_recipe_id: recipeId })
 
   if (error) throw error
-  return data.share_code
+  return data as string
 }
 
 const CUISINE_KEYWORDS: Record<string, string[]> = {

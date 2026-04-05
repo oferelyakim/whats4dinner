@@ -4,19 +4,21 @@ import { BookOpen, ShoppingCart, CalendarDays, Users, Plus, ChevronRight } from 
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/cn'
+import { useI18n } from '@/lib/i18n'
 import { getShoppingLists } from '@/services/shoppingLists'
 import { getRecipes } from '@/services/recipes'
 
 const QUICK_ACTIONS = [
-  { icon: ShoppingCart, label: 'New List', path: '/lists/new', color: 'text-emerald-500' },
-  { icon: BookOpen, label: 'Add Recipe', path: '/recipes/new', color: 'text-blue-500' },
-  { icon: CalendarDays, label: 'Plan Week', path: '/plan', color: 'text-purple-500' },
-  { icon: Users, label: 'My Circles', path: '/more/circles', color: 'text-brand-500' },
+  { icon: ShoppingCart, key: 'action.newList', path: '/lists/new', color: 'text-emerald-500' },
+  { icon: BookOpen, key: 'action.addRecipe', path: '/recipes/new', color: 'text-blue-500' },
+  { icon: CalendarDays, key: 'action.planWeek', path: '/plan', color: 'text-purple-500' },
+  { icon: Users, key: 'action.myCircles', path: '/more/circles', color: 'text-brand-500' },
 ]
 
 export function HomePage() {
   const navigate = useNavigate()
   const { profile, activeCircle } = useAppStore()
+  const { t } = useI18n()
 
   const { data: lists = [] } = useQuery({
     queryKey: ['shopping-lists'],
@@ -30,7 +32,7 @@ export function HomePage() {
 
   const activeLists = lists.filter((l) => l.status === 'active').slice(0, 3)
   const recentRecipes = recipes.slice(0, 3)
-  const greeting = getGreeting()
+  const greeting = getGreeting(t)
 
   return (
     <div className="px-4 py-6 space-y-6">
@@ -41,14 +43,14 @@ export function HomePage() {
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
           {activeCircle
-            ? `Managing ${activeCircle.name}`
-            : "Let's plan some meals"}
+            ? `${activeCircle.name}`
+            : t('home.letsPlan')}
         </p>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
-        {QUICK_ACTIONS.map(({ icon: Icon, label, path, color }) => (
+        {QUICK_ACTIONS.map(({ icon: Icon, key, path, color }) => (
           <Card
             key={path}
             variant="elevated"
@@ -56,7 +58,7 @@ export function HomePage() {
             onClick={() => navigate(path)}
           >
             <Icon className={cn('h-6 w-6 mb-2', color)} />
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</p>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t(key)}</p>
           </Card>
         ))}
       </div>
@@ -65,13 +67,13 @@ export function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-            Active Lists
+            {t('home.activeLists')}
           </h3>
           <button
             onClick={() => navigate('/lists')}
             className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
           >
-            View all
+            {t('home.viewAll')}
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -110,13 +112,13 @@ export function HomePage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-            Recent Recipes
+            {t('home.recentRecipes')}
           </h3>
           <button
             onClick={() => navigate('/recipes')}
             className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
           >
-            View all
+            {t('home.viewAll')}
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -155,9 +157,9 @@ export function HomePage() {
   )
 }
 
-function getGreeting() {
+function getGreeting(t: (key: string) => string) {
   const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 17) return 'Good afternoon'
-  return 'Good evening'
+  if (hour < 12) return t('home.goodMorning')
+  if (hour < 17) return t('home.goodAfternoon')
+  return t('home.goodEvening')
 }

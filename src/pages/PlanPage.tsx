@@ -11,14 +11,10 @@ import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates, copyWeekPlan }
 import { getRecipes } from '@/services/recipes'
 import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/services/shoppingLists'
 import { MEAL_TYPES, type MealType } from '@/lib/constants'
+import { useI18n } from '@/lib/i18n'
 import type { MealPlan, Recipe } from '@/types'
 
-const MEAL_LABELS: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snack: 'Snack',
-}
+// MEAL_LABELS moved inside component for i18n access
 
 const MEAL_COLORS: Record<MealType, string> = {
   breakfast: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
@@ -32,6 +28,14 @@ const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 export function PlanPage() {
   const queryClient = useQueryClient()
   const { activeCircle } = useAppStore()
+  const { t } = useI18n()
+
+  const MEAL_LABELS: Record<MealType, string> = {
+    breakfast: t('plan.breakfast'),
+    lunch: t('plan.lunch'),
+    dinner: t('plan.dinner'),
+    snack: t('plan.snack'),
+  }
   const [weekOffset, setWeekOffset] = useState(0)
   const [showAddMeal, setShowAddMeal] = useState(false)
   const [selectedDate, setSelectedDate] = useState('')
@@ -140,7 +144,7 @@ export function PlanPage() {
   if (!activeCircle) {
     return (
       <div className="px-4 py-4">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Meal Plan</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('plan.mealPlan')}</h2>
         <EmptyState
           icon={<CalendarDays className="h-12 w-12" />}
           title="Select a circle first"
@@ -167,7 +171,7 @@ export function PlanPage() {
               onClick={() => setWeekOffset(0)}
               className="text-xs text-brand-500 font-medium"
             >
-              Back to this week
+              {t('plan.backToThisWeek')}
             </button>
           )}
         </div>
@@ -189,7 +193,7 @@ export function PlanPage() {
             onClick={() => setShowAddToList(true)}
           >
             <ShoppingCart className="h-4 w-4" />
-            Add Week to List
+            {t('plan.addWeekToList')}
           </Button>
           <Button
             size="sm"
@@ -198,7 +202,7 @@ export function PlanPage() {
             disabled={copyMutation.isPending}
           >
             <Copy className="h-4 w-4" />
-            {copyMutation.isPending ? 'Copying...' : 'Copy to Next Week'}
+            {copyMutation.isPending ? t('common.loading') : t('plan.copyToNextWeek')}
           </Button>
         </div>
       )}
@@ -234,7 +238,7 @@ export function PlanPage() {
                 </span>
                 {isToday && (
                   <span className="text-[10px] bg-brand-500 text-white px-1.5 py-0.5 rounded-full font-medium">
-                    Today
+                    {t('plan.today')}
                   </span>
                 )}
               </div>
@@ -298,7 +302,7 @@ export function PlanPage() {
 
             <input
               type="text"
-              placeholder="Search recipes..."
+              placeholder={t('recipe.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm bg-slate-100 dark:bg-surface-dark-overlay border-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 mb-3"

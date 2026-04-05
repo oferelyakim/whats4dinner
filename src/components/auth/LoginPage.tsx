@@ -3,6 +3,7 @@ import { ChefHat, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
+import { useI18n } from '@/lib/i18n'
 
 export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
@@ -14,6 +15,7 @@ export function LoginPage() {
   const [emailSent, setEmailSent] = useState(false)
 
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth()
+  const { t } = useI18n()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,16 +43,16 @@ export function LoginPage() {
             <Mail className="h-9 w-9 text-success" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-            Check your email
+            {t('auth.checkEmail')}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-            We sent a confirmation link to
+            {t('auth.emailSent')}
           </p>
           <p className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
             {email}
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500 mb-6">
-            Click the link in the email to activate your account. Check your spam/junk folder if you don't see it.
+            {t('auth.checkSpam')}
           </p>
           <Button
             variant="secondary"
@@ -60,7 +62,7 @@ export function LoginPage() {
               setMode('login')
             }}
           >
-            Back to Sign In
+            {t('auth.backToSignIn')}
           </Button>
         </div>
       </div>
@@ -76,10 +78,10 @@ export function LoginPage() {
             <ChefHat className="h-9 w-9 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            What's4Dinner
+            {t('app.name')}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Meal planning made easy
+            {t('app.tagline')}
           </p>
         </div>
 
@@ -100,12 +102,12 @@ export function LoginPage() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
           </svg>
-          Continue with Google
+          {t('auth.continueWithGoogle')}
         </Button>
 
         <div className="flex items-center gap-3 my-6">
           <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-          <span className="text-xs text-slate-400">or</span>
+          <span className="text-xs text-slate-400">{t('auth.or')}</span>
           <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
         </div>
 
@@ -113,7 +115,7 @@ export function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
             <Input
-              label="Name"
+              label={t('auth.name')}
               placeholder="Your name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -121,7 +123,7 @@ export function LoginPage() {
             />
           )}
           <Input
-            label="Email"
+            label={t('auth.email')}
             type="email"
             placeholder="you@example.com"
             value={email}
@@ -129,7 +131,7 @@ export function LoginPage() {
             required
           />
           <Input
-            label="Password"
+            label={t('auth.password')}
             type="password"
             placeholder="Min 6 characters"
             value={password}
@@ -146,15 +148,15 @@ export function LoginPage() {
 
           <Button type="submit" size="lg" className="w-full" disabled={loading}>
             {loading
-              ? 'Please wait...'
+              ? t('common.loading')
               : mode === 'login'
-                ? 'Sign In'
-                : 'Create Account'}
+                ? t('auth.signIn')
+                : t('auth.signUp')}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+          {mode === 'login' ? t('auth.noAccount') + ' ' : t('auth.hasAccount') + ' '}
           <button
             onClick={() => {
               setMode(mode === 'login' ? 'signup' : 'login')
@@ -162,7 +164,7 @@ export function LoginPage() {
             }}
             className="text-brand-500 font-medium hover:underline"
           >
-            {mode === 'login' ? 'Sign Up' : 'Sign In'}
+            {mode === 'login' ? t('auth.signUp') : t('auth.signIn')}
           </button>
         </p>
       </div>

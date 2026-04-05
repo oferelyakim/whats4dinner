@@ -30,11 +30,13 @@ import { getCircleMembers } from '@/services/circles'
 import { supabase } from '@/services/supabase'
 import type { ShoppingListItem } from '@/types'
 import { DEPARTMENTS, type Department } from '@/lib/constants'
+import { useI18n } from '@/lib/i18n'
 
 export function ShoppingListPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useI18n()
 
   const [showAdd, setShowAdd] = useState(false)
   const [showShare, setShowShare] = useState(false)
@@ -250,7 +252,7 @@ export function ShoppingListPage() {
             {data.name}
           </h2>
           <p className="text-xs text-slate-400">
-            {checkedCount}/{totalCount} items done
+            {checkedCount}/{totalCount} {t('list.itemsDone')}
           </p>
         </div>
         <Button size="sm" variant="ghost" onClick={() => setShowDeleteList(true)}>
@@ -261,7 +263,7 @@ export function ShoppingListPage() {
         </Button>
         <Button size="sm" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" />
-          Add
+          {t('list.addItem')}
         </Button>
       </div>
 
@@ -328,7 +330,7 @@ export function ShoppingListPage() {
       {items.length === 0 ? (
         <div className="flex flex-col items-center py-12 text-center">
           <ShoppingCart className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
-          <p className="text-sm text-slate-400">No items yet</p>
+          <p className="text-sm text-slate-400">{t('list.noItems')}</p>
           <p className="text-xs text-slate-400 mt-1">Tap "Add" or add items from a recipe</p>
         </div>
       ) : (
@@ -427,14 +429,14 @@ export function ShoppingListPage() {
                 ))}
               </select>
               <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 size="sm"
                 onClick={() => addMutation.mutate()}
                 disabled={!newItemName.trim() || addMutation.isPending}
               >
-                {addMutation.isPending ? '...' : 'Add'}
+                {addMutation.isPending ? '...' : t('list.addItem')}
               </Button>
             </div>
           </Card>
@@ -447,7 +449,7 @@ export function ShoppingListPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              Share List
+              {t('list.share')}
             </Dialog.Title>
             <p className="text-xs text-slate-400 mb-4">
               Circle members you share with can view and add items to this list.
@@ -492,7 +494,7 @@ export function ShoppingListPage() {
               )}
             </div>
             <Button variant="secondary" className="w-full mt-4" onClick={() => setShowShare(false)}>
-              Done
+              {t('common.done')}
             </Button>
           </Dialog.Content>
         </Dialog.Portal>
@@ -504,17 +506,17 @@ export function ShoppingListPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              Delete List
+              {t('list.delete')}
             </Dialog.Title>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Are you sure you want to delete <strong>{data?.name}</strong> and all its items? This cannot be undone.
             </p>
             <div className="flex gap-3">
               <Button variant="secondary" className="flex-1" onClick={() => setShowDeleteList(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button variant="danger" className="flex-1" onClick={() => deleteListMutation.mutate()} disabled={deleteListMutation.isPending}>
-                {deleteListMutation.isPending ? 'Deleting...' : 'Delete'}
+                {deleteListMutation.isPending ? t('common.loading') : t('common.delete')}
               </Button>
             </div>
           </Dialog.Content>

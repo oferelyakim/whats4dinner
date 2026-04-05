@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Search, BookOpen, Clock, Users as UsersIcon, Link2, PenLine } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -12,6 +13,7 @@ import type { Recipe } from '@/types'
 export function RecipesPage() {
   const navigate = useNavigate()
   const { activeCircle } = useAppStore()
+  const { t } = useI18n()
   const [search, setSearch] = useState('')
 
   const { data: recipes = [], isLoading } = useQuery({
@@ -43,7 +45,7 @@ export function RecipesPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         <input
           type="text"
-          placeholder="Search recipes..."
+          placeholder={t('recipe.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
@@ -57,11 +59,11 @@ export function RecipesPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<BookOpen className="h-12 w-12" />}
-          title={search ? 'No recipes found' : 'No recipes yet'}
+          title={search ? 'No recipes found' : t('recipe.noRecipes')}
           description={
             search
               ? 'Try a different search term'
-              : 'Add your favorite recipes and import them from links'
+              : t('recipe.addFirst')
           }
           action={
             !search ? (
@@ -132,7 +134,7 @@ export function RecipesPage() {
           className="h-11 flex items-center gap-2 px-4 rounded-full bg-surface-dark-elevated text-white shadow-lg active:scale-95 transition-transform text-sm font-medium"
         >
           <Link2 className="h-4 w-4" />
-          Import from URL
+          {t('recipe.importUrl')}
         </button>
         <button
           onClick={() => navigate('/recipes/new')}
