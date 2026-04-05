@@ -27,8 +27,9 @@ export function NewListPage() {
 
   const createMutation = useMutation({
     mutationFn: () => createShoppingList(name.trim(), circleId),
-    onSuccess: (list) => {
-      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    onSuccess: async (list) => {
+      queryClient.setQueryData(['shopping-list', list.id], { ...list, items: [] })
+      await queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
       navigate(`/lists/${list.id}`)
     },
   })

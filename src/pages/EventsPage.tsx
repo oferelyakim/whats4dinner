@@ -40,8 +40,10 @@ export function EventsPage() {
       location: location.trim() || undefined,
       circle_id: circleId || undefined,
     }),
-    onSuccess: (event) => {
-      queryClient.invalidateQueries({ queryKey: ['events'] })
+    onSuccess: async (event) => {
+      // Pre-populate the cache so the detail page has data immediately
+      queryClient.setQueryData(['event', event.id], event)
+      await queryClient.invalidateQueries({ queryKey: ['events'] })
       setShowCreate(false)
       setName('')
       setDescription('')

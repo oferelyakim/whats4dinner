@@ -44,8 +44,9 @@ export function RecipeDetailPage() {
 
   const addToListMutation = useMutation({
     mutationFn: (listId: string) => addRecipeToList(listId, id!),
-    onSuccess: (_data, listId) => {
-      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    onSuccess: async (_data, listId) => {
+      await queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+      await queryClient.invalidateQueries({ queryKey: ['shopping-list', listId] })
       setAddedToList(listId)
       setTimeout(() => {
         setShowAddToList(false)

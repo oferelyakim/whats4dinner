@@ -21,7 +21,7 @@ import { useI18n } from '@/lib/i18n'
 
 // TABS moved inside component for i18n
 
-type Tab = (typeof TABS)[number]['id']
+type Tab = 'overview' | 'menu' | 'supplies' | 'tasks'
 
 const DISH_CATEGORIES = [
   { value: 'appetizer', label: 'Appetizer', emoji: '🥗' },
@@ -259,22 +259,22 @@ export function EventDetailPage() {
           <div className="grid grid-cols-3 gap-2">
             <Card className="p-3 text-center">
               <p className="text-lg font-bold text-brand-500">{attending.length}</p>
-              <p className="text-[10px] text-slate-400">Attending</p>
+              <p className="text-[10px] text-slate-400">{t('event.attending')}</p>
             </Card>
             <Card className="p-3 text-center">
               <p className="text-lg font-bold text-emerald-500">{items.filter((i: EventItem) => i.status === 'claimed' || i.status === 'done').length}/{items.length}</p>
-              <p className="text-[10px] text-slate-400">Claimed</p>
+              <p className="text-[10px] text-slate-400">{t('event.claimed')}</p>
             </Card>
             <Card className="p-3 text-center">
-              <p className="text-lg font-bold text-purple-500">{tasks.filter((t: EventItem) => t.status === 'done').length}/{tasks.length}</p>
-              <p className="text-[10px] text-slate-400">Tasks Done</p>
+              <p className="text-lg font-bold text-purple-500">{tasks.filter((tk: EventItem) => tk.status === 'done').length}/{tasks.length}</p>
+              <p className="text-[10px] text-slate-400">{t('event.tasksDone')}</p>
             </Card>
           </div>
 
           {/* Attendees */}
           <section>
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
-              Attending ({attending.length})
+              {t('event.attending')} ({attending.length})
             </h3>
             <div className="space-y-1.5">
               {attending.map((p: EventParticipant) => {
@@ -293,7 +293,7 @@ export function EventDetailPage() {
                         onClick={() => makeOrganizerMutation.mutate(p.user_id!)}
                         className="text-[10px] text-slate-400 hover:text-brand-500"
                       >
-                        Make host
+                        {t('event.makeHost')}
                       </button>
                     )}
                   </div>
@@ -311,14 +311,14 @@ export function EventDetailPage() {
                 onClick={() => cloneEventMutation.mutate()}
                 disabled={cloneEventMutation.isPending}
               >
-                {cloneEventMutation.isPending ? 'Cloning...' : 'Clone Event (reuse items)'}
+                {cloneEventMutation.isPending ? t('common.loading') : t('event.clone')}
               </Button>
               <button
                 onClick={() => setShowDeleteEvent(true)}
                 className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete Event
+                {t('event.delete')}
               </button>
             </div>
           )}
@@ -378,7 +378,7 @@ export function EventDetailPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              Add {addType === 'dish' ? 'Dish' : addType === 'supply' ? 'Supply' : 'Task'}
+              {addType === 'dish' ? t('event.addDish') : addType === 'supply' ? t('event.addSupply') : t('event.addTask')}
             </Dialog.Title>
             <div className="space-y-3">
               <Input
@@ -454,9 +454,9 @@ export function EventDetailPage() {
               />
 
               <div className="flex gap-3 pt-2">
-                <Button variant="secondary" className="flex-1" onClick={() => setShowAddItem(false)}>Cancel</Button>
+                <Button variant="secondary" className="flex-1" onClick={() => setShowAddItem(false)}>{t('common.cancel')}</Button>
                 <Button className="flex-1" onClick={() => addItemMutation.mutate()} disabled={!addName.trim() || addItemMutation.isPending}>
-                  {addItemMutation.isPending ? 'Adding...' : 'Add'}
+                  {addItemMutation.isPending ? t('common.loading') : t('common.add')}
                 </Button>
               </div>
             </div>
@@ -469,14 +469,14 @@ export function EventDetailPage() {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">Delete Event</Dialog.Title>
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">{t('event.delete')}</Dialog.Title>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Are you sure you want to delete <strong>{event.name}</strong>? All dishes, supplies, tasks, and participant info will be removed.
             </p>
             <div className="flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setShowDeleteEvent(false)}>Cancel</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setShowDeleteEvent(false)}>{t('common.cancel')}</Button>
               <Button variant="danger" className="flex-1" onClick={() => deleteEventMutation.mutate()} disabled={deleteEventMutation.isPending}>
-                {deleteEventMutation.isPending ? 'Deleting...' : 'Delete'}
+                {deleteEventMutation.isPending ? t('common.loading') : t('common.delete')}
               </Button>
             </div>
           </Dialog.Content>
@@ -503,6 +503,7 @@ function ItemList({
   isOrganizer: boolean
   categories?: { value: string; label: string; emoji?: string }[]
 }) {
+  const { t } = useI18n()
   const unclaimed = items.filter((i) => i.status === 'unclaimed')
   const claimed = items.filter((i) => i.status !== 'unclaimed')
 
@@ -518,7 +519,7 @@ function ItemList({
     <div className="space-y-4">
       <Button size="sm" className="w-full" onClick={onAdd}>
         <Plus className="h-4 w-4" />
-        Add {type === 'dish' ? 'Dish' : type === 'supply' ? 'Supply' : 'Task'}
+        {type === 'dish' ? t('event.addDish') : type === 'supply' ? t('event.addSupply') : t('event.addTask')}
       </Button>
 
       {items.length === 0 ? (
@@ -529,7 +530,7 @@ function ItemList({
           {unclaimed.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-warning uppercase tracking-wider mb-1.5 px-1">
-                Needs someone ({unclaimed.length})
+                {t('event.needsSomeone')} ({unclaimed.length})
               </p>
               <Card className="divide-y divide-slate-100 dark:divide-slate-800">
                 {unclaimed.map((item) => (
@@ -547,7 +548,7 @@ function ItemList({
                       )}
                     </div>
                     <Button size="sm" onClick={() => onClaim(item.id)}>
-                      {type === 'task' ? "I'll do it" : "I'll bring it"}
+                      {type === 'task' ? t('event.illDoIt') : t('event.illBringIt')}
                     </Button>
                     {isOrganizer && (
                       <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-danger">

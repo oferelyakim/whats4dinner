@@ -105,8 +105,8 @@ export function ShoppingListPage() {
         quantity: newItemQty ? parseFloat(newItemQty) : undefined,
         category: newItemCategory,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
       setNewItemName('')
       setNewItemQty('')
       setNewItemCategory('Other')

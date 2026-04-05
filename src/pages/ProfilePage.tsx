@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAppStore } from '@/stores/appStore'
 import { supabase } from '@/services/supabase'
+import { useI18n } from '@/lib/i18n'
 
 export function ProfilePage() {
   const navigate = useNavigate()
   const { profile, setProfile } = useAppStore()
+  const { t } = useI18n()
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [saved, setSaved] = useState(false)
@@ -42,7 +44,7 @@ export function ProfilePage() {
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Profile</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('more.profile')}</h2>
       </div>
 
       {/* Avatar */}
@@ -72,7 +74,7 @@ export function ProfilePage() {
           onClick={() => saveMutation.mutate()}
           disabled={!displayName.trim() || saveMutation.isPending || displayName.trim() === profile?.display_name}
         >
-          {saved ? 'Saved!' : saveMutation.isPending ? 'Saving...' : 'Save Changes'}
+          {saved ? t('common.done') : saveMutation.isPending ? t('common.loading') : t('common.save')}
         </Button>
       </div>
     </div>

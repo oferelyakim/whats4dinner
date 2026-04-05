@@ -129,9 +129,9 @@ export function RecipeFormPage() {
       }
       return isEdit ? updateRecipe(id!, data) : createRecipe(data)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recipes'] })
-      if (isEdit) queryClient.invalidateQueries({ queryKey: ['recipe', id] })
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['recipes'] })
+      if (isEdit) await queryClient.invalidateQueries({ queryKey: ['recipe', id] })
       navigate(isEdit ? `/recipes/${id}` : '/recipes')
     },
     onError: (err: Error) => setSaveError(err.message),
