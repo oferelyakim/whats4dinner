@@ -10,6 +10,7 @@ import {
   UtensilsCrossed,
   CalendarDays,
   Crown,
+  Calendar,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
@@ -33,6 +34,12 @@ export function MorePage() {
       label: t('circle.myCircles'),
       description: 'Family & friend groups',
       onClick: () => navigate('/more/circles'),
+    },
+    {
+      icon: Calendar,
+      label: 'Activities',
+      description: 'Schedules, sports, lessons, chores',
+      onClick: () => navigate('/more/activities'),
     },
     {
       icon: CalendarDays,

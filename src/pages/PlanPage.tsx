@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -12,6 +12,7 @@ import { getRecipes } from '@/services/recipes'
 import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/services/shoppingLists'
 import { MEAL_TYPES, type MealType } from '@/lib/constants'
 import { useI18n } from '@/lib/i18n'
+import { exportMealPlanToCalendar } from '@/lib/calendar'
 import type { MealPlan, Recipe } from '@/types'
 
 // MEAL_LABELS moved inside component for i18n access
@@ -203,6 +204,13 @@ export function PlanPage() {
           >
             <Copy className="h-4 w-4" />
             {copyMutation.isPending ? t('common.loading') : t('plan.copyToNextWeek')}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => exportMealPlanToCalendar(plans)}
+          >
+            <Download className="h-4 w-4" />
           </Button>
         </div>
       )}

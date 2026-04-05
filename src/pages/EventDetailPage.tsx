@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, Trash2,
-  UtensilsCrossed, Package, ListTodo, Users, Crown, X,
+  UtensilsCrossed, Package, ListTodo, Users, Crown, X, Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -18,6 +18,7 @@ import {
 } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
+import { exportEventToCalendar } from '@/lib/calendar'
 
 // TABS moved inside component for i18n
 
@@ -254,6 +255,19 @@ export function EventDetailPage() {
               </Button>
             </div>
           </Card>
+
+          {/* Add to Calendar */}
+          {event.event_date && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={() => exportEventToCalendar(event)}
+            >
+              <Download className="h-4 w-4" />
+              Add to Calendar
+            </Button>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2">
