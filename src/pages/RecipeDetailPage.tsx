@@ -123,11 +123,8 @@ export function RecipeDetailPage() {
                 await navigator.clipboard.writeText(url)
               }
             } catch (err) {
-              // clipboard copy as final fallback
-              if (shareUrl) {
-                try { await navigator.clipboard.writeText(shareUrl) } catch {}
-              }
-              console.error('Share error:', err)
+              const msg = err instanceof Error ? err.message : 'Share failed'
+              alert(`Share error: ${msg}`)
             }
             setSharing(false)
           }}
