@@ -9,9 +9,12 @@ import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
 import { getEvents, createEvent, type Event } from '@/services/events'
 import { useI18n } from '@/lib/i18n'
+import { canUse } from '@/lib/subscription'
+import { UpgradePrompt, useFeatureGate } from '@/components/ui/UpgradePrompt'
 
 export function EventsPage() {
   const navigate = useNavigate()
+  const gate = useFeatureGate()
   const [searchParams] = useSearchParams()
   const circleId = searchParams.get('circle')
   const queryClient = useQueryClient()
@@ -83,7 +86,7 @@ export function EventsPage() {
     <div className="px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('event.events')}</h2>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
+        <Button size="sm" onClick={() => { if (gate.checkFeature('Organizing events', canUse(gate.tier, 'canCreateEvents'))) setShowCreate(true) }}>
           <Plus className="h-4 w-4" />
           {t('event.newEvent')}
         </Button>
@@ -113,7 +116,7 @@ export function EventsPage() {
           title="No events yet"
           description="Plan a potluck, dinner party, or any gathering and coordinate who brings what"
           action={
-            <Button onClick={() => setShowCreate(true)}>
+            <Button onClick={() => { if (gate.checkFeature('Organizing events', canUse(gate.tier, 'canCreateEvents'))) setShowCreate(true) }}>
               <Plus className="h-4 w-4" />
               {t('event.newEvent')}
             </Button>
@@ -212,6 +215,12 @@ export function EventsPage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      <UpgradePrompt
+        open={gate.showUpgrade}
+        onOpenChange={gate.setShowUpgrade}
+        feature={gate.upgradeFeature}
+      />
     </div>
   )
 }

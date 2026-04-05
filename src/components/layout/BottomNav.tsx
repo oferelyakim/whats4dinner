@@ -1,9 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Home,
-  BookOpen,
+  PartyPopper,
   ShoppingCart,
-  CalendarDays,
+  BookOpen,
   Menu,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
@@ -12,9 +12,9 @@ import { useI18n } from '@/lib/i18n'
 
 const NAV_ITEMS = [
   { path: '/', key: 'nav.home', icon: Home },
-  { path: '/recipes', key: 'nav.recipes', icon: BookOpen },
+  { path: '/events', key: 'event.events', icon: PartyPopper },
   { path: '/lists', key: 'nav.lists', icon: ShoppingCart },
-  { path: '/plan', key: 'nav.plan', icon: CalendarDays },
+  { path: '/recipes', key: 'nav.recipes', icon: BookOpen },
   { path: '/more', key: 'nav.more', icon: Menu },
 ] as const
 

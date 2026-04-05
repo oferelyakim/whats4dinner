@@ -7,27 +7,38 @@ import {
   LogOut,
   ChevronRight,
   User,
-  PartyPopper,
   UtensilsCrossed,
+  CalendarDays,
+  Crown,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/cn'
 import { useI18n, type Locale } from '@/lib/i18n'
+import { useSubscription } from '@/lib/subscription'
+import { UpgradePrompt, useFeatureGate } from '@/components/ui/UpgradePrompt'
 
 export function MorePage() {
   const navigate = useNavigate()
   const { theme, setTheme, profile } = useAppStore()
   const { signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
+  const { tier } = useSubscription()
+  const gate = useFeatureGate()
 
   const menuItems = [
     {
       icon: Users,
       label: t('circle.myCircles'),
-      description: 'Manage family & friend groups',
+      description: 'Family & friend groups',
       onClick: () => navigate('/more/circles'),
+    },
+    {
+      icon: CalendarDays,
+      label: t('plan.mealPlan'),
+      description: 'Weekly meal planning',
+      onClick: () => navigate('/plan'),
     },
     {
       icon: UtensilsCrossed,
@@ -36,15 +47,9 @@ export function MorePage() {
       onClick: () => navigate('/more/menus'),
     },
     {
-      icon: PartyPopper,
-      label: t('more.events'),
-      description: 'Potlucks & dinner parties',
-      onClick: () => navigate('/events'),
-    },
-    {
       icon: Store,
       label: t('more.myStores'),
-      description: 'Store routes & aisle order',
+      description: 'Sort shopping by aisle',
       onClick: () => navigate('/more/stores'),
     },
     {
@@ -91,6 +96,31 @@ export function MorePage() {
           </button>
         ))}
       </Card>
+
+      {/* Subscription */}
+      {tier === 'free' ? (
+        <Card
+          variant="elevated"
+          className="p-4 cursor-pointer bg-gradient-to-r from-brand-500/10 to-pink-500/10 border-brand-500/30 active:scale-[0.98] transition-transform"
+          onClick={() => gate.setShowUpgrade(true)}
+        >
+          <div className="flex items-center gap-3">
+            <Crown className="h-6 w-6 text-brand-500" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Upgrade to Premium</p>
+              <p className="text-xs text-slate-500">Create circles, organize events, AI features & more</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-brand-500" />
+          </div>
+        </Card>
+      ) : (
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <Crown className="h-4 w-4 text-brand-500" />
+            <span className="text-sm font-medium text-brand-500 capitalize">{tier} Plan</span>
+          </div>
+        </Card>
+      )}
 
       {/* Theme toggle */}
       <Card className="px-4 py-3">
@@ -160,6 +190,12 @@ export function MorePage() {
         <LogOut className="h-4 w-4" />
         {t('auth.signOut')}
       </button>
+
+      <UpgradePrompt
+        open={gate.showUpgrade}
+        onOpenChange={gate.setShowUpgrade}
+        feature={gate.upgradeFeature}
+      />
     </div>
   )
 }
