@@ -14,7 +14,7 @@ import {
   getEvent, getEventParticipants, getEventItems, getEventOrganizers,
   addEventItem, claimItem, unclaimItem, updateItemStatus, deleteEventItem,
   deleteEvent, addOrganizer, cloneEvent, updateItemNotes,
-  respondToAssignment, createMyEventList,
+  assignItem, respondToAssignment, createMyEventList,
   type EventItem, type EventParticipant, type EventOrganizer,
 } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
@@ -161,6 +161,12 @@ export function EventDetailPage() {
   const updateNotesMutation = useMutation({
     mutationFn: ({ itemId, notes }: { itemId: string; notes: string }) => updateItemNotes(itemId, notes),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-items', id] }),
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: ({ itemId, userId }: { itemId: string; userId: string }) => assignItem(itemId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-items', id] }),
+    onError: (err: Error) => setError(err.message),
   })
 
   const respondMutation = useMutation({
@@ -383,6 +389,8 @@ export function EventDetailPage() {
           onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
           onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
           onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
+          onAssign={(itemId, userId) => assignMutation.mutate({ itemId, userId })}
+          participants={attending}
           currentUserId={profile?.id}
           isOrganizer={isOrganizer}
           categories={DISH_CATEGORIES}
@@ -401,6 +409,8 @@ export function EventDetailPage() {
           onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
           onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
           onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
+          onAssign={(itemId, userId) => assignMutation.mutate({ itemId, userId })}
+          participants={attending}
           currentUserId={profile?.id}
           isOrganizer={isOrganizer}
         />
@@ -418,6 +428,8 @@ export function EventDetailPage() {
           onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
           onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
           onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
+          onAssign={(itemId, userId) => assignMutation.mutate({ itemId, userId })}
+          participants={attending}
           currentUserId={profile?.id}
           isOrganizer={isOrganizer}
           categories={TASK_CATEGORIES}
@@ -541,7 +553,7 @@ export function EventDetailPage() {
 // Reusable item list component for Menu/Supplies/Tasks tabs
 function ItemList({
   items, type, emptyMessage, onAdd, onClaim, onUnclaim, onStatusChange, onDelete,
-  onUpdateNotes, onRespond,
+  onUpdateNotes, onRespond, onAssign, participants,
   currentUserId, isOrganizer, categories,
 }: {
   items: EventItem[]
@@ -554,6 +566,8 @@ function ItemList({
   onDelete: (id: string) => void
   onUpdateNotes?: (id: string, notes: string) => void
   onRespond?: (id: string, accept: boolean) => void
+  onAssign?: (itemId: string, userId: string) => void
+  participants?: EventParticipant[]
   currentUserId?: string
   isOrganizer: boolean
   categories?: { value: string; label: string; emoji?: string }[]
@@ -589,26 +603,48 @@ function ItemList({
               </p>
               <Card className="divide-y divide-slate-100 dark:divide-slate-800">
                 {unclaimed.map((item) => (
-                  <div key={item.id} className="px-3 py-2.5 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                        {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
-                        {item.name}
-                      </p>
-                      {item.notes && <p className="text-[10px] text-slate-400">{item.notes}</p>}
-                      {item.due_at && (
-                        <p className="text-[10px] text-slate-400">
-                          Due: {new Date(item.due_at).toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+                  <div key={item.id} className="px-3 py-2.5 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
+                          {item.name}
                         </p>
+                        {item.notes && <p className="text-[10px] text-slate-400">{item.notes}</p>}
+                        {item.due_at && (
+                          <p className="text-[10px] text-slate-400">
+                            Due: {new Date(item.due_at).toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                      <Button size="sm" onClick={() => onClaim(item.id)}>
+                        {type === 'task' ? t('event.illDoIt') : t('event.illBringIt')}
+                      </Button>
+                      {isOrganizer && (
+                        <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-danger">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       )}
                     </div>
-                    <Button size="sm" onClick={() => onClaim(item.id)}>
-                      {type === 'task' ? t('event.illDoIt') : t('event.illBringIt')}
-                    </Button>
-                    {isOrganizer && (
-                      <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-danger">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                    {/* Assign to person (organizer only) */}
+                    {isOrganizer && onAssign && participants && participants.length > 0 && (
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            onAssign(item.id, e.target.value)
+                            e.target.value = ''
+                          }
+                        }}
+                        className="w-full text-xs bg-slate-50 dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-600 dark:text-slate-400"
+                      >
+                        <option value="">Assign to someone...</option>
+                        {participants.map((p) => (
+                          <option key={p.id} value={p.user_id || ''}>
+                            {p.profile?.display_name || p.guest_name || 'Guest'}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   </div>
                 ))}
