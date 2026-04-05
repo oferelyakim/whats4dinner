@@ -12,7 +12,7 @@ interface I18nState {
 
 const translations: Record<string, Record<Locale, string>> = {
   // App
-  'app.name': { en: "What's4Dinner", he: 'מה לארוחה' },
+  'app.name': { en: 'OurTable', he: 'השולחן שלנו' },
   'app.tagline': { en: 'Meal planning made easy', he: 'תכנון ארוחות בקלות' },
 
   // Navigation

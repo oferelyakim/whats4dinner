@@ -45,7 +45,7 @@ export function SharedRecipePage() {
         {/* Header */}
         <div className="flex items-center gap-2 text-brand-500">
           <ChefHat className="h-5 w-5" />
-          <span className="text-sm font-medium">What's4Dinner</span>
+          <span className="text-sm font-medium">OurTable</span>
         </div>
 
         {/* Recipe title */}

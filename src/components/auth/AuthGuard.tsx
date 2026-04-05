@@ -15,7 +15,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         id: 'dev-user',
         display_name: 'Ofer (Dev)',
         avatar_url: null,
-        email: 'dev@whats4dinner.app',
+        email: 'dev@ourtable.app',
         preferences: { theme: 'dark' },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

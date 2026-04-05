@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: "What's4Dinner",
-        short_name: 'W4D',
-        description: 'Family meal planning & shopping lists',
+        name: 'OurTable',
+        short_name: 'OurTable',
+        description: 'Family meals, events & lists - together',
         theme_color: '#f97316',
         background_color: '#0f172a',
         display: 'standalone',

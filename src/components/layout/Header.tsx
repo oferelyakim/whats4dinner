@@ -16,7 +16,7 @@ export function Header({ title, onCircleSelect }: HeaderProps) {
         <div className="flex items-center gap-2">
           <ChefHat className="h-6 w-6 text-brand-500" />
           <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-            {title ?? "What's4Dinner"}
+            {title ?? 'OurTable'}
           </h1>
         </div>
 
