@@ -251,3 +251,36 @@ export async function removeOrganizer(eventId: string, userId: string): Promise<
 
   if (error) throw error
 }
+
+// Clone an event: copies items (dishes, supplies, tasks) without assignments
+export async function cloneEvent(sourceEventId: string, newName: string): Promise<Event> {
+  const sourceEvent = await getEvent(sourceEventId)
+  const sourceItems = await getEventItems(sourceEventId)
+
+  // Create new event
+  const newEvent = await createEvent({
+    name: newName,
+    description: sourceEvent.description || undefined,
+    location: sourceEvent.location || undefined,
+    circle_id: sourceEvent.circle_id || undefined,
+  })
+
+  // Copy items without assignments
+  if (sourceItems.length) {
+    const items = sourceItems.map((item) => ({
+      event_id: newEvent.id,
+      type: item.type,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      recipe_id: item.recipe_id,
+      meal_slot: item.meal_slot,
+      notes: item.notes,
+      sort_order: item.sort_order,
+    }))
+
+    await supabase.from('event_items').insert(items)
+  }
+
+  return newEvent
+}

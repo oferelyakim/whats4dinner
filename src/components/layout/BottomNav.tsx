@@ -8,19 +8,21 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/recipes', label: 'Recipes', icon: BookOpen },
-  { path: '/lists', label: 'Lists', icon: ShoppingCart },
-  { path: '/plan', label: 'Plan', icon: CalendarDays },
-  { path: '/more', label: 'More', icon: Menu },
+  { path: '/', key: 'nav.home', icon: Home },
+  { path: '/recipes', key: 'nav.recipes', icon: BookOpen },
+  { path: '/lists', key: 'nav.lists', icon: ShoppingCart },
+  { path: '/plan', key: 'nav.plan', icon: CalendarDays },
+  { path: '/more', key: 'nav.more', icon: Menu },
 ] as const
 
 export function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
   const { bottomNavVisible } = useAppStore()
+  const { t } = useI18n()
 
   if (!bottomNavVisible) return null
 
@@ -34,7 +36,7 @@ export function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
-        {NAV_ITEMS.map(({ path, label, icon: Icon }) => {
+        {NAV_ITEMS.map(({ path, key, icon: Icon }) => {
           const isActive =
             path === '/'
               ? location.pathname === '/'
@@ -54,7 +56,7 @@ export function BottomNav() {
             >
               <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
               <span className={cn('text-[10px]', isActive && 'font-semibold')}>
-                {label}
+                {t(key)}
               </span>
             </button>
           )

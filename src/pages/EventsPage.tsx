@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, PartyPopper, CalendarDays, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -11,8 +11,15 @@ import { getEvents, createEvent, type Event } from '@/services/events'
 
 export function EventsPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const circleId = searchParams.get('circle')
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
+
+  // Auto-open create dialog if coming from a circle
+  useEffect(() => {
+    if (circleId) setShowCreate(true)
+  }, [circleId])
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [eventDate, setEventDate] = useState('')
@@ -29,6 +36,7 @@ export function EventsPage() {
       description: description.trim() || undefined,
       event_date: eventDate || undefined,
       location: location.trim() || undefined,
+      circle_id: circleId || undefined,
     }),
     onSuccess: (event) => {
       queryClient.invalidateQueries({ queryKey: ['events'] })

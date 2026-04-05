@@ -67,3 +67,12 @@ body {
 select {
   color-scheme: light dark;
 }
+
+/* RTL support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .flex-row-reverse-rtl {
+  flex-direction: row-reverse;
+}

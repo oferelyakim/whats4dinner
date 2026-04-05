@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User, LogOut } from 'lucide-react'
+import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User, LogOut, PartyPopper, CalendarDays, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
 import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle, deleteCircle } from '@/services/circles'
+import { getEvents, type Event } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
 import type { CircleMember } from '@/types'
 
@@ -44,6 +45,12 @@ export function CircleDetailPage() {
     queryFn: () => getCircleMembers(id!),
     enabled: !!id,
   })
+
+  const { data: allEvents = [] } = useQuery({
+    queryKey: ['events'],
+    queryFn: getEvents,
+  })
+  const circleEvents = allEvents.filter((e: Event) => e.circle_id === id)
 
   const inviteMutation = useMutation({
     mutationFn: () => inviteByEmail(id!, inviteEmail.trim()),
@@ -168,6 +175,43 @@ export function CircleDetailPage() {
               )
             })}
           </Card>
+        )}
+      </section>
+
+      {/* Circle Events */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <PartyPopper className="h-4 w-4" />
+            Events
+          </h3>
+          <Button size="sm" onClick={() => navigate(`/events?circle=${id}`)}>
+            <Plus className="h-4 w-4" />
+            New Event
+          </Button>
+        </div>
+        {circleEvents.length === 0 ? (
+          <Card className="p-4 text-center">
+            <p className="text-xs text-slate-400">No events yet for this circle</p>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {circleEvents.map((event: Event) => (
+              <Card
+                key={event.id}
+                className="p-3 cursor-pointer active:scale-[0.98] transition-transform"
+                onClick={() => navigate(`/events/${event.id}`)}
+              >
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{event.name}</p>
+                {event.event_date && (
+                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                    <CalendarDays className="h-3 w-3" />
+                    {new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </p>
+                )}
+              </Card>
+            ))}
+          </div>
         )}
       </section>
 

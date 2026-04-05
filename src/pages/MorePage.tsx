@@ -14,11 +14,13 @@ import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/cn'
+import { useI18n, type Locale } from '@/lib/i18n'
 
 export function MorePage() {
   const navigate = useNavigate()
   const { theme, setTheme, profile } = useAppStore()
   const { signOut } = useAuth()
+  const { locale, setLocale } = useI18n()
 
   const menuItems = [
     {
@@ -116,6 +118,34 @@ export function MorePage() {
                 )}
               >
                 {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Language toggle */}
+      <Card className="px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🌐</span>
+            <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+              Language
+            </span>
+          </div>
+          <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5">
+            {([{ code: 'en', label: 'English' }, { code: 'he', label: 'עברית' }] as const).map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => setLocale(lang.code as Locale)}
+                className={cn(
+                  'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                  locale === lang.code
+                    ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500'
+                )}
+              >
+                {lang.label}
               </button>
             ))}
           </div>

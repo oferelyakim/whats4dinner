@@ -13,7 +13,7 @@ import { cn } from '@/lib/cn'
 import {
   getEvent, getEventParticipants, getEventItems, getEventOrganizers,
   addEventItem, claimItem, unclaimItem, updateItemStatus, deleteEventItem,
-  deleteEvent, addOrganizer,
+  deleteEvent, addOrganizer, cloneEvent,
   type EventItem, type EventParticipant, type EventOrganizer,
 } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
@@ -128,6 +128,15 @@ export function EventDetailPage() {
   const deleteItemMutation = useMutation({
     mutationFn: (itemId: string) => deleteEventItem(itemId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-items', id] }),
+  })
+
+  const cloneEventMutation = useMutation({
+    mutationFn: () => cloneEvent(id!, `${event?.name ?? 'Event'} (copy)`),
+    onSuccess: (newEvent) => {
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      navigate(`/events/${newEvent.id}`)
+    },
+    onError: (err: Error) => setError(err.message),
   })
 
   const deleteEventMutation = useMutation({
@@ -289,15 +298,25 @@ export function EventDetailPage() {
             </div>
           </section>
 
-          {/* Delete */}
+          {/* Clone & Delete */}
           {isOrganizer && (
-            <button
-              onClick={() => setShowDeleteEvent(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete Event
-            </button>
+            <div className="space-y-2">
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => cloneEventMutation.mutate()}
+                disabled={cloneEventMutation.isPending}
+              >
+                {cloneEventMutation.isPending ? 'Cloning...' : 'Clone Event (reuse items)'}
+              </Button>
+              <button
+                onClick={() => setShowDeleteEvent(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Event
+              </button>
+            </div>
           )}
         </div>
       )}
