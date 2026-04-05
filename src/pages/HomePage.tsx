@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, ShoppingCart, CalendarDays, Users, Plus, ChevronRight } from 'lucide-react'
+import { BookOpen, ShoppingCart, CalendarDays, Users, Plus, ChevronRight, PartyPopper } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/cn'
@@ -11,8 +11,8 @@ import { getRecipes } from '@/services/recipes'
 const QUICK_ACTIONS = [
   { icon: ShoppingCart, key: 'action.newList', path: '/lists/new', color: 'text-emerald-500' },
   { icon: BookOpen, key: 'action.addRecipe', path: '/recipes/new', color: 'text-blue-500' },
+  { icon: PartyPopper, key: 'more.events', path: '/events', color: 'text-pink-500' },
   { icon: CalendarDays, key: 'action.planWeek', path: '/plan', color: 'text-purple-500' },
-  { icon: Users, key: 'action.myCircles', path: '/more/circles', color: 'text-brand-500' },
 ]
 
 export function HomePage() {
