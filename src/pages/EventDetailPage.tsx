@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, Trash2,
-  UtensilsCrossed, Package, ListTodo, Users, Crown, X, Download,
+  ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, Trash2, ShoppingCart,
+  UtensilsCrossed, Package, ListTodo, Users, Crown, X, Download, Edit3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -13,7 +13,8 @@ import { cn } from '@/lib/cn'
 import {
   getEvent, getEventParticipants, getEventItems, getEventOrganizers,
   addEventItem, claimItem, unclaimItem, updateItemStatus, deleteEventItem,
-  deleteEvent, addOrganizer, cloneEvent,
+  deleteEvent, addOrganizer, cloneEvent, updateItemNotes,
+  respondToAssignment, createMyEventList,
   type EventItem, type EventParticipant, type EventOrganizer,
 } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
@@ -155,6 +156,24 @@ export function EventDetailPage() {
   const makeOrganizerMutation = useMutation({
     mutationFn: (userId: string) => addOrganizer(id!, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-organizers', id] }),
+  })
+
+  const updateNotesMutation = useMutation({
+    mutationFn: ({ itemId, notes }: { itemId: string; notes: string }) => updateItemNotes(itemId, notes),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-items', id] }),
+  })
+
+  const respondMutation = useMutation({
+    mutationFn: ({ itemId, accept }: { itemId: string; accept: boolean }) => respondToAssignment(itemId, accept),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-items', id] }),
+  })
+
+  const createListMutation = useMutation({
+    mutationFn: () => createMyEventList(id!, event?.name ?? 'Event'),
+    onSuccess: (listId) => {
+      if (listId) navigate(`/lists/${listId}`)
+    },
+    onError: (err: Error) => setError(err.message),
   })
 
   if (!event) {
@@ -316,6 +335,19 @@ export function EventDetailPage() {
             </div>
           </section>
 
+          {/* My List from claimed items */}
+          {items.some((i: EventItem) => i.assigned_to === profile?.id) && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => createListMutation.mutate()}
+              disabled={createListMutation.isPending}
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {createListMutation.isPending ? 'Creating...' : 'Create my shopping list from claimed items'}
+            </Button>
+          )}
+
           {/* Clone & Delete */}
           {isOrganizer && (
             <div className="space-y-2">
@@ -349,6 +381,8 @@ export function EventDetailPage() {
           onUnclaim={(itemId) => unclaimMutation.mutate(itemId)}
           onStatusChange={(itemId, status) => statusMutation.mutate({ itemId, status })}
           onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
+          onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
+          onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
           currentUserId={profile?.id}
           isOrganizer={isOrganizer}
           categories={DISH_CATEGORIES}
@@ -365,6 +399,8 @@ export function EventDetailPage() {
           onUnclaim={(itemId) => unclaimMutation.mutate(itemId)}
           onStatusChange={(itemId, status) => statusMutation.mutate({ itemId, status })}
           onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
+          onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
+          onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
           currentUserId={profile?.id}
           isOrganizer={isOrganizer}
         />
@@ -380,6 +416,8 @@ export function EventDetailPage() {
           onUnclaim={(itemId) => unclaimMutation.mutate(itemId)}
           onStatusChange={(itemId, status) => statusMutation.mutate({ itemId, status })}
           onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
+          onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
+          onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
           currentUserId={profile?.id}
           isOrganizer={isOrganizer}
           categories={TASK_CATEGORIES}
@@ -503,6 +541,7 @@ export function EventDetailPage() {
 // Reusable item list component for Menu/Supplies/Tasks tabs
 function ItemList({
   items, type, emptyMessage, onAdd, onClaim, onUnclaim, onStatusChange, onDelete,
+  onUpdateNotes, onRespond,
   currentUserId, isOrganizer, categories,
 }: {
   items: EventItem[]
@@ -513,6 +552,8 @@ function ItemList({
   onUnclaim: (id: string) => void
   onStatusChange: (id: string, status: string) => void
   onDelete: (id: string) => void
+  onUpdateNotes?: (id: string, notes: string) => void
+  onRespond?: (id: string, accept: boolean) => void
   currentUserId?: string
   isOrganizer: boolean
   categories?: { value: string; label: string; emoji?: string }[]
@@ -593,6 +634,8 @@ function ItemList({
                       onUnclaim={onUnclaim}
                       onStatusChange={onStatusChange}
                       onDelete={onDelete}
+                      onUpdateNotes={onUpdateNotes}
+                      onRespond={onRespond}
                     />
                   ))}
                 </Card>
@@ -621,7 +664,7 @@ function ItemList({
 }
 
 function ItemRow({
-  item, type, currentUserId, isOrganizer, onUnclaim, onStatusChange, onDelete,
+  item, type, currentUserId, isOrganizer, onUnclaim, onStatusChange, onDelete, onUpdateNotes, onRespond,
 }: {
   item: EventItem
   type: string
@@ -630,53 +673,112 @@ function ItemRow({
   onUnclaim: (id: string) => void
   onStatusChange: (id: string, status: string) => void
   onDelete: (id: string) => void
+  onUpdateNotes?: (id: string, notes: string) => void
+  onRespond?: (id: string, accept: boolean) => void
 }) {
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [noteText, setNoteText] = useState(item.notes || '')
   const isMine = item.assigned_to === currentUserId
   const isDone = item.status === 'done'
+  const isPendingApproval = item.status === 'pending_approval'
 
   return (
-    <div className="px-3 py-2.5 flex items-center gap-2">
-      {/* Status toggle for tasks */}
-      {type === 'task' && (
-        <button
-          onClick={() => onStatusChange(item.id, isDone ? 'claimed' : 'done')}
-          className={cn(
-            'h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
-            isDone ? 'bg-success border-success' : 'border-slate-300 dark:border-slate-600'
-          )}
-        >
-          {isDone && <Check className="h-3 w-3 text-white" />}
-        </button>
-      )}
+    <div className="px-3 py-2.5 space-y-1.5">
+      <div className="flex items-center gap-2">
+        {/* Status toggle for tasks */}
+        {type === 'task' && !isPendingApproval && (
+          <button
+            onClick={() => onStatusChange(item.id, isDone ? 'claimed' : 'done')}
+            className={cn(
+              'h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
+              isDone ? 'bg-success border-success' : 'border-slate-300 dark:border-slate-600'
+            )}
+          >
+            {isDone && <Check className="h-3 w-3 text-white" />}
+          </button>
+        )}
 
-      <div className="flex-1 min-w-0">
-        <p className={cn(
-          'text-sm',
-          isDone ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'
+        <div className="flex-1 min-w-0">
+          <p className={cn(
+            'text-sm',
+            isDone ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'
+          )}>
+            {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
+            {item.name}
+          </p>
+        </div>
+
+        <span className={cn(
+          'text-xs px-2 py-0.5 rounded-full shrink-0',
+          isDone ? 'bg-success/20 text-success'
+            : isPendingApproval ? 'bg-warning/20 text-warning'
+            : 'bg-brand-500/10 text-brand-500'
         )}>
-          {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
-          {item.name}
-        </p>
-        {item.notes && <p className="text-[10px] text-slate-400">{item.notes}</p>}
+          {isPendingApproval ? 'Pending' : item.profile?.display_name || item.guest_name || '?'}
+        </span>
+
+        {isMine && !isDone && !isPendingApproval && onUpdateNotes && (
+          <button onClick={() => setEditingNotes(!editingNotes)} className="text-slate-400 hover:text-brand-500 shrink-0">
+            <Edit3 className="h-3 w-3" />
+          </button>
+        )}
+
+        {(isMine || isOrganizer) && !isDone && !isPendingApproval && (
+          <button onClick={() => onUnclaim(item.id)} className="text-slate-400 hover:text-danger shrink-0">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+
+        {isOrganizer && (
+          <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-danger shrink-0">
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
-      <span className={cn(
-        'text-xs px-2 py-0.5 rounded-full shrink-0',
-        isDone ? 'bg-success/20 text-success' : 'bg-brand-500/10 text-brand-500'
-      )}>
-        {item.profile?.display_name || item.guest_name || '?'}
-      </span>
-
-      {(isMine || isOrganizer) && !isDone && (
-        <button onClick={() => onUnclaim(item.id)} className="text-slate-400 hover:text-danger shrink-0">
-          <X className="h-3.5 w-3.5" />
-        </button>
+      {/* Pending approval - accept/deny buttons */}
+      {isPendingApproval && isMine && onRespond && (
+        <div className="flex gap-2 ml-7">
+          <button
+            onClick={() => onRespond(item.id, true)}
+            className="text-xs px-3 py-1 rounded-full bg-success/20 text-success font-medium"
+          >
+            Accept
+          </button>
+          <button
+            onClick={() => onRespond(item.id, false)}
+            className="text-xs px-3 py-1 rounded-full bg-danger/20 text-danger font-medium"
+          >
+            Decline
+          </button>
+        </div>
       )}
 
-      {isOrganizer && (
-        <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-danger shrink-0">
-          <Trash2 className="h-3 w-3" />
-        </button>
+      {/* Notes display */}
+      {item.notes && !editingNotes && (
+        <p className="text-[10px] text-slate-400 ml-7">{item.notes}</p>
+      )}
+
+      {/* Notes editing */}
+      {editingNotes && onUpdateNotes && (
+        <div className="flex gap-2 ml-7">
+          <input
+            type="text"
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Add a note..."
+            className="flex-1 text-xs bg-slate-50 dark:bg-surface-dark-overlay px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+          />
+          <button
+            onClick={() => {
+              onUpdateNotes(item.id, noteText)
+              setEditingNotes(false)
+            }}
+            className="text-xs text-brand-500 font-medium"
+          >
+            Save
+          </button>
+        </div>
       )}
     </div>
   )

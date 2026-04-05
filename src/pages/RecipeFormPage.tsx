@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react'
@@ -77,6 +77,8 @@ export function RecipeFormPage() {
     }
   }, [existingRecipe, loaded])
 
+  const ingredientsEndRef = useRef<HTMLDivElement>(null)
+
   function addIngredient() {
     setIngredients((prev) => [
       ...prev,
@@ -89,6 +91,10 @@ export function RecipeFormPage() {
         notes: '',
       },
     ])
+    // Auto-scroll to the new ingredient after render
+    setTimeout(() => {
+      ingredientsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
   }
 
   function updateIngredient(rowId: string, field: keyof IngredientRow, value: string) {
@@ -291,6 +297,7 @@ export function RecipeFormPage() {
                 </div>
               </Card>
             ))}
+            <div ref={ingredientsEndRef} />
           </div>
         )}
       </section>

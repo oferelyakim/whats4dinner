@@ -208,11 +208,10 @@ export function RecipeImportPage() {
               ) : (
                 <label className="flex flex-col items-center justify-center w-full h-48 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 cursor-pointer hover:border-brand-500 transition-colors">
                   <Camera className="h-8 w-8 text-slate-400 mb-2" />
-                  <span className="text-sm text-slate-500">Tap to take or choose a photo</span>
+                  <span className="text-sm text-slate-500">Take a photo, screenshot, or pick from gallery</span>
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0]

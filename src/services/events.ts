@@ -35,7 +35,7 @@ export interface EventItem {
   guest_name: string | null
   notes: string | null
   due_at: string | null
-  status: 'unclaimed' | 'claimed' | 'in_progress' | 'done'
+  status: 'unclaimed' | 'claimed' | 'pending_approval' | 'in_progress' | 'done'
   sort_order: number
   created_at: string
   profile?: { display_name: string }
@@ -202,7 +202,45 @@ export async function claimItem(itemId: string): Promise<void> {
 export async function unclaimItem(itemId: string): Promise<void> {
   const { error } = await supabase
     .from('event_items')
-    .update({ assigned_to: null, status: 'unclaimed' })
+    .update({ assigned_to: null, guest_name: null, status: 'unclaimed' })
+    .eq('id', itemId)
+
+  if (error) throw error
+}
+
+// Assign an item to a specific person (organizer action)
+export async function assignItem(itemId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('event_items')
+    .update({ assigned_to: userId, status: 'pending_approval' })
+    .eq('id', itemId)
+
+  if (error) throw error
+}
+
+// Accept or deny assignment
+export async function respondToAssignment(itemId: string, accept: boolean): Promise<void> {
+  if (accept) {
+    const { error } = await supabase
+      .from('event_items')
+      .update({ status: 'claimed' })
+      .eq('id', itemId)
+    if (error) throw error
+  } else {
+    // Denied - unassign and put back to unclaimed
+    const { error } = await supabase
+      .from('event_items')
+      .update({ assigned_to: null, status: 'unclaimed' })
+      .eq('id', itemId)
+    if (error) throw error
+  }
+}
+
+// Update item notes (for the person who claimed it)
+export async function updateItemNotes(itemId: string, notes: string): Promise<void> {
+  const { error } = await supabase
+    .from('event_items')
+    .update({ notes })
     .eq('id', itemId)
 
   if (error) throw error
@@ -250,6 +288,52 @@ export async function removeOrganizer(eventId: string, userId: string): Promise<
     .eq('user_id', userId)
 
   if (error) throw error
+}
+
+// Create a personal shopping/todo list from items you've claimed in an event
+export async function createMyEventList(eventId: string, eventName: string): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // Get items assigned to me
+  const { data: myItems } = await supabase
+    .from('event_items')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('assigned_to', user.id)
+
+  if (!myItems?.length) return null
+
+  // Get user's first circle for the list
+  const { data: circles } = await supabase
+    .from('circles')
+    .select('id')
+    .limit(1)
+
+  if (!circles?.length) return null
+
+  // Create shopping list
+  const { data: list } = await supabase
+    .rpc('create_shopping_list', {
+      p_name: `My items for: ${eventName}`,
+      p_circle_id: circles[0].id,
+    })
+
+  if (!list?.id) return null
+
+  // Add items to the list
+  const listItems = myItems.map((item) => ({
+    list_id: list.id,
+    name: item.name,
+    quantity: item.quantity,
+    unit: '',
+    category: item.type === 'dish' ? 'Other' : item.category || 'Other',
+    notes: `${item.type}: ${item.name}`,
+    added_by: user.id,
+  }))
+
+  await supabase.from('shopping_list_items').insert(listItems)
+  return list.id
 }
 
 // Clone an event: copies items (dishes, supplies, tasks) without assignments

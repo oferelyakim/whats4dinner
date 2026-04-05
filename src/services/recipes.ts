@@ -154,11 +154,35 @@ export async function deleteRecipe(id: string): Promise<void> {
 }
 
 export async function createRecipeShare(recipeId: string): Promise<string> {
-  const { data, error } = await supabase
-    .rpc('create_recipe_share', { p_recipe_id: recipeId })
+  // Try RPC first
+  try {
+    const { data, error } = await supabase
+      .rpc('create_recipe_share', { p_recipe_id: recipeId })
+    if (!error && data) return data as string
+  } catch { /* fall through to direct approach */ }
 
-  if (error) throw error
-  return data as string
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Check existing share
+  const { data: existing } = await supabase
+    .from('recipe_shares')
+    .select('share_code')
+    .eq('recipe_id', recipeId)
+    .eq('created_by', user.id)
+    .maybeSingle()
+
+  if (existing?.share_code) return existing.share_code
+
+  // Create new share
+  const { data: newShare, error: insertErr } = await supabase
+    .from('recipe_shares')
+    .insert({ recipe_id: recipeId, created_by: user.id })
+    .select('share_code')
+    .single()
+
+  if (insertErr) throw new Error('Could not create share link')
+  return newShare.share_code
 }
 
 const CUISINE_KEYWORDS: Record<string, string[]> = {

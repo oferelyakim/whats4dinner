@@ -68,6 +68,19 @@ select {
   color-scheme: light dark;
 }
 
+/* Fix bottom sheet dialogs on mobile - ensure inputs visible above keyboard */
+@supports (height: 100dvh) {
+  [data-radix-dialog-content] {
+    max-height: 85dvh;
+  }
+}
+
+/* Ensure dialog scrolls when keyboard is open */
+[data-radix-dialog-content] {
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+
 /* RTL support */
 [dir="rtl"] {
   text-align: right;
