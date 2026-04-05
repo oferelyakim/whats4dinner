@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, Trash2, ShoppingCart,
+  ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, Trash2,
   UtensilsCrossed, Package, ListTodo, Users, Crown, X, Download, Edit3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -14,7 +14,7 @@ import {
   getEvent, getEventParticipants, getEventItems, getEventOrganizers,
   addEventItem, claimItem, unclaimItem, updateItemStatus, deleteEventItem,
   deleteEvent, addOrganizer, cloneEvent, updateItemNotes,
-  assignItem, respondToAssignment, createMyEventList,
+  assignItem, respondToAssignment,
   type EventItem, type EventParticipant, type EventOrganizer,
 } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
@@ -23,7 +23,7 @@ import { exportEventToCalendar } from '@/lib/calendar'
 
 // TABS moved inside component for i18n
 
-type Tab = 'overview' | 'menu' | 'supplies' | 'tasks'
+type Tab = 'overview' | 'menu' | 'supplies' | 'tasks' | 'mine'
 
 const DISH_CATEGORIES = [
   { value: 'appetizer', label: 'Appetizer', emoji: '🥗' },
@@ -48,12 +48,13 @@ export function EventDetailPage() {
   const { profile } = useAppStore()
   const { t } = useI18n()
 
-  const TABS = [
+  const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: 'overview', label: t('event.overview'), icon: Users },
+    { id: 'mine', label: 'Mine', icon: Crown },
     { id: 'menu', label: t('event.menu'), icon: UtensilsCrossed },
     { id: 'supplies', label: t('event.supplies'), icon: Package },
     { id: 'tasks', label: t('event.tasks'), icon: ListTodo },
-  ] as const
+  ]
 
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showAddItem, setShowAddItem] = useState(false)
@@ -174,13 +175,6 @@ export function EventDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-items', id] }),
   })
 
-  const createListMutation = useMutation({
-    mutationFn: () => createMyEventList(id!, event?.name ?? 'Event'),
-    onSuccess: (listId) => {
-      if (listId) navigate(`/lists/${listId}`)
-    },
-    onError: (err: Error) => setError(err.message),
-  })
 
   if (!event) {
     return (
@@ -341,17 +335,14 @@ export function EventDetailPage() {
             </div>
           </section>
 
-          {/* My List from claimed items */}
+          {/* Hint about Mine tab */}
           {items.some((i: EventItem) => i.assigned_to === profile?.id) && (
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => createListMutation.mutate()}
-              disabled={createListMutation.isPending}
+            <button
+              onClick={() => setActiveTab('mine')}
+              className="w-full text-center text-xs text-brand-500 font-medium py-2"
             >
-              <ShoppingCart className="h-4 w-4" />
-              {createListMutation.isPending ? 'Creating...' : 'Create my shopping list from claimed items'}
-            </Button>
+              You have items assigned - tap "Mine" tab to see them
+            </button>
           )}
 
           {/* Clone & Delete */}
@@ -436,11 +427,119 @@ export function EventDetailPage() {
         />
       )}
 
+      {activeTab === 'mine' && (() => {
+        const myDishes = items.filter((i: EventItem) => i.type === 'dish' && i.assigned_to === profile?.id)
+        const mySupplies = items.filter((i: EventItem) => i.type === 'supply' && i.assigned_to === profile?.id)
+        const myTasks = items.filter((i: EventItem) => i.type === 'task' && i.assigned_to === profile?.id)
+        const hasItems = myDishes.length + mySupplies.length + myTasks.length > 0
+
+        return (
+          <div className="space-y-4">
+            {!hasItems ? (
+              <div className="text-center py-12">
+                <Crown className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                <p className="text-sm text-slate-400">Nothing assigned to you yet</p>
+                <p className="text-xs text-slate-400 mt-1">Volunteer for items or wait to be assigned</p>
+              </div>
+            ) : (
+              <>
+                {/* My Dishes */}
+                {myDishes.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
+                      🍽️ My Dishes ({myDishes.length})
+                    </p>
+                    <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {myDishes.map((item) => (
+                        <div key={item.id} className="px-3 py-2.5 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex-1">{item.name}</p>
+                            <span className={cn(
+                              'text-xs px-2 py-0.5 rounded-full',
+                              item.status === 'done' ? 'bg-success/20 text-success' :
+                              item.status === 'pending_approval' ? 'bg-warning/20 text-warning' :
+                              'bg-brand-500/10 text-brand-500'
+                            )}>
+                              {item.status === 'pending_approval' ? 'Pending' : item.status}
+                            </span>
+                          </div>
+                          {item.notes && <p className="text-[10px] text-slate-400">{item.notes}</p>}
+                        </div>
+                      ))}
+                    </Card>
+                  </div>
+                )}
+
+                {/* My Supplies */}
+                {mySupplies.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
+                      📦 My Supplies ({mySupplies.length})
+                    </p>
+                    <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {mySupplies.map((item) => (
+                        <div key={item.id} className="px-3 py-2.5 flex items-center gap-2">
+                          <p className="text-sm text-slate-800 dark:text-slate-200 flex-1">
+                            {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
+                            {item.name}
+                          </p>
+                          <span className={cn(
+                            'text-xs px-2 py-0.5 rounded-full',
+                            item.status === 'done' ? 'bg-success/20 text-success' : 'bg-brand-500/10 text-brand-500'
+                          )}>
+                            {item.status}
+                          </span>
+                        </div>
+                      ))}
+                    </Card>
+                  </div>
+                )}
+
+                {/* My Tasks */}
+                {myTasks.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
+                      ✅ My Tasks ({myTasks.length})
+                    </p>
+                    <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {myTasks.map((item) => (
+                        <div key={item.id} className="px-3 py-2.5 flex items-center gap-2">
+                          <button
+                            onClick={() => statusMutation.mutate({ itemId: item.id, status: item.status === 'done' ? 'claimed' : 'done' })}
+                            className={cn(
+                              'h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
+                              item.status === 'done' ? 'bg-success border-success' : 'border-slate-300 dark:border-slate-600'
+                            )}
+                          >
+                            {item.status === 'done' && <Check className="h-3 w-3 text-white" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className={cn('text-sm', item.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200')}>
+                              {item.name}
+                            </p>
+                            {item.notes && <p className="text-[10px] text-slate-400">{item.notes}</p>}
+                            {item.due_at && (
+                              <p className="text-[10px] text-slate-400">
+                                Due: {new Date(item.due_at).toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </Card>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )
+      })()}
+
       {/* Add Item Dialog */}
       <Dialog.Root open={showAddItem} onOpenChange={setShowAddItem}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
+          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
               {addType === 'dish' ? t('event.addDish') : addType === 'supply' ? t('event.addSupply') : t('event.addTask')}
             </Dialog.Title>

@@ -69,16 +69,18 @@ select {
 }
 
 /* Fix bottom sheet dialogs on mobile - ensure inputs visible above keyboard */
-@supports (height: 100dvh) {
-  [data-radix-dialog-content] {
-    max-height: 85dvh;
-  }
+[data-radix-dialog-content] {
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding-bottom: 2rem;
 }
 
-/* Ensure dialog scrolls when keyboard is open */
-[data-radix-dialog-content] {
-  overflow-y: auto;
-  padding-bottom: env(safe-area-inset-bottom, 1rem);
+/* When a focused input is inside a dialog, scroll it into view */
+[data-radix-dialog-content] input:focus,
+[data-radix-dialog-content] select:focus,
+[data-radix-dialog-content] textarea:focus {
+  scroll-margin-bottom: 8rem;
 }
 
 /* RTL support */
