@@ -22,6 +22,7 @@ import { EventsPage } from '@/pages/EventsPage'
 import { EventDetailPage } from '@/pages/EventDetailPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { MealMenusPage } from '@/pages/MealMenusPage'
+import { JoinEventPage } from '@/pages/JoinEventPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +40,7 @@ export default function App() {
         <Routes>
           {/* Public routes (outside AuthGuard) */}
           <Route path="/join/:code" element={<JoinCirclePage />} />
+          <Route path="/join-event/:code" element={<JoinEventPage />} />
           <Route path="/r/:code" element={<SharedRecipePage />} />
         </Routes>
         <AuthGuard>
