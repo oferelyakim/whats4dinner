@@ -153,6 +153,16 @@ export async function deleteRecipe(id: string): Promise<void> {
   if (error) throw error
 }
 
+// Share recipe with a circle (sets circle_id so all members can see it)
+export async function shareRecipeWithCircle(recipeId: string, circleId: string): Promise<void> {
+  const { error } = await supabase
+    .from('recipes')
+    .update({ circle_id: circleId })
+    .eq('id', recipeId)
+
+  if (error) throw error
+}
+
 export async function createRecipeShare(recipeId: string): Promise<string> {
   // Try RPC first
   try {

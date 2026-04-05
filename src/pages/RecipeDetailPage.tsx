@@ -6,9 +6,10 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
-import { getRecipe, createRecipeShare, deleteRecipe } from '@/services/recipes'
-import { getShoppingLists, createShoppingList, addRecipeToList } from '@/services/shoppingLists'
+import { getRecipe, createRecipeShare, deleteRecipe, shareRecipeWithCircle } from '@/services/recipes'
 import { getMyCircles } from '@/services/circles'
+import type { Circle } from '@/types'
+import { getShoppingLists, createShoppingList, addRecipeToList } from '@/services/shoppingLists'
 import { useI18n } from '@/lib/i18n'
 
 export function RecipeDetailPage() {
@@ -16,8 +17,9 @@ export function RecipeDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { t } = useI18n()
-  const [sharing, setSharing] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
+  const [sharedToCircles, setSharedToCircles] = useState<Set<string>>(new Set())
   const [showDelete, setShowDelete] = useState(false)
   const [showAddToList, setShowAddToList] = useState(false)
   const [showNewList, setShowNewList] = useState(false)
@@ -39,7 +41,7 @@ export function RecipeDetailPage() {
   const { data: circles = [] } = useQuery({
     queryKey: ['circles'],
     queryFn: getMyCircles,
-    enabled: showNewList,
+    enabled: showShare || showNewList,
   })
 
   const addToListMutation = useMutation({
@@ -109,36 +111,12 @@ export function RecipeDetailPage() {
         <Button
           size="sm"
           variant="ghost"
-          disabled={sharing}
-          onClick={async () => {
-            setSharing(true)
-            try {
-              const code = await createRecipeShare(id!)
-              const url = `${window.location.origin}/r/${code}`
-              setShareUrl(url)
-              // Try native share first (mobile), fallback to clipboard
-              if (navigator.share) {
-                await navigator.share({ title: recipe?.title, url })
-              } else {
-                await navigator.clipboard.writeText(url)
-              }
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : 'Share failed'
-              alert(`Share error: ${msg}`)
-            }
-            setSharing(false)
-          }}
+          onClick={() => setShowShare(true)}
         >
-          {shareUrl ? <Check className="h-4 w-4 text-success" /> : <Share2 className="h-4 w-4" />}
+          <Share2 className="h-4 w-4" />
         </Button>
       </div>
 
-      {shareUrl && (
-        <div className="flex items-center gap-2 bg-success/10 text-success text-xs rounded-lg px-3 py-2">
-          <Check className="h-3.5 w-3.5" />
-          Share link copied! Anyone with the link can view this recipe.
-        </div>
-      )}
 
       {/* Description */}
       {recipe.description && (
@@ -245,6 +223,107 @@ export function RecipeDetailPage() {
         <Trash2 className="h-4 w-4" />
         {t('recipe.delete')}
       </button>
+
+      {/* Share Dialog */}
+      <Dialog.Root open={showShare} onOpenChange={setShowShare}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+              Share Recipe
+            </Dialog.Title>
+
+            {/* Get link */}
+            <div className="mb-4">
+              <p className="text-xs text-slate-400 mb-2">Anyone with the link can view this recipe</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  disabled={!!shareUrl}
+                  onClick={async () => {
+                    try {
+                      const code = await createRecipeShare(id!)
+                      setShareUrl(`${window.location.origin}/r/${code}`)
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : 'Failed')
+                    }
+                  }}
+                >
+                  {shareUrl ? <Check className="h-4 w-4 text-success" /> : null}
+                  {shareUrl ? 'Link ready!' : 'Generate Link'}
+                </Button>
+                {shareUrl && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(shareUrl)
+                      }}
+                    >
+                      Copy
+                    </Button>
+                    {navigator.share && (
+                      <Button
+                        onClick={() => navigator.share({ title: recipe?.title, url: shareUrl })}
+                      >
+                        Send
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+              <span className="text-xs text-slate-400">or share with circles</span>
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+            </div>
+
+            {/* Share with circles */}
+            <div className="space-y-2">
+              {circles.map((circle: Circle) => {
+                const isShared = sharedToCircles.has(circle.id) || recipe?.circle_id === circle.id
+                return (
+                  <button
+                    key={circle.id}
+                    disabled={isShared}
+                    onClick={async () => {
+                      try {
+                        await shareRecipeWithCircle(id!, circle.id)
+                        setSharedToCircles((prev) => new Set([...prev, circle.id]))
+                        queryClient.invalidateQueries({ queryKey: ['recipe', id] })
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : 'Failed')
+                      }
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors disabled:opacity-50"
+                  >
+                    <span className="text-xl">{circle.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{circle.name}</p>
+                      <p className="text-[10px] text-slate-400">All members will see this recipe</p>
+                    </div>
+                    {isShared ? (
+                      <Check className="h-5 w-5 text-success" />
+                    ) : (
+                      <Share2 className="h-4 w-4 text-slate-400" />
+                    )}
+                  </button>
+                )
+              })}
+              {circles.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-4">No circles yet</p>
+              )}
+            </div>
+
+            <Button variant="secondary" className="w-full mt-4" onClick={() => setShowShare(false)}>
+              Done
+            </Button>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Delete Confirmation */}
       <Dialog.Root open={showDelete} onOpenChange={setShowDelete}>
