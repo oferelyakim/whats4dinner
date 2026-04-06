@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
+import { cn } from '@/lib/cn'
 import { getRecipe, createRecipeShare, deleteRecipe, shareRecipeWithCircle } from '@/services/recipes'
 import { getMyCircles } from '@/services/circles'
 import type { Circle } from '@/types'
@@ -21,6 +22,7 @@ export function RecipeDetailPage() {
   const [shareUrl, setShareUrl] = useState('')
   const [sharedToCircles, setSharedToCircles] = useState<Set<string>>(new Set())
   const [showDelete, setShowDelete] = useState(false)
+  const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set())
   const [showAddToList, setShowAddToList] = useState(false)
   const [showNewList, setShowNewList] = useState(false)
   const [newListName, setNewListName] = useState('')
@@ -45,7 +47,7 @@ export function RecipeDetailPage() {
   })
 
   const addToListMutation = useMutation({
-    mutationFn: (listId: string) => addRecipeToList(listId, id!),
+    mutationFn: (listId: string) => addRecipeToList(listId, id!, selectedIngredients.size > 0 ? selectedIngredients : undefined),
     onSuccess: async (_data, listId) => {
       await queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
       await queryClient.invalidateQueries({ queryKey: ['shopping-list', listId] })
@@ -353,12 +355,17 @@ export function RecipeDetailPage() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Add to List Dialog */}
-      <Dialog.Root open={showAddToList} onOpenChange={setShowAddToList}>
+      {/* Add to List Dialog - Step 1: Pick ingredients, Step 2: Pick list */}
+      <Dialog.Root open={showAddToList} onOpenChange={(open) => {
+        setShowAddToList(open)
+        if (open && recipe?.ingredients) {
+          setSelectedIngredients(new Set(recipe.ingredients.map((i) => i.id)))
+        }
+      }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
               {t('recipe.addToList')}
             </Dialog.Title>
 
@@ -389,13 +396,66 @@ export function RecipeDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* Ingredient picker */}
+                {recipe?.ingredients && recipe.ingredients.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Select ingredients ({selectedIngredients.size}/{recipe.ingredients.length})
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (selectedIngredients.size === recipe.ingredients!.length) {
+                            setSelectedIngredients(new Set())
+                          } else {
+                            setSelectedIngredients(new Set(recipe.ingredients!.map((i) => i.id)))
+                          }
+                        }}
+                        className="text-xs text-brand-500 font-medium"
+                      >
+                        {selectedIngredients.size === recipe.ingredients.length ? 'Deselect all' : 'Select all'}
+                      </button>
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {recipe.ingredients.map((ing) => (
+                        <button
+                          key={ing.id}
+                          onClick={() => {
+                            setSelectedIngredients((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(ing.id)) next.delete(ing.id)
+                              else next.add(ing.id)
+                              return next
+                            })
+                          }}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay"
+                        >
+                          <div className={cn(
+                            'h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
+                            selectedIngredients.has(ing.id) ? 'bg-brand-500 border-brand-500' : 'border-slate-300 dark:border-slate-600'
+                          )}>
+                            {selectedIngredients.has(ing.id) && <Check className="h-2.5 w-2.5 text-white" />}
+                          </div>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            {ing.quantity && <strong>{ing.quantity} </strong>}
+                            {ing.unit && `${ing.unit} `}
+                            {ing.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* List picker */}
+                <p className="text-xs text-slate-400">Add {selectedIngredients.size} ingredients to:</p>
                 {lists.length > 0 && lists.filter((l) => l.status === 'active').map((list) => (
                   <button
                     key={list.id}
                     onClick={() => addToListMutation.mutate(list.id)}
-                    disabled={addToListMutation.isPending}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left active:scale-[0.98] transition-all hover:border-brand-500"
+                    disabled={addToListMutation.isPending || selectedIngredients.size === 0}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left active:scale-[0.98] transition-all hover:border-brand-500 disabled:opacity-50"
                   >
                     <ShoppingCart className="h-5 w-5 text-slate-400 shrink-0" />
                     <div className="flex-1 min-w-0">

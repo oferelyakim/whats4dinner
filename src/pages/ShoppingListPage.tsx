@@ -377,9 +377,22 @@ export function ShoppingListPage() {
           {/* Checked items */}
           {checked.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
-                Done ({checked.length})
-              </p>
+              <div className="flex items-center justify-between mb-1.5 px-1">
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  Done ({checked.length})
+                </p>
+                <button
+                  onClick={async () => {
+                    for (const item of checked) {
+                      await toggleListItem(item.id, false)
+                    }
+                    queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
+                  }}
+                  className="text-xs text-brand-500 font-medium"
+                >
+                  Uncheck all
+                </button>
+              </div>
               <Card className="divide-y divide-slate-100 dark:divide-slate-800 opacity-60">
                 {checked.map((item) => (
                   <div key={item.id} className="px-3 py-2.5">

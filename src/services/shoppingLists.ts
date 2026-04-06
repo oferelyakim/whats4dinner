@@ -99,7 +99,7 @@ export async function removeListItem(itemId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function addRecipeToList(listId: string, recipeId: string): Promise<void> {
+export async function addRecipeToList(listId: string, recipeId: string, ingredientIds?: Set<string>): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
@@ -110,6 +110,13 @@ export async function addRecipeToList(listId: string, recipeId: string): Promise
   ])
 
   if (!ingredients?.length) return
+
+  // Filter by selected ingredient IDs if provided
+  const filteredIngredients = ingredientIds
+    ? ingredients.filter((ing) => ingredientIds.has(ing.id))
+    : ingredients
+
+  if (!filteredIngredients.length) return
   const recipeName = recipe?.title || ''
 
   // Fetch existing items on the list to deduplicate
@@ -127,7 +134,7 @@ export async function addRecipeToList(listId: string, recipeId: string): Promise
   const toInsert: { list_id: string; name: string; quantity: number | null; unit: string; category: string; recipe_id: string; notes: string | null; added_by: string }[] = []
   const toUpdate: { id: string; quantity: number | null; notes: string | null }[] = []
 
-  for (const ing of ingredients) {
+  for (const ing of filteredIngredients) {
     const key = ing.name.toLowerCase().trim()
     const existing = existingMap.get(key)
 
