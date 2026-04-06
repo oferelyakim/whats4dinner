@@ -10,8 +10,10 @@ import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
 import { getMyCircles } from '@/services/circles'
 import type { Circle } from '@/types'
-import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates, copyWeekPlan } from '@/services/mealPlans'
+import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates, copyWeekPlan, addMenuToPlan } from '@/services/mealPlans'
 import { getRecipes } from '@/services/recipes'
+import { getMealMenus } from '@/services/mealMenus'
+import type { MealMenu, Recipe as RecipeType } from '@/types'
 import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/services/shoppingLists'
 import { MEAL_TYPES, type MealType } from '@/lib/constants'
 import { useI18n } from '@/lib/i18n'
@@ -46,6 +48,7 @@ export function PlanPage() {
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedMealType, setSelectedMealType] = useState<MealType>('dinner')
   const [search, setSearch] = useState('')
+  const [addSource, setAddSource] = useState<'recipes' | 'templates'>('recipes')
   const [showAddToList, setShowAddToList] = useState(false)
   const [addingToList, setAddingToList] = useState(false)
 
@@ -73,9 +76,25 @@ export function PlanPage() {
     enabled: showAddMeal,
   })
 
+  const { data: menus = [] } = useQuery({
+    queryKey: ['meal-menus', activeCircle?.id],
+    queryFn: () => getMealMenus(activeCircle?.id),
+    enabled: showAddMeal && addSource === 'templates',
+  })
+
   const addMutation = useMutation({
     mutationFn: (recipeId: string) =>
       setMealPlan(activeCircle!.id, selectedDate, selectedMealType, recipeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
+      setShowAddMeal(false)
+      setSearch('')
+    },
+  })
+
+  const addMenuMutation = useMutation({
+    mutationFn: (menuId: string) =>
+      addMenuToPlan(activeCircle!.id, selectedDate, selectedMealType, menuId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
       setShowAddMeal(false)
@@ -293,36 +312,52 @@ export function PlanPage() {
               {/* Meal slots */}
               <div className="space-y-1.5">
                 {MEAL_TYPES.map((mealType) => {
-                  const plan = dayPlans.find((p) => p.meal_type === mealType)
+                  const slotPlans = dayPlans.filter((p) => p.meal_type === mealType)
 
-                  return plan ? (
-                    <div
-                      key={mealType}
-                      className={cn(
-                        'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs',
-                        MEAL_COLORS[mealType]
+                  return (
+                    <div key={mealType}>
+                      {slotPlans.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {slotPlans.map((plan, idx) => (
+                            <div
+                              key={plan.id}
+                              className={cn(
+                                'flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs',
+                                MEAL_COLORS[mealType]
+                              )}
+                            >
+                              {idx === 0 && <span className="font-medium shrink-0">{MEAL_LABELS[mealType]}:</span>}
+                              {idx > 0 && <span className="shrink-0 w-[calc(3ch+0.5rem)]" />}
+                              <span className="flex-1 truncate">
+                                {plan.recipe?.title ?? plan.menu?.name ?? plan.notes ?? ''}
+                              </span>
+                              <button
+                                onClick={() => removeMutation.mutate(plan.id)}
+                                className="shrink-0 opacity-60 hover:opacity-100"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                          {/* Add more to this slot */}
+                          <button
+                            onClick={() => openAddMeal(date, mealType)}
+                            className="flex items-center gap-1 px-2.5 py-0.5 text-[10px] text-slate-400 hover:text-brand-500 transition-colors"
+                          >
+                            <Plus className="h-2.5 w-2.5" />
+                            add more
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => openAddMeal(date, mealType)}
+                          className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors"
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>{MEAL_LABELS[mealType]}</span>
+                        </button>
                       )}
-                    >
-                      <span className="font-medium shrink-0">{MEAL_LABELS[mealType]}:</span>
-                      <span className="flex-1 truncate">
-                        {plan.recipe?.title ?? plan.menu?.name ?? plan.notes ?? ''}
-                      </span>
-                      <button
-                        onClick={() => removeMutation.mutate(plan.id)}
-                        className="shrink-0 opacity-60 hover:opacity-100"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
                     </div>
-                  ) : (
-                    <button
-                      key={mealType}
-                      onClick={() => openAddMeal(date, mealType)}
-                      className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors"
-                    >
-                      <Plus className="h-3 w-3" />
-                      <span>{MEAL_LABELS[mealType]}</span>
-                    </button>
                   )
                 })}
               </div>
@@ -347,6 +382,28 @@ export function PlanPage() {
               })}
             </p>
 
+            {/* Recipes / Templates toggle */}
+            <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5 mb-3">
+              <button
+                onClick={() => setAddSource('recipes')}
+                className={cn(
+                  'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                  addSource === 'recipes' ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                )}
+              >
+                Recipes
+              </button>
+              <button
+                onClick={() => setAddSource('templates')}
+                className={cn(
+                  'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                  addSource === 'templates' ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                )}
+              >
+                Templates
+              </button>
+            </div>
+
             <input
               type="text"
               placeholder={t('recipe.search')}
@@ -355,33 +412,73 @@ export function PlanPage() {
               className="w-full px-3 py-2 rounded-xl text-sm bg-slate-100 dark:bg-surface-dark-overlay border-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50 mb-3"
             />
 
-            {filteredRecipes.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">
-                {recipes.length === 0 ? 'No recipes yet. Add some first!' : 'No matching recipes'}
-              </p>
+            {addSource === 'recipes' ? (
+              <>
+                {filteredRecipes.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-6">
+                    {recipes.length === 0 ? 'No recipes yet. Add some first!' : 'No matching recipes'}
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {filteredRecipes.map((recipe: Recipe) => (
+                      <button
+                        key={recipe.id}
+                        onClick={() => addMutation.mutate(recipe.id)}
+                        disabled={addMutation.isPending}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay active:scale-[0.98] transition-all"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                            {recipe.title}
+                          </p>
+                          {recipe.tags?.length > 0 && (
+                            <p className="text-[10px] text-slate-400 truncate">
+                              {recipe.tags.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <Plus className="h-4 w-4 text-slate-400 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="space-y-1.5">
-                {filteredRecipes.map((recipe: Recipe) => (
-                  <button
-                    key={recipe.id}
-                    onClick={() => addMutation.mutate(recipe.id)}
-                    disabled={addMutation.isPending}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay active:scale-[0.98] transition-all"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-                        {recipe.title}
-                      </p>
-                      {recipe.tags?.length > 0 && (
-                        <p className="text-[10px] text-slate-400 truncate">
-                          {recipe.tags.join(', ')}
-                        </p>
-                      )}
-                    </div>
-                    <Plus className="h-4 w-4 text-slate-400 shrink-0" />
-                  </button>
-                ))}
-              </div>
+              <>
+                {menus.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-6">
+                    No templates yet. Create one in More &gt; Meal Templates.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {menus
+                      .filter((m: MealMenu & { recipes: RecipeType[] }) => !search || m.name.toLowerCase().includes(search.toLowerCase()))
+                      .map((menu: MealMenu & { recipes: RecipeType[] }) => (
+                      <button
+                        key={menu.id}
+                        onClick={() => addMenuMutation.mutate(menu.id)}
+                        disabled={addMenuMutation.isPending}
+                        className="w-full flex items-start gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay active:scale-[0.98] transition-all"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                            {menu.name}
+                          </p>
+                          {menu.recipes?.length > 0 && (
+                            <p className="text-[10px] text-slate-400 truncate">
+                              {menu.recipes.map((r: RecipeType) => r.title).join(', ')}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-slate-500 mt-0.5">
+                            {menu.recipes?.length || 0} recipes - adds all to this slot
+                          </p>
+                        </div>
+                        <Plus className="h-4 w-4 text-slate-400 shrink-0 mt-1" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </Dialog.Content>
         </Dialog.Portal>

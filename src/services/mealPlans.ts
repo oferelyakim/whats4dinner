@@ -27,23 +27,62 @@ export async function setMealPlan(
 
   const { data, error } = await supabase
     .from('meal_plans')
-    .upsert(
-      {
-        circle_id: circleId,
-        plan_date: planDate,
-        meal_type: mealType,
-        recipe_id: recipeId || null,
-        menu_id: menuId || null,
-        notes: notes || null,
-        created_by: user.id,
-      },
-      { onConflict: 'circle_id,plan_date,meal_type' }
-    )
+    .insert({
+      circle_id: circleId,
+      plan_date: planDate,
+      meal_type: mealType,
+      recipe_id: recipeId || null,
+      menu_id: menuId || null,
+      notes: notes || null,
+      created_by: user.id,
+    })
     .select('*, recipe:recipes(id, title, prep_time_min, cook_time_min, tags)')
     .single()
 
   if (error) throw error
   return data as MealPlan
+}
+
+// Add a meal template (all its recipes) to a meal slot
+export async function addMenuToPlan(
+  circleId: string,
+  planDate: string,
+  mealType: string,
+  menuId: string
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Get recipes in this menu
+  const { data: menuRecipes } = await supabase
+    .from('meal_menu_recipes')
+    .select('recipe_id')
+    .eq('menu_id', menuId)
+
+  if (!menuRecipes?.length) {
+    // Just add the menu reference without recipes
+    await supabase.from('meal_plans').insert({
+      circle_id: circleId,
+      plan_date: planDate,
+      meal_type: mealType,
+      menu_id: menuId,
+      created_by: user.id,
+    })
+    return
+  }
+
+  // Add each recipe from the menu
+  const entries = menuRecipes.map((mr) => ({
+    circle_id: circleId,
+    plan_date: planDate,
+    meal_type: mealType,
+    recipe_id: mr.recipe_id,
+    menu_id: menuId,
+    created_by: user.id,
+  }))
+
+  const { error } = await supabase.from('meal_plans').insert(entries)
+  if (error) throw error
 }
 
 export async function removeMealPlan(planId: string): Promise<void> {
