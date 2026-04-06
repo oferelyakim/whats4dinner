@@ -26,6 +26,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { MealMenusPage } from '@/pages/MealMenusPage'
 import { JoinEventPage } from '@/pages/JoinEventPage'
 import { ActivitiesPage } from '@/pages/ActivitiesPage'
+import { SupplyKitFormPage } from '@/pages/SupplyKitFormPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="/recipes" element={<RecipesPage />} />
               <Route path="/recipes/new" element={<RecipeFormPage />} />
               <Route path="/recipes/import" element={<RecipeImportPage />} />
+              <Route path="/recipes/new-kit" element={<SupplyKitFormPage />} />
               <Route path="/recipes/:id" element={<RecipeDetailPage />} />
               <Route path="/recipes/:id/edit" element={<RecipeFormPage />} />
               <Route path="/lists" element={<ListsPage />} />

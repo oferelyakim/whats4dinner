@@ -44,6 +44,7 @@ export interface Item {
 
 export interface Recipe {
   id: string
+  type: 'recipe' | 'supply_kit'
   title: string
   description: string | null
   instructions: string | null
@@ -53,6 +54,7 @@ export interface Recipe {
   cook_time_min: number | null
   servings: number | null
   tags: string[]
+  kit_category: string | null
   created_by: string
   circle_id: string | null
   created_at: string

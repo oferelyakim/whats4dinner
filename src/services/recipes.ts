@@ -37,7 +37,7 @@ export async function normalizeIngredientName(name: string): Promise<string> {
   return data?.[0]?.name ?? name.trim()
 }
 
-export async function getRecipes(circleId?: string): Promise<Recipe[]> {
+export async function getRecipes(circleId?: string, type?: 'recipe' | 'supply_kit'): Promise<Recipe[]> {
   let query = supabase
     .from('recipes')
     .select('*, ingredients:recipe_ingredients(*)')
@@ -45,6 +45,9 @@ export async function getRecipes(circleId?: string): Promise<Recipe[]> {
 
   if (circleId) {
     query = query.eq('circle_id', circleId)
+  }
+  if (type) {
+    query = query.eq('type', type)
   }
 
   const { data, error } = await query
@@ -76,6 +79,7 @@ export async function getSharedRecipe(shareCode: string): Promise<Recipe | null>
 }
 
 interface CreateRecipeInput {
+  type?: 'recipe' | 'supply_kit'
   title: string
   description?: string
   instructions?: string
@@ -84,6 +88,7 @@ interface CreateRecipeInput {
   cook_time_min?: number
   servings?: number
   tags?: string[]
+  kit_category?: string
   circle_id?: string
   ingredients?: Omit<RecipeIngredient, 'id' | 'recipe_id'>[]
 }
