@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -7,6 +8,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
+import { getMyCircles } from '@/services/circles'
+import type { Circle } from '@/types'
 import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates, copyWeekPlan } from '@/services/mealPlans'
 import { getRecipes } from '@/services/recipes'
 import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/services/shoppingLists'
@@ -27,8 +30,9 @@ const MEAL_COLORS: Record<MealType, string> = {
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export function PlanPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { activeCircle } = useAppStore()
+  const { activeCircle, setActiveCircle } = useAppStore()
   const { t } = useI18n()
 
   const MEAL_LABELS: Record<MealType, string> = {
@@ -142,15 +146,50 @@ export function PlanPage() {
     ? recipes.filter((r: Recipe) => r.title.toLowerCase().includes(search.toLowerCase()))
     : recipes
 
+  const { data: allCircles = [] } = useQuery({
+    queryKey: ['circles'],
+    queryFn: getMyCircles,
+    enabled: !activeCircle,
+  })
+
+  // Auto-select first circle if none active
+  if (!activeCircle && allCircles.length > 0) {
+    setActiveCircle(allCircles[0])
+  }
+
   if (!activeCircle) {
     return (
-      <div className="px-4 py-4">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('plan.mealPlan')}</h2>
-        <EmptyState
-          icon={<CalendarDays className="h-12 w-12" />}
-          title="Select a circle first"
-          description="Go to More > My Circles and create or select a circle to start planning meals"
-        />
+      <div className="px-4 py-4 space-y-4">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('plan.mealPlan')}</h2>
+        {allCircles.length === 0 ? (
+          <EmptyState
+            icon={<CalendarDays className="h-12 w-12" />}
+            title="Create a circle first"
+            description="Meal plans are shared within circles. Create one for your family to start planning."
+            action={
+              <Button onClick={() => navigate('/more/circles')}>
+                Go to Circles
+              </Button>
+            }
+          />
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500">Select a circle to plan meals for:</p>
+            {allCircles.map((circle: Circle) => (
+              <Card
+                key={circle.id}
+                variant="elevated"
+                className="p-4 cursor-pointer active:scale-[0.98] transition-transform"
+                onClick={() => setActiveCircle(circle)}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{circle.icon}</span>
+                  <p className="font-semibold text-slate-900 dark:text-white">{circle.name}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
