@@ -12,7 +12,14 @@ import { canUse } from '@/lib/subscription'
 import { getShoppingLists } from '@/services/shoppingLists'
 import { getRecipes } from '@/services/recipes'
 import { getEvents, type Event } from '@/services/events'
+import { getActivities, activityOccursOnDate, formatTimeRange, type Activity } from '@/services/activities'
+import { getChores, type Chore } from '@/services/chores'
 import { UpgradePrompt, useFeatureGate } from '@/components/ui/UpgradePrompt'
+
+const CATEGORIES_EMOJI: Record<string, string> = {
+  sports: '⚽', music: '🎵', arts: '🎨', education: '📚',
+  social: '👥', chores: '🧹', carpool: '🚗', other: '📌',
+}
 
 const stagger = {
   hidden: {},
@@ -43,6 +50,26 @@ export function HomePage() {
   const { data: events = [] } = useQuery({
     queryKey: ['events'],
     queryFn: getEvents,
+  })
+
+  const { data: activities = [] } = useQuery({
+    queryKey: ['activities', activeCircle?.id],
+    queryFn: () => getActivities(activeCircle!.id),
+    enabled: !!activeCircle,
+  })
+
+  const { data: chores = [] } = useQuery({
+    queryKey: ['chores', activeCircle?.id],
+    queryFn: () => getChores(activeCircle!.id),
+    enabled: !!activeCircle,
+  })
+
+  const today = new Date().toISOString().split('T')[0]
+  const todayActivities = activities.filter((a: Activity) => activityOccursOnDate(a, today))
+  const todayChores = chores.filter((c: Chore) => {
+    if (c.frequency === 'daily') return true
+    if (c.frequency === 'weekly' && c.recurrence_days?.includes(new Date().getDay())) return true
+    return false
   })
 
   const activeLists = lists.filter((l) => l.status === 'active').slice(0, 3)
@@ -149,6 +176,65 @@ export function HomePage() {
           <p className="text-[11px] text-slate-400 mt-0.5">Meals for the week</p>
         </Card>
       </motion.div>
+
+      {/* Today's Schedule */}
+      {(todayActivities.length > 0 || todayChores.length > 0) && (
+        <motion.section variants={fadeUp}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              Today
+            </h3>
+            <span className="text-xs text-slate-400">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+
+          {/* Activities */}
+          {todayActivities.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              {todayActivities.map((activity: Activity) => (
+                <Card key={activity.id} className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/more/activities')}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-sm">
+                      {CATEGORIES_EMOJI[activity.category] || '📌'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{activity.name}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                        {formatTimeRange(activity) && <span>{formatTimeRange(activity)}</span>}
+                        {activity.assigned_name && <span>• {activity.assigned_name}</span>}
+                        {activity.location && <span>• {activity.location}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Chores */}
+          {todayChores.length > 0 && (
+            <div className="space-y-1.5">
+              {todayChores.map((chore: Chore) => (
+                <Card key={chore.id} className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/more/chores')}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{chore.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{chore.name}</p>
+                      {chore.assigned_name && (
+                        <p className="text-[10px] text-slate-400">{chore.assigned_name}</p>
+                      )}
+                    </div>
+                    {chore.points > 0 && (
+                      <span className="text-xs text-brand-500 font-medium">{chore.points} pts</span>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </motion.section>
+      )}
 
       {/* Upcoming Events */}
       {upcomingEvents.length > 0 && (
