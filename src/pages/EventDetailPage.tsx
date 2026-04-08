@@ -180,7 +180,7 @@ export function EventDetailPage() {
     return (
       <div className="px-4 py-4">
         <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <p className="text-center text-slate-500">Event not found</p>
       </div>
@@ -201,11 +201,11 @@ export function EventDetailPage() {
   }
 
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">{event.name}</h2>
@@ -538,7 +538,7 @@ export function EventDetailPage() {
       {/* Add Item Dialog */}
       <Dialog.Root open={showAddItem} onOpenChange={setShowAddItem}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
               {addType === 'dish' ? t('event.addDish') : addType === 'supply' ? t('event.addSupply') : t('event.addTask')}
@@ -630,7 +630,7 @@ export function EventDetailPage() {
       {/* Delete Event Dialog */}
       <Dialog.Root open={showDeleteEvent} onOpenChange={setShowDeleteEvent}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">{t('event.delete')}</Dialog.Title>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">

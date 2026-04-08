@@ -9,12 +9,12 @@ export function Card({ className, variant = 'default', ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-2xl border transition-colors',
+        'rounded-2xl border transition-all duration-200',
         {
           default:
-            'bg-white border-slate-200 dark:bg-surface-dark-elevated dark:border-slate-800',
+            'bg-white border-slate-200 dark:bg-surface-dark-elevated dark:border-slate-700/50',
           elevated:
-            'bg-white border-slate-200 shadow-sm dark:bg-surface-dark-elevated dark:border-slate-700',
+            'bg-white border-slate-200 shadow-sm hover:shadow-md dark:bg-surface-dark-elevated dark:border-slate-700/50',
         }[variant],
         className
       )}

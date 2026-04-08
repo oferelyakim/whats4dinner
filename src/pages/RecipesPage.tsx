@@ -43,7 +43,7 @@ export function RecipesPage() {
     : recipes
 
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       {/* Type toggle */}
       <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-lg p-0.5">
         <button
@@ -172,11 +172,11 @@ export function RecipesPage() {
       )}
 
       {/* FAB menu */}
-      <div className="fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2">
+      <div className="fixed bottom-20 end-4 z-40 flex flex-col items-end gap-2">
         {viewType === 'recipe' && (
           <button
             onClick={() => navigate('/recipes/import')}
-            className="h-11 flex items-center gap-2 px-4 rounded-full bg-surface-dark-elevated text-white shadow-lg active:scale-95 transition-transform text-sm font-medium"
+            className="h-11 flex items-center gap-2 px-4 rounded-full bg-slate-900 dark:bg-surface-dark-elevated text-white shadow-lg shadow-slate-900/20 active:scale-95 transition-transform text-sm font-medium"
           >
             <Link2 className="h-4 w-4" />
             {t('recipe.importUrl')}
@@ -184,7 +184,7 @@ export function RecipesPage() {
         )}
         <button
           onClick={() => navigate(viewType === 'recipe' ? '/recipes/new' : '/recipes/new-kit')}
-          className="h-14 w-14 rounded-full bg-brand-500 text-white shadow-lg flex items-center justify-center active:scale-90 transition-transform"
+          className="h-14 w-14 rounded-full bg-brand-500 text-white shadow-lg shadow-brand-500/30 flex items-center justify-center active:scale-90 transition-transform"
         >
           {viewType === 'recipe' ? <PenLine className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
         </button>

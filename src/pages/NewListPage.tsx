@@ -35,13 +35,13 @@ export function NewListPage() {
   })
 
   return (
-    <div className="px-4 py-4 space-y-5">
+    <div className="px-4 sm:px-6 py-4 space-y-5 animate-page-enter">
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('list.newList')}</h2>
       </div>

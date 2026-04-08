@@ -20,7 +20,7 @@ export function ListsPage() {
   const completedLists = lists.filter((l) => l.status !== 'active')
 
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('list.shoppingLists')}</h2>
         <Button size="sm" onClick={() => navigate('/lists/new')}>
@@ -66,7 +66,7 @@ export function ListsPage() {
                         {list.item_count ?? 0} items
                       </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0" />
+                    <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
                   </div>
                 </Card>
               ))}

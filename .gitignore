@@ -32,3 +32,9 @@ supabase/.temp/
 
 # Salesforce (not part of this project)
 .sfdx/
+
+# Playwright
+e2e/.auth/
+playwright-report/
+test-results/
+blob-report/

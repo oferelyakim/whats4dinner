@@ -26,6 +26,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { MealMenusPage } from '@/pages/MealMenusPage'
 import { JoinEventPage } from '@/pages/JoinEventPage'
 import { ActivitiesPage } from '@/pages/ActivitiesPage'
+import { ChoresPage } from '@/pages/ChoresPage'
 import { SupplyKitFormPage } from '@/pages/SupplyKitFormPage'
 
 const queryClient = new QueryClient({
@@ -94,6 +95,7 @@ export default function App() {
               <Route path="/more/circles/:id" element={<CircleDetailPage />} />
               <Route path="/more/profile" element={<ProfilePage />} />
               <Route path="/more/activities" element={<ActivitiesPage />} />
+              <Route path="/more/chores" element={<ChoresPage />} />
               <Route path="/more/menus" element={<MealMenusPage />} />
               <Route path="/more/stores" element={<StoresPage />} />
               <Route path="/more/stores/:id" element={<StoreRoutePage />} />

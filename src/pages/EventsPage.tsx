@@ -83,7 +83,7 @@ export function EventsPage() {
     })
 
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('event.events')}</h2>
         <Button size="sm" onClick={() => { if (gate.checkFeature('Organizing events', canUse(gate.tier, 'canCreateEvents'))) setShowCreate(true) }}>
@@ -195,7 +195,7 @@ export function EventsPage() {
       {/* Create Event Dialog */}
       <Dialog.Root open={showCreate} onOpenChange={setShowCreate}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
               {t('event.newEvent')}

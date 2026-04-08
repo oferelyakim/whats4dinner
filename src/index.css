@@ -39,10 +39,34 @@ body {
   @apply bg-surface-light text-slate-900;
   @apply dark:bg-surface-dark dark:text-slate-100;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 * {
   -webkit-overflow-scrolling: touch;
+}
+
+/* Better focus-visible states */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.5);
+  border-radius: inherit;
+}
+
+/* Smooth page transitions */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: fadeSlideIn 0.3s ease-out;
 }
 
 .scrollbar-hide {
@@ -83,6 +107,25 @@ select {
   scroll-margin-bottom: 8rem;
 }
 
+/* Bottom sheet dialog entrance animation */
+[data-radix-dialog-overlay] {
+  animation: fadeIn 0.2s ease-out;
+}
+
+[data-radix-dialog-content] {
+  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 /* RTL support */
 [dir="rtl"] {
   text-align: right;
@@ -90,4 +133,39 @@ select {
 
 [dir="rtl"] .flex-row-reverse-rtl {
   flex-direction: row-reverse;
+}
+
+/* RTL arrow icon flipping */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* RTL: Flip all chevron/arrow icons inside interactive elements */
+[dir="rtl"] [data-rtl-flip] {
+  transform: scaleX(-1);
+}
+
+/* RTL logical spacing helpers */
+[dir="rtl"] .ms-auto {
+  margin-inline-start: auto;
+}
+
+/* Horizontal scroll container for recipe cards etc */
+.horizontal-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 0.75rem;
+  padding-bottom: 0.25rem;
+}
+
+.horizontal-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.horizontal-scroll > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
 }

@@ -82,14 +82,14 @@ export function StoreRoutePage() {
   }
 
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">

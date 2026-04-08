@@ -41,7 +41,7 @@ export function SharedRecipePage() {
 
   return (
     <div className="min-h-screen bg-surface-light dark:bg-surface-dark">
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
+      <div className="max-w-lg mx-auto px-4 sm:px-6 py-6 space-y-5 animate-page-enter">
         {/* Header */}
         <div className="flex items-center gap-2 text-brand-500">
           <ChefHat className="h-5 w-5" />

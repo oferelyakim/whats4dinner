@@ -1,5 +1,15 @@
 import { supabase } from './supabase'
 
+export interface Participant {
+  name: string
+  role: 'participant' | 'escort' | 'driver' | 'supervisor'
+}
+
+export interface BringItem {
+  name: string
+  checked: boolean
+}
+
 export interface Activity {
   id: string
   circle_id: string
@@ -18,6 +28,8 @@ export interface Activity {
   exclude_holidays: boolean
   color: string | null
   notes: string | null
+  participants: Participant[]
+  bring_items: BringItem[]
   created_by: string
   created_at: string
   profile?: { display_name: string }
@@ -67,7 +79,12 @@ export async function getActivities(circleId: string): Promise<Activity[]> {
     .order('start_date')
 
   if (error) throw error
-  return data as Activity[]
+  // Parse JSON fields
+  return (data ?? []).map((a: Record<string, unknown>) => ({
+    ...a,
+    participants: Array.isArray(a.participants) ? a.participants : [],
+    bring_items: Array.isArray(a.bring_items) ? a.bring_items : [],
+  })) as Activity[]
 }
 
 export async function createActivity(input: {
@@ -86,6 +103,8 @@ export async function createActivity(input: {
   exclude_holidays?: boolean
   color?: string
   notes?: string
+  participants?: Participant[]
+  bring_items?: BringItem[]
 }): Promise<Activity> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -98,7 +117,38 @@ export async function createActivity(input: {
       recurrence_type: input.recurrence_type || 'once',
       recurrence_days: input.recurrence_days || [],
       category: input.category || 'other',
+      participants: input.participants || [],
+      bring_items: input.bring_items || [],
     })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Activity
+}
+
+export async function updateActivity(id: string, input: {
+  name?: string
+  description?: string
+  category?: string
+  location?: string
+  assigned_name?: string
+  recurrence_type?: string
+  recurrence_days?: number[]
+  start_date?: string
+  end_date?: string | null
+  start_time?: string | null
+  end_time?: string | null
+  exclude_holidays?: boolean
+  color?: string
+  notes?: string | null
+  participants?: Participant[]
+  bring_items?: BringItem[]
+}): Promise<Activity> {
+  const { data, error } = await supabase
+    .from('activities')
+    .update(input)
+    .eq('id', id)
     .select()
     .single()
 
@@ -205,4 +255,31 @@ export function getUpcomingOccurrences(activity: Activity, daysAhead: number = 1
   }
 
   return dates
+}
+
+// Check if an activity occurs on a given date
+export function activityOccursOnDate(activity: Activity, date: string): boolean {
+  const d = new Date(date + 'T12:00:00')
+  const startDate = new Date(activity.start_date + 'T00:00:00')
+  const endDate = activity.end_date ? new Date(activity.end_date + 'T23:59:59') : null
+
+  if (d < startDate) return false
+  if (endDate && d > endDate) return false
+
+  if (activity.recurrence_type === 'once') {
+    return activity.start_date === date
+  }
+  if (activity.recurrence_type === 'daily') return true
+  if (activity.recurrence_type === 'weekly' || activity.recurrence_type === 'custom') {
+    return activity.recurrence_days.includes(d.getDay())
+  }
+  if (activity.recurrence_type === 'biweekly') {
+    if (!activity.recurrence_days.includes(d.getDay())) return false
+    const diffWeeks = Math.floor((d.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
+    return diffWeeks % 2 === 0
+  }
+  if (activity.recurrence_type === 'monthly') {
+    return d.getDate() === startDate.getDate()
+  }
+  return false
 }

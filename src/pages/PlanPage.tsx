@@ -178,7 +178,7 @@ export function PlanPage() {
 
   if (!activeCircle) {
     return (
-      <div className="px-4 py-4 space-y-4">
+      <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('plan.mealPlan')}</h2>
         {allCircles.length === 0 ? (
           <EmptyState
@@ -214,14 +214,14 @@ export function PlanPage() {
   }
 
   return (
-    <div className="px-4 py-4 space-y-4">
+    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       {/* Week navigation */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => setWeekOffset((w) => w - 1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
-          <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <div className="text-center">
           <h2 className="text-base font-bold text-slate-900 dark:text-white">{weekLabel}</h2>
@@ -238,7 +238,7 @@ export function PlanPage() {
           onClick={() => setWeekOffset((w) => w + 1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
-          <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
       </div>
 
@@ -369,7 +369,7 @@ export function PlanPage() {
       {/* Add Meal Dialog */}
       <Dialog.Root open={showAddMeal} onOpenChange={setShowAddMeal}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
               Add {MEAL_LABELS[selectedMealType]}
@@ -487,7 +487,7 @@ export function PlanPage() {
       {/* Add Week to List Dialog */}
       <Dialog.Root open={showAddToList} onOpenChange={setShowAddToList}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
               Add Week's Ingredients to List

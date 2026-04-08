@@ -36,13 +36,13 @@ export function ProfilePage() {
   })
 
   return (
-    <div className="px-4 py-4 space-y-5">
+    <div className="px-4 sm:px-6 py-4 space-y-5 animate-page-enter">
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('more.profile')}</h2>
       </div>
@@ -50,14 +50,14 @@ export function ProfilePage() {
       {/* Avatar */}
       <div className="flex flex-col items-center">
         <div className="relative">
-          <div className="h-20 w-20 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-500 font-bold text-3xl">
+          <div className="h-24 w-24 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-4xl shadow-lg shadow-brand-500/20">
             {displayName?.[0]?.toUpperCase() ?? '?'}
           </div>
-          <div className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-surface-dark-elevated border-2 border-white dark:border-surface-dark flex items-center justify-center">
-            <Camera className="h-3.5 w-3.5 text-slate-400" />
+          <div className="absolute bottom-0 end-0 h-8 w-8 rounded-full bg-white dark:bg-surface-dark-elevated border-2 border-slate-100 dark:border-surface-dark flex items-center justify-center shadow-sm">
+            <Camera className="h-4 w-4 text-slate-400" />
           </div>
         </div>
-        <p className="text-xs text-slate-400 mt-2">{profile?.email}</p>
+        <p className="text-xs text-slate-400 mt-3">{profile?.email}</p>
       </div>
 
       {/* Form */}

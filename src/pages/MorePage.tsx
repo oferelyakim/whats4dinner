@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Crown,
   Calendar,
+  Sparkles,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
@@ -37,9 +38,15 @@ export function MorePage() {
     },
     {
       icon: Calendar,
-      label: 'Activities',
-      description: 'Schedules, sports, lessons, chores',
+      label: t('more.activities'),
+      description: t('more.activitiesDesc'),
       onClick: () => navigate('/more/activities'),
+    },
+    {
+      icon: Sparkles,
+      label: t('more.chores'),
+      description: t('more.choresDesc'),
+      onClick: () => navigate('/more/chores'),
     },
     {
       icon: CalendarDays,

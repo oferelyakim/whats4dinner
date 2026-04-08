@@ -6,6 +6,7 @@ import {
   BookOpen,
   Menu,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
@@ -30,8 +31,8 @@ export function BottomNav() {
     <nav
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
-        'bg-white/90 dark:bg-surface-dark/90 backdrop-blur-lg',
-        'border-t border-slate-200 dark:border-slate-800'
+        'bg-white/80 dark:bg-surface-dark/80 backdrop-blur-xl',
+        'border-t border-slate-200/80 dark:border-slate-800/80'
       )}
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
@@ -43,22 +44,30 @@ export function BottomNav() {
               : location.pathname.startsWith(path)
 
           return (
-            <button
+            <motion.button
               key={path}
               onClick={() => navigate(path)}
+              whileTap={{ scale: 0.85 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               className={cn(
-                'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors min-w-[56px]',
-                'active:scale-90 transition-transform',
+                'relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors min-w-[56px]',
                 isActive
                   ? 'text-brand-500'
                   : 'text-slate-400 dark:text-slate-500'
               )}
             >
-              <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
-              <span className={cn('text-[10px]', isActive && 'font-semibold')}>
+              <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 1.8} />
+              <span className={cn('text-[10px] leading-tight', isActive && 'font-semibold')}>
                 {t(key)}
               </span>
-            </button>
+              {isActive && (
+                <motion.div
+                  layoutId="bottomNavIndicator"
+                  className="absolute -bottom-0.5 h-1 w-5 rounded-full bg-brand-500"
+                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                />
+              )}
+            </motion.button>
           )
         })}
       </div>

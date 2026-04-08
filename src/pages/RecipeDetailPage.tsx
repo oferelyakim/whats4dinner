@@ -90,22 +90,24 @@ export function RecipeDetailPage() {
     return (
       <div className="px-4 py-4">
         <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <p className="text-center text-slate-500">Recipe not found</p>
       </div>
     )
   }
 
+  const isKit = recipe.type === 'supply_kit'
+
   return (
-    <div className="px-4 py-4 space-y-5">
+    <div className="px-4 sm:px-6 py-4 space-y-5 animate-page-enter">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1 min-w-0 truncate">
           {recipe.title}
@@ -127,7 +129,12 @@ export function RecipeDetailPage() {
 
       {/* Meta */}
       <div className="flex items-center gap-4 flex-wrap">
-        {(recipe.prep_time_min || recipe.cook_time_min) && (
+        {isKit && recipe.kit_category && (
+          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
+            {recipe.kit_category}
+          </span>
+        )}
+        {!isKit && (recipe.prep_time_min || recipe.cook_time_min) && (
           <span className="flex items-center gap-1.5 text-sm text-slate-500">
             <Clock className="h-4 w-4" />
             {recipe.prep_time_min ? `${recipe.prep_time_min}m prep` : ''}
@@ -135,7 +142,7 @@ export function RecipeDetailPage() {
             {recipe.cook_time_min ? `${recipe.cook_time_min}m cook` : ''}
           </span>
         )}
-        {recipe.servings && (
+        {!isKit && recipe.servings && (
           <span className="flex items-center gap-1.5 text-sm text-slate-500">
             <Users className="h-4 w-4" />
             {recipe.servings} servings
@@ -174,7 +181,7 @@ export function RecipeDetailPage() {
       {recipe.ingredients && recipe.ingredients.length > 0 && (
         <section>
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
-            {t('recipe.ingredients')} ({recipe.ingredients.length})
+            {isKit ? 'Items' : t('recipe.ingredients')} ({recipe.ingredients.length})
           </h3>
           <Card className="divide-y divide-slate-100 dark:divide-slate-800">
             {recipe.ingredients.map((ing) => (
@@ -195,7 +202,7 @@ export function RecipeDetailPage() {
       )}
 
       {/* Instructions */}
-      {recipe.instructions && (
+      {!isKit && recipe.instructions && (
         <section>
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
             {t('recipe.instructions')}
@@ -223,13 +230,13 @@ export function RecipeDetailPage() {
         className="w-full flex items-center justify-center gap-2 py-3 mb-4 text-sm font-medium text-danger hover:bg-danger/10 rounded-xl transition-colors"
       >
         <Trash2 className="h-4 w-4" />
-        {t('recipe.delete')}
+        {isKit ? 'Delete Kit' : t('recipe.delete')}
       </button>
 
       {/* Share Dialog */}
       <Dialog.Root open={showShare} onOpenChange={setShowShare}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
               Share Recipe
@@ -330,10 +337,10 @@ export function RecipeDetailPage() {
       {/* Delete Confirmation */}
       <Dialog.Root open={showDelete} onOpenChange={setShowDelete}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              {t('recipe.delete')}
+              {isKit ? 'Delete Kit' : t('recipe.delete')}
             </Dialog.Title>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Are you sure you want to delete <strong>{recipe?.title}</strong>? This will also remove it from any shopping lists and meal plans. This cannot be undone.
@@ -363,7 +370,7 @@ export function RecipeDetailPage() {
         }
       }}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
               {t('recipe.addToList')}

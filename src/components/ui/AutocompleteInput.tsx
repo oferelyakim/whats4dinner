@@ -61,14 +61,14 @@ export function AutocompleteInput({
         onFocus={() => setShowSuggestions(true)}
         placeholder={placeholder}
         className={cn(
-          'w-full text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500',
+          'w-full text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1.5 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 transition-colors',
           className
         )}
       />
       {showSuggestions && filtered.length > 0 && (
         <div
           ref={listRef}
-          className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 overflow-hidden"
+          className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg z-50 overflow-hidden"
         >
           {filtered.map((suggestion) => (
             <button
@@ -78,7 +78,7 @@ export function AutocompleteInput({
                 onChange(suggestion)
                 setShowSuggestions(false)
               }}
-              className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors"
+              className="w-full text-start px-3 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-brand-50 dark:hover:bg-surface-dark-overlay transition-colors"
             >
               {suggestion}
             </button>

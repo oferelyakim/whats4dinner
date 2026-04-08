@@ -4,6 +4,7 @@ import {
   BookOpen, ShoppingCart, CalendarDays, PartyPopper, Plus,
   ChevronRight, Users, Crown, MapPin,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
@@ -12,6 +13,16 @@ import { getShoppingLists } from '@/services/shoppingLists'
 import { getRecipes } from '@/services/recipes'
 import { getEvents, type Event } from '@/services/events'
 import { UpgradePrompt, useFeatureGate } from '@/components/ui/UpgradePrompt'
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
+}
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -43,7 +54,7 @@ export function HomePage() {
       return new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
     })
     .slice(0, 3)
-  const recentRecipes = recipes.slice(0, 3)
+  const recentRecipes = recipes.slice(0, 5)
   const greeting = getGreeting(t)
 
   function handleCreateEvent() {
@@ -59,71 +70,89 @@ export function HomePage() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <motion.div
+      className="px-4 sm:px-6 py-6 space-y-6"
+      variants={stagger}
+      initial="hidden"
+      animate="show"
+    >
       {/* Greeting */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-            {greeting}, {profile?.display_name?.split(' ')[0] ?? 'there'}
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {activeCircle ? activeCircle.name : t('home.letsPlan')}
-          </p>
+      <motion.div variants={fadeUp} className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            {profile?.display_name?.[0]?.toUpperCase() ?? '?'}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              {greeting}, {profile?.display_name?.split(' ')[0] ?? 'there'}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              {activeCircle ? activeCircle.name : t('home.letsPlan')}
+            </p>
+          </div>
         </div>
         {gate.tier === 'free' && (
           <button
             onClick={() => gate.setShowUpgrade(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-500 to-pink-500 text-white text-xs font-medium"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-500 to-pink-500 text-white text-xs font-medium shadow-sm hover:shadow-md transition-shadow"
           >
             <Crown className="h-3 w-3" />
             Upgrade
           </button>
         )}
-      </div>
+      </motion.div>
 
       {/* Quick Actions - 2x2 grid */}
-      <div className="grid grid-cols-2 gap-3">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3">
         <Card
           variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform"
+          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-pink-50/50 dark:from-surface-dark-elevated dark:to-pink-950/10"
           onClick={handleCreateEvent}
         >
-          <PartyPopper className="h-6 w-6 text-pink-500 mb-2" />
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Plan Event</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Gather, eat, celebrate</p>
+          <div className="h-10 w-10 rounded-xl bg-pink-500/10 flex items-center justify-center mb-2">
+            <PartyPopper className="h-5 w-5 text-pink-500" />
+          </div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Plan Event</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Gather, eat, celebrate</p>
         </Card>
         <Card
           variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform"
+          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-emerald-50/50 dark:from-surface-dark-elevated dark:to-emerald-950/10"
           onClick={() => navigate('/lists/new')}
         >
-          <ShoppingCart className="h-6 w-6 text-emerald-500 mb-2" />
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('action.newList')}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Shop together</p>
+          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">
+            <ShoppingCart className="h-5 w-5 text-emerald-500" />
+          </div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.newList')}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Shop together</p>
         </Card>
         <Card
           variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform"
+          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-blue-50/50 dark:from-surface-dark-elevated dark:to-blue-950/10"
           onClick={() => navigate('/recipes/new')}
         >
-          <BookOpen className="h-6 w-6 text-blue-500 mb-2" />
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('action.addRecipe')}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Save & share</p>
+          <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-2">
+            <BookOpen className="h-5 w-5 text-blue-500" />
+          </div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.addRecipe')}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Save & share</p>
         </Card>
         <Card
           variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform"
+          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-purple-50/50 dark:from-surface-dark-elevated dark:to-purple-950/10"
           onClick={() => navigate('/plan')}
         >
-          <CalendarDays className="h-6 w-6 text-purple-500 mb-2" />
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('action.planWeek')}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Meals for the week</p>
+          <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-2">
+            <CalendarDays className="h-5 w-5 text-purple-500" />
+          </div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.planWeek')}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Meals for the week</p>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Upcoming Events */}
       {upcomingEvents.length > 0 && (
-        <section>
+        <motion.section variants={fadeUp}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
               Upcoming Events
@@ -133,7 +162,7 @@ export function HomePage() {
               className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
             >
               {t('home.viewAll')}
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
             </button>
           </div>
           <div className="space-y-2">
@@ -165,16 +194,16 @@ export function HomePage() {
                       )}
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                  <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 rtl-flip" />
                 </div>
               </Card>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Active Shopping Lists */}
-      <section>
+      <motion.section variants={fadeUp}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
             {t('home.activeLists')}
@@ -184,14 +213,16 @@ export function HomePage() {
             className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
           >
             {t('home.viewAll')}
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
           </button>
         </div>
 
         {activeLists.length === 0 ? (
-          <Card className="p-4 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/lists/new')}>
+          <Card className="p-4 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => navigate('/lists/new')}>
             <div className="flex items-center gap-3">
-              <Plus className="h-5 w-5 text-brand-500" />
+              <div className="h-9 w-9 rounded-xl bg-brand-500/10 flex items-center justify-center">
+                <Plus className="h-4 w-4 text-brand-500" />
+              </div>
               <p className="text-sm text-slate-500">Create your first shopping list</p>
             </div>
           </Card>
@@ -200,26 +231,28 @@ export function HomePage() {
             {activeLists.map((list) => (
               <Card
                 key={list.id}
-                className="p-3 cursor-pointer active:scale-[0.98] transition-transform"
+                className="p-3.5 cursor-pointer active:scale-[0.98] transition-transform"
                 onClick={() => navigate(`/lists/${list.id}`)}
               >
                 <div className="flex items-center gap-3">
-                  <ShoppingCart className="h-5 w-5 text-emerald-500 shrink-0" />
+                  <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <ShoppingCart className="h-4 w-4 text-emerald-500" />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{list.name}</p>
                     <p className="text-xs text-slate-400">{list.item_count ?? 0} items</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                  <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 rtl-flip" />
                 </div>
               </Card>
             ))}
           </div>
         )}
-      </section>
+      </motion.section>
 
-      {/* Recent Recipes */}
+      {/* Recent Recipes - horizontal scroll */}
       {recentRecipes.length > 0 && (
-        <section>
+        <motion.section variants={fadeUp}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
               {t('home.recentRecipes')}
@@ -229,34 +262,32 @@ export function HomePage() {
               className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
             >
               {t('home.viewAll')}
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
             </button>
           </div>
-          <div className="space-y-2">
+          <div className="horizontal-scroll -mx-4 px-4">
             {recentRecipes.map((recipe) => (
               <Card
                 key={recipe.id}
-                className="p-3 cursor-pointer active:scale-[0.98] transition-transform"
+                variant="elevated"
+                className="w-40 p-3 cursor-pointer active:scale-[0.97] transition-transform shrink-0"
                 onClick={() => navigate(`/recipes/${recipe.id}`)}
               >
-                <div className="flex items-center gap-3">
-                  <BookOpen className="h-5 w-5 text-blue-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{recipe.title}</p>
-                    {recipe.tags?.length > 0 && (
-                      <p className="text-xs text-slate-400 truncate">{recipe.tags.join(', ')}</p>
-                    )}
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center mb-2">
+                  <BookOpen className="h-4 w-4 text-blue-500" />
                 </div>
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{recipe.title}</p>
+                {recipe.tags?.length > 0 && (
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{recipe.tags.join(', ')}</p>
+                )}
               </Card>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Circles */}
-      <section>
+      <motion.section variants={fadeUp}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
             {t('action.myCircles')}
@@ -269,21 +300,23 @@ export function HomePage() {
             <Plus className="h-3.5 w-3.5" />
           </button>
         </div>
-        <Card className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/more/circles')}>
+        <Card className="p-3.5 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => navigate('/more/circles')}>
           <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-brand-500" />
-            <p className="text-sm text-slate-500">Manage your family & friend groups</p>
-            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+            <div className="h-9 w-9 rounded-xl bg-brand-500/10 flex items-center justify-center">
+              <Users className="h-4 w-4 text-brand-500" />
+            </div>
+            <p className="text-sm text-slate-500 flex-1">Manage your family & friend groups</p>
+            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 rtl-flip" />
           </div>
         </Card>
-      </section>
+      </motion.section>
 
       <UpgradePrompt
         open={gate.showUpgrade}
         onOpenChange={gate.setShowUpgrade}
         feature={gate.upgradeFeature}
       />
-    </div>
+    </motion.div>
   )
 }
 
