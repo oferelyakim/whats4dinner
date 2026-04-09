@@ -72,7 +72,7 @@ export function StoresPage() {
               key={store.id}
               variant="elevated"
               className="p-4 cursor-pointer active:scale-[0.98] transition-transform"
-              onClick={() => navigate(`/more/stores/${store.id}`)}
+              onClick={() => navigate(`/food/stores/${store.id}`)}
             >
               <div className="flex items-center gap-3">
                 <StoreIcon className="h-5 w-5 text-brand-500 shrink-0" />

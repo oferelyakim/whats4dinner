@@ -70,7 +70,7 @@ export function CircleDetailPage() {
     onSuccess: () => {
       if (activeCircle?.id === id) setActiveCircle(null)
       queryClient.invalidateQueries({ queryKey: ['circles'] })
-      navigate('/more/circles')
+      navigate('/profile/circles')
     },
   })
 
@@ -79,7 +79,7 @@ export function CircleDetailPage() {
     onSuccess: () => {
       if (activeCircle?.id === id) setActiveCircle(null)
       queryClient.invalidateQueries({ queryKey: ['circles'] })
-      navigate('/more/circles')
+      navigate('/profile/circles')
     },
   })
 

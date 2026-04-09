@@ -1,17 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
-  Store,
   Sun,
   Moon,
   LogOut,
   ChevronRight,
   User,
-  UtensilsCrossed,
-  CalendarDays,
   Crown,
-  Calendar,
-  Sparkles,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
@@ -34,49 +29,19 @@ export function MorePage() {
       icon: Users,
       label: t('circle.myCircles'),
       description: 'Family & friend groups',
-      onClick: () => navigate('/more/circles'),
-    },
-    {
-      icon: Calendar,
-      label: t('more.activities'),
-      description: t('more.activitiesDesc'),
-      onClick: () => navigate('/more/activities'),
-    },
-    {
-      icon: Sparkles,
-      label: t('more.chores'),
-      description: t('more.choresDesc'),
-      onClick: () => navigate('/more/chores'),
-    },
-    {
-      icon: CalendarDays,
-      label: t('plan.mealPlan'),
-      description: 'Weekly meal planning',
-      onClick: () => navigate('/plan'),
-    },
-    {
-      icon: UtensilsCrossed,
-      label: t('more.mealTemplates'),
-      description: 'Taco Night, BBQ, etc.',
-      onClick: () => navigate('/more/menus'),
-    },
-    {
-      icon: Store,
-      label: t('more.myStores'),
-      description: 'Sort shopping by aisle',
-      onClick: () => navigate('/more/stores'),
+      onClick: () => navigate('/profile/circles'),
     },
     {
       icon: User,
       label: t('more.profile'),
       description: profile?.email ?? 'Manage your account',
-      onClick: () => navigate('/more/profile'),
+      onClick: () => navigate('/profile/settings'),
     },
   ]
 
   return (
     <div className="px-4 py-4 space-y-4">
-      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('more.more')}</h2>
+      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('more.profile')}</h2>
 
       {/* Profile card */}
       <Card variant="elevated" className="p-4 flex items-center gap-3">

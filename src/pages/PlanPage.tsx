@@ -186,7 +186,7 @@ export function PlanPage() {
             title="Create a circle first"
             description="Meal plans are shared within circles. Create one for your family to start planning."
             action={
-              <Button onClick={() => navigate('/more/circles')}>
+              <Button onClick={() => navigate('/profile/circles')}>
                 Go to Circles
               </Button>
             }

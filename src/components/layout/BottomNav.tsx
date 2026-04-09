@@ -2,9 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Home,
   PartyPopper,
-  ShoppingCart,
-  BookOpen,
-  Menu,
+  UtensilsCrossed,
+  CalendarCheck,
+  UserCircle,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/cn'
@@ -13,10 +13,10 @@ import { useI18n } from '@/lib/i18n'
 
 const NAV_ITEMS = [
   { path: '/', key: 'nav.home', icon: Home },
+  { path: '/food', key: 'nav.food', icon: UtensilsCrossed },
   { path: '/events', key: 'event.events', icon: PartyPopper },
-  { path: '/lists', key: 'nav.lists', icon: ShoppingCart },
-  { path: '/recipes', key: 'nav.recipes', icon: BookOpen },
-  { path: '/more', key: 'nav.more', icon: Menu },
+  { path: '/household', key: 'nav.household', icon: CalendarCheck },
+  { path: '/profile', key: 'nav.profile', icon: UserCircle },
 ] as const
 
 export function BottomNav() {

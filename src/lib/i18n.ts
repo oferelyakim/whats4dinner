@@ -127,7 +127,30 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.snack': { en: 'Snack', he: 'חטיף' },
   'plan.today': { en: 'Today', he: 'היום' },
 
-  // More
+  // Navigation (new hub tabs)
+  'nav.food': { en: 'Food', he: 'אוכל' },
+  'nav.household': { en: 'Household', he: 'משק בית' },
+  'nav.profile': { en: 'Profile', he: 'פרופיל' },
+
+  // Food Hub
+  'food.title': { en: 'Food & Meals', he: 'אוכל וארוחות' },
+  'food.recipes': { en: 'Recipes', he: 'מתכונים' },
+  'food.mealPlan': { en: 'Meal Plan', he: 'תכנון ארוחות' },
+  'food.templates': { en: 'Templates', he: 'תבניות' },
+  'food.lists': { en: 'Lists', he: 'רשימות' },
+  'food.stores': { en: 'Stores', he: 'חנויות' },
+  'food.thisWeek': { en: 'This Week', he: 'השבוע' },
+  'food.activeLists': { en: 'Active Lists', he: 'רשימות פעילות' },
+  'food.recentRecipes': { en: 'Recent Recipes', he: 'מתכונים אחרונים' },
+  'food.noMealsPlanned': { en: 'No meals planned yet', he: 'אין ארוחות מתוכננות' },
+  'food.startPlanning': { en: 'Start planning your week', he: 'התחל לתכנן את השבוע' },
+
+  // Household Hub
+  'household.title': { en: 'Household', he: 'משק בית' },
+  'household.today': { en: 'Today', he: 'היום' },
+  'household.noToday': { en: 'Nothing scheduled for today', he: 'אין דבר מתוכנן להיום' },
+
+  // More / Settings (kept for ProfilePage)
   'more.more': { en: 'More', he: 'עוד' },
   'more.mealTemplates': { en: 'Meal Templates', he: 'תבניות ארוחות' },
   'more.events': { en: 'Events', he: 'אירועים' },
@@ -138,6 +161,7 @@ const translations: Record<string, Record<Locale, string>> = {
   'more.light': { en: 'Light', he: 'בהיר' },
   'more.dark': { en: 'Dark', he: 'כהה' },
   'more.system': { en: 'System', he: 'מערכת' },
+  'more.settings': { en: 'Settings', he: 'הגדרות' },
 
   // Common
   'common.cancel': { en: 'Cancel', he: 'ביטול' },

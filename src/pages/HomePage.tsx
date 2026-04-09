@@ -92,7 +92,7 @@ export function HomePage() {
 
   function handleCreateCircle() {
     if (gate.checkFeature('Creating circles', canUse(gate.tier, 'canCreateCircles'))) {
-      navigate('/more/circles')
+      navigate('/profile/circles')
     }
   }
 
@@ -193,7 +193,7 @@ export function HomePage() {
           {todayActivities.length > 0 && (
             <div className="space-y-1.5 mb-3">
               {todayActivities.map((activity: Activity) => (
-                <Card key={activity.id} className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/more/activities')}>
+                <Card key={activity.id} className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/household/activities')}>
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-sm">
                       {CATEGORIES_EMOJI[activity.category] || '📌'}
@@ -216,7 +216,7 @@ export function HomePage() {
           {todayChores.length > 0 && (
             <div className="space-y-1.5">
               {todayChores.map((chore: Chore) => (
-                <Card key={chore.id} className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/more/chores')}>
+                <Card key={chore.id} className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/household/chores')}>
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{chore.icon}</span>
                     <div className="flex-1 min-w-0">
@@ -386,7 +386,7 @@ export function HomePage() {
             <Plus className="h-3.5 w-3.5" />
           </button>
         </div>
-        <Card className="p-3.5 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => navigate('/more/circles')}>
+        <Card className="p-3.5 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => navigate('/profile/circles')}>
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-brand-500/10 flex items-center justify-center">
               <Users className="h-4 w-4 text-brand-500" />

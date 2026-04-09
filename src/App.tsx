@@ -28,6 +28,8 @@ import { JoinEventPage } from '@/pages/JoinEventPage'
 import { ActivitiesPage } from '@/pages/ActivitiesPage'
 import { ChoresPage } from '@/pages/ChoresPage'
 import { SupplyKitFormPage } from '@/pages/SupplyKitFormPage'
+import { FoodHubPage } from '@/pages/FoodHubPage'
+import { HouseholdHubPage } from '@/pages/HouseholdHubPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,7 +79,11 @@ export default function App() {
         <AuthGuard>
           <Routes>
             <Route element={<AppShell />}>
+              {/* Home */}
               <Route path="/" element={<HomePage />} />
+
+              {/* Food hub + sub-routes */}
+              <Route path="/food" element={<FoodHubPage />} />
               <Route path="/recipes" element={<RecipesPage />} />
               <Route path="/recipes/new" element={<RecipeFormPage />} />
               <Route path="/recipes/import" element={<RecipeImportPage />} />
@@ -88,8 +94,26 @@ export default function App() {
               <Route path="/lists/new" element={<NewListPage />} />
               <Route path="/lists/:id" element={<ShoppingListPage />} />
               <Route path="/plan" element={<PlanPage />} />
+              <Route path="/food/templates" element={<MealMenusPage />} />
+              <Route path="/food/stores" element={<StoresPage />} />
+              <Route path="/food/stores/:id" element={<StoreRoutePage />} />
+
+              {/* Events */}
               <Route path="/events" element={<EventsPage />} />
               <Route path="/events/:id" element={<EventDetailPage />} />
+
+              {/* Household hub + sub-routes */}
+              <Route path="/household" element={<HouseholdHubPage />} />
+              <Route path="/household/activities" element={<ActivitiesPage />} />
+              <Route path="/household/chores" element={<ChoresPage />} />
+
+              {/* Profile / Settings */}
+              <Route path="/profile" element={<MorePage />} />
+              <Route path="/profile/circles" element={<CirclesPage />} />
+              <Route path="/profile/circles/:id" element={<CircleDetailPage />} />
+              <Route path="/profile/settings" element={<ProfilePage />} />
+
+              {/* Legacy redirects — keep old paths working */}
               <Route path="/more" element={<MorePage />} />
               <Route path="/more/circles" element={<CirclesPage />} />
               <Route path="/more/circles/:id" element={<CircleDetailPage />} />
