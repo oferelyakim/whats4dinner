@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
+import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
 import { EmptyState } from '@/components/ui/EmptyState'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
@@ -24,6 +25,7 @@ import {
   formatFrequency,
   type Chore,
 } from '@/services/chores'
+import { getCircleMembers } from '@/services/circles'
 
 const EMOJI_OPTIONS = [
   '🧹', '🧽', '🍽️', '🗑️', '🧺', '🐕', '📚', '🛏️', '🚿', '🌿',
@@ -80,6 +82,13 @@ export function ChoresPage() {
 
   const today = getToday()
   const week = getWeekRange()
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['circle-members', activeCircle?.id],
+    queryFn: () => getCircleMembers(activeCircle!.id),
+    enabled: !!activeCircle,
+  })
+  const memberNames = members.map((m) => m.profile?.display_name).filter(Boolean) as string[]
 
   const { data: chores = [], isLoading } = useQuery({
     queryKey: ['chores', activeCircle?.id],
@@ -492,12 +501,17 @@ export function ChoresPage() {
                 </div>
               </div>
 
-              <Input
-                label={t('chore.assignedTo')}
-                placeholder={t('chore.assignedPlaceholder')}
-                value={assignedName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignedName(e.target.value)}
-              />
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  {t('chore.assignedTo')}
+                </label>
+                <AutocompleteInput
+                  value={assignedName}
+                  onChange={setAssignedName}
+                  suggestions={memberNames}
+                  placeholder={t('chore.assignedPlaceholder')}
+                />
+              </div>
 
               {/* Frequency */}
               <div>

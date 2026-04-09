@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
+import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
 import { EmptyState } from '@/components/ui/EmptyState'
 import * as Dialog from '@radix-ui/react-dialog'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -20,6 +21,7 @@ import {
   formatRecurrence, formatTimeRange,
   type Activity, type Participant, type BringItem,
 } from '@/services/activities'
+import { getCircleMembers } from '@/services/circles'
 
 const CATEGORIES = [
   { value: 'sports', label: 'activity.cat.sports', emoji: '⚽' },
@@ -99,6 +101,13 @@ export function ActivitiesPage() {
 
   const weekDates = useMemo(() => getWeekDates(), [])
   const todayStr = new Date().toISOString().split('T')[0]
+
+  const { data: members = [] } = useQuery({
+    queryKey: ['circle-members', activeCircle?.id],
+    queryFn: () => getCircleMembers(activeCircle!.id),
+    enabled: !!activeCircle,
+  })
+  const memberNames = members.map((m) => m.profile?.display_name).filter(Boolean) as string[]
 
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['activities', activeCircle?.id],
@@ -627,12 +636,17 @@ export function ActivitiesPage() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
               />
 
-              <Input
-                label={t('activity.forWhom')}
-                placeholder={t('activity.forWhomPlaceholder')}
-                value={assignedName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignedName(e.target.value)}
-              />
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  {t('activity.forWhom')}
+                </label>
+                <AutocompleteInput
+                  value={assignedName}
+                  onChange={setAssignedName}
+                  suggestions={memberNames}
+                  placeholder={t('activity.forWhomPlaceholder')}
+                />
+              </div>
 
               {/* Category */}
               <div>

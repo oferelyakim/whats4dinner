@@ -22,8 +22,8 @@ export function AutocompleteInput({
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (value.length < 2) {
-      setFiltered([])
+    if (value.length === 0) {
+      setFiltered(suggestions.slice(0, 6))
       return
     }
     const lower = value.toLowerCase()
