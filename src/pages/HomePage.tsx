@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BookOpen, ShoppingCart, CalendarDays, PartyPopper, Plus,
-  ChevronRight, Users, MapPin,
+  ChevronRight, Users, MapPin, Bell,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
@@ -11,7 +11,7 @@ import { useI18n } from '@/lib/i18n'
 import { getShoppingLists } from '@/services/shoppingLists'
 import { getRecipes } from '@/services/recipes'
 import { getEvents, type Event } from '@/services/events'
-import { getActivities, activityOccursOnDate, formatTimeRange, type Activity } from '@/services/activities'
+import { getActivities, activityOccursOnDate, formatTimeRange, getUpcomingReminders, type Activity } from '@/services/activities'
 import { getChores, type Chore } from '@/services/chores'
 
 const CATEGORIES_EMOJI: Record<string, string> = {
@@ -68,6 +68,8 @@ export function HomePage() {
     if (c.frequency === 'weekly' && c.recurrence_days?.includes(new Date().getDay())) return true
     return false
   })
+
+  const upcomingReminders = getUpcomingReminders(activities, 7)
 
   const activeLists = lists.filter((l) => l.status === 'active').slice(0, 3)
   const upcomingEvents = events
@@ -209,6 +211,35 @@ export function HomePage() {
               ))}
             </div>
           )}
+        </motion.section>
+      )}
+
+      {/* Upcoming Reminders */}
+      {upcomingReminders.length > 0 && (
+        <motion.section variants={fadeUp}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              {t('reminder.upcoming')}
+            </h3>
+          </div>
+          <div className="space-y-1.5">
+            {upcomingReminders.slice(0, 5).map(({ activity, reminder, triggerDate }, i) => (
+              <Card key={`${activity.id}-${i}`} className="p-3 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/household/activities')}>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <Bell className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{activity.name}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {reminder.amount} {t(`reminder.${reminder.unit}`)} {t('reminder.before')}
+                      {triggerDate === today ? ` — ${t('calendar.today')}` : ''}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         </motion.section>
       )}
 

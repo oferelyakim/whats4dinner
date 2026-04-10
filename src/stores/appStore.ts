@@ -18,6 +18,12 @@ interface AppState {
   // UI state
   bottomNavVisible: boolean
   setBottomNavVisible: (visible: boolean) => void
+
+  // Calendar view state (persisted)
+  calendarView: 'month' | 'week' | 'day'
+  setCalendarView: (view: 'month' | 'week' | 'day') => void
+  calendarDate: string
+  setCalendarDate: (date: string) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -37,12 +43,19 @@ export const useAppStore = create<AppState>()(
 
       bottomNavVisible: true,
       setBottomNavVisible: (visible) => set({ bottomNavVisible: visible }),
+
+      calendarView: 'month',
+      setCalendarView: (view) => set({ calendarView: view }),
+      calendarDate: new Date().toISOString().split('T')[0],
+      setCalendarDate: (date) => set({ calendarDate: date }),
     }),
     {
       name: 'w4d-app',
       partialize: (state) => ({
         theme: state.theme,
         activeCircle: state.activeCircle,
+        calendarView: state.calendarView,
+        calendarDate: state.calendarDate,
       }),
     }
   )

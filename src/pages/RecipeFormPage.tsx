@@ -169,7 +169,7 @@ export function RecipeFormPage() {
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-          {isEdit ? t('recipe.edit') : t('recipe.new')}
+          {isEdit ? (existingRecipe?.type === 'supply_kit' ? t('essentials.editEssentials') : t('recipe.edit')) : t('recipe.new')}
         </h2>
       </div>
 

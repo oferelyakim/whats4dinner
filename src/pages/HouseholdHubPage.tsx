@@ -31,7 +31,7 @@ const fadeUp = {
 export function HouseholdHubPage() {
   const [activeTab, setActiveTab] = useState<Tab>('chores')
   const navigate = useNavigate()
-  const { activeCircle } = useAppStore()
+  const { activeCircle, profile } = useAppStore()
   const { t } = useI18n()
 
   const { data: activities = [] } = useQuery({
@@ -163,7 +163,7 @@ export function HouseholdHubPage() {
       {activeTab === 'chores' && (
         <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
           <motion.div variants={fadeUp} className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">{t('more.choresDesc')}</p>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('chore.myChores')}</p>
             <button
               onClick={() => navigate('/household/chores')}
               className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
@@ -185,7 +185,14 @@ export function HouseholdHubPage() {
               </Card>
             </motion.div>
           ) : (
-            chores.slice(0, 6).map((chore: Chore) => (
+            (() => {
+              const myName = profile?.display_name || ''
+              const myTodayChores = todayChores.filter((c: Chore) => {
+                const name = c.assigned_name || c.profile?.display_name || ''
+                return name === myName || !name
+              })
+              const displayChores = myTodayChores.length > 0 ? myTodayChores : chores.slice(0, 6)
+              return displayChores.map((chore: Chore) => (
               <motion.div key={chore.id} variants={fadeUp}>
                 <Card
                   className="p-3 cursor-pointer active:scale-[0.98]"
@@ -207,6 +214,7 @@ export function HouseholdHubPage() {
                 </Card>
               </motion.div>
             ))
+            })()
           )}
 
           {chores.length > 6 && (

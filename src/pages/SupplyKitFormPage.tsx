@@ -76,7 +76,7 @@ export function SupplyKitFormPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['recipes'] })
-      navigate('/recipes')
+      navigate('/recipes?view=essentials')
     },
     onError: (err: Error) => setSaveError(err.message),
   })
@@ -92,13 +92,13 @@ export function SupplyKitFormPage() {
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <Package className="h-5 w-5 text-brand-500" />
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">New Supply Kit</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('essentials.newEssentials')}</h2>
       </div>
 
       {/* Basic Info */}
       <div className="space-y-3">
         <Input
-          label="Kit Name"
+          label={t('essentials.name')}
           placeholder="e.g., Bathroom Restock, Party Supplies"
           value={title}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
@@ -205,7 +205,7 @@ export function SupplyKitFormPage() {
           {t('common.cancel')}
         </Button>
         <Button className="flex-1" onClick={() => saveMutation.mutate()} disabled={!title.trim() || saveMutation.isPending}>
-          {saveMutation.isPending ? t('common.loading') : 'Save Kit'}
+          {saveMutation.isPending ? t('common.loading') : t('essentials.save')}
         </Button>
       </div>
     </div>

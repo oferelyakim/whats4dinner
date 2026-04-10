@@ -2,7 +2,7 @@ import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'elevated'
+  variant?: 'default' | 'elevated' | 'glass'
 }
 
 export function Card({ className, variant = 'default', ...props }: CardProps) {
@@ -15,6 +15,8 @@ export function Card({ className, variant = 'default', ...props }: CardProps) {
             'bg-white border-slate-200 dark:bg-surface-dark-elevated dark:border-slate-700/50',
           elevated:
             'bg-white border-slate-200 shadow-sm hover:shadow-md dark:bg-surface-dark-elevated dark:border-slate-700/50',
+          glass:
+            'bg-white/70 dark:bg-surface-dark-elevated/70 backdrop-blur-lg border-white/20 dark:border-slate-700/30 shadow-lg',
         }[variant],
         className
       )}

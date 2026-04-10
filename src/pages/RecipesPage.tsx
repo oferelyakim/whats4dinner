@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, BookOpen, Clock, Users as UsersIcon, Link2, PenLine, Package } from 'lucide-react'
+import { Plus, Search, BookOpen, Clock, Users as UsersIcon, Link2, PenLine, Package, Camera } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -9,14 +9,18 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { getRecipes } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/cn'
+import { SpeedDial } from '@/components/ui/SpeedDial'
 import type { Recipe } from '@/types'
 
 export function RecipesPage() {
   const navigate = useNavigate()
   const { activeCircle } = useAppStore()
   const { t } = useI18n()
+  const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
-  const [viewType, setViewType] = useState<'recipe' | 'supply_kit'>('recipe')
+  const [viewType, setViewType] = useState<'recipe' | 'supply_kit'>(
+    searchParams.get('view') === 'essentials' ? 'supply_kit' : 'recipe'
+  )
 
   const { data: allItems = [], isLoading } = useQuery({
     queryKey: ['recipes', activeCircle?.id],
@@ -68,7 +72,7 @@ export function RecipesPage() {
           )}
         >
           <Package className="h-4 w-4" />
-          Supply Kits
+          {t('essentials.essentials')}
         </button>
       </div>
 
@@ -91,19 +95,19 @@ export function RecipesPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={viewType === 'recipe' ? <BookOpen className="h-12 w-12" /> : <Package className="h-12 w-12" />}
-          title={search ? 'Nothing found' : viewType === 'recipe' ? t('recipe.noRecipes') : 'No supply kits yet'}
+          title={search ? 'Nothing found' : viewType === 'recipe' ? t('recipe.noRecipes') : t('essentials.noEssentials')}
           description={
             search
               ? 'Try a different search term'
               : viewType === 'recipe'
                 ? t('recipe.addFirst')
-                : 'Create reusable supply lists like Bathroom Restock, Party Supplies, etc.'
+                : t('essentials.addFirst')
           }
           action={
             !search ? (
               <Button onClick={() => navigate(viewType === 'recipe' ? '/recipes/new' : '/recipes/new-kit')}>
                 <Plus className="h-4 w-4" />
-                {viewType === 'recipe' ? 'Add Recipe' : 'New Supply Kit'}
+                {viewType === 'recipe' ? t('action.addRecipe') : t('essentials.newEssentials')}
               </Button>
             ) : undefined
           }
@@ -171,24 +175,25 @@ export function RecipesPage() {
         </div>
       )}
 
-      {/* FAB menu */}
-      <div className="fixed bottom-20 end-4 z-40 flex flex-col items-end gap-2">
-        {viewType === 'recipe' && (
+      {/* FAB */}
+      {viewType === 'recipe' ? (
+        <SpeedDial
+          items={[
+            { icon: Link2, label: t('recipe.importUrl'), onClick: () => navigate('/recipes/import'), color: '#3b82f6' },
+            { icon: Camera, label: t('recipe.importPhoto'), onClick: () => navigate('/recipes/import'), color: '#8b5cf6' },
+            { icon: PenLine, label: t('recipe.writeManually'), onClick: () => navigate('/recipes/new'), color: '#f97316' },
+          ]}
+        />
+      ) : (
+        <div className="fixed bottom-20 end-4 z-50">
           <button
-            onClick={() => navigate('/recipes/import')}
-            className="h-11 flex items-center gap-2 px-4 rounded-full bg-slate-900 dark:bg-surface-dark-elevated text-white shadow-lg shadow-slate-900/20 active:scale-95 transition-transform text-sm font-medium"
+            onClick={() => navigate('/recipes/new-kit')}
+            className="h-14 w-14 rounded-full bg-brand-500 text-white shadow-lg shadow-brand-500/30 flex items-center justify-center active:scale-90 transition-transform"
           >
-            <Link2 className="h-4 w-4" />
-            {t('recipe.importUrl')}
+            <Plus className="h-6 w-6" />
           </button>
-        )}
-        <button
-          onClick={() => navigate(viewType === 'recipe' ? '/recipes/new' : '/recipes/new-kit')}
-          className="h-14 w-14 rounded-full bg-brand-500 text-white shadow-lg shadow-brand-500/30 flex items-center justify-center active:scale-90 transition-transform"
-        >
-          {viewType === 'recipe' ? <PenLine className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

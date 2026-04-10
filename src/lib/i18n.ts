@@ -315,6 +315,45 @@ const translations: Record<string, Record<Locale, string>> = {
   'chore.dueTime': { en: 'Due Time', he: 'שעת ביצוע' },
   'chore.description': { en: 'Description (optional)', he: 'תיאור (אופציונלי)' },
   'chore.descriptionPlaceholder': { en: 'Any details...', he: 'פרטים נוספים...' },
+  'chore.all': { en: 'All', he: 'הכל' },
+  'chore.me': { en: 'Me', he: 'שלי' },
+  'chore.myChores': { en: 'My Chores', he: 'המטלות שלי' },
+
+  // Essentials (renamed from Supply Kits)
+  'essentials.essentials': { en: 'Essentials', he: 'חיוניים' },
+  'essentials.newEssentials': { en: 'New Essentials List', he: 'רשימת חיוניים חדשה' },
+  'essentials.editEssentials': { en: 'Edit Essentials List', he: 'עריכת רשימת חיוניים' },
+  'essentials.noEssentials': { en: 'No essentials lists yet', he: 'אין רשימות חיוניים עדיין' },
+  'essentials.addFirst': { en: 'Create reusable supply lists like Bathroom Restock, Party Supplies, etc.', he: 'צור רשימות אספקה לשימוש חוזר כמו מילוי אמבטיה, ציוד למסיבה ועוד' },
+  'essentials.deleteEssentials': { en: 'Delete Essentials List', he: 'מחיקת רשימת חיוניים' },
+  'essentials.items': { en: 'Items', he: 'פריטים' },
+  'essentials.name': { en: 'List Name', he: 'שם הרשימה' },
+  'essentials.save': { en: 'Save Essentials', he: 'שמור חיוניים' },
+  'essentials.category': { en: 'Category', he: 'קטגוריה' },
+
+  // Recipe FAB
+  'recipe.writeManually': { en: 'Write manually', he: 'כתיבה ידנית' },
+
+  // Calendar
+  'calendar.month': { en: 'Month', he: 'חודש' },
+  'calendar.week': { en: 'Week', he: 'שבוע' },
+  'calendar.day': { en: 'Day', he: 'יום' },
+  'calendar.today': { en: 'Today', he: 'היום' },
+  'calendar.noActivities': { en: 'No activities on this day', he: 'אין פעילויות ביום זה' },
+
+  // Activity yearly + reminders
+  'activity.yearly': { en: 'Yearly', he: 'שנתי' },
+  'activity.monthly': { en: 'Monthly', he: 'חודשי' },
+  'reminder.reminders': { en: 'Reminders', he: 'תזכורות' },
+  'reminder.addReminder': { en: 'Add Reminder', he: 'הוסף תזכורת' },
+  'reminder.before': { en: 'before', he: 'לפני' },
+  'reminder.minutes': { en: 'minutes', he: 'דקות' },
+  'reminder.hours': { en: 'hours', he: 'שעות' },
+  'reminder.days': { en: 'days', he: 'ימים' },
+  'reminder.weeks': { en: 'weeks', he: 'שבועות' },
+  'reminder.months': { en: 'months', he: 'חודשים' },
+  'reminder.upcoming': { en: 'Upcoming Reminders', he: 'תזכורות קרובות' },
+  'reminder.noReminders': { en: 'No upcoming reminders', he: 'אין תזכורות קרובות' },
 }
 
 export const useI18n = create<I18nState>()(

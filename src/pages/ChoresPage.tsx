@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, Trash2, Pencil, Check, Flame, ChevronDown, ChevronUp, User,
+  ArrowLeft, Plus, Trash2, Pencil, Check, Flame, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -26,6 +26,20 @@ import {
   type Chore,
 } from '@/services/chores'
 import { getCircleMembers } from '@/services/circles'
+
+const PERSON_COLORS = [
+  { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-300' },
+  { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-300' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-300' },
+  { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-300' },
+  { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-300' },
+  { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-300' },
+]
+function getPersonColor(name: string) {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0
+  return PERSON_COLORS[Math.abs(hash) % PERSON_COLORS.length]
+}
 
 const EMOJI_OPTIONS = [
   '🧹', '🧽', '🍽️', '🗑️', '🧺', '🐕', '📚', '🛏️', '🚿', '🌿',
@@ -62,13 +76,15 @@ function getWeekRange(): { start: string; end: string } {
 export function ChoresPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { activeCircle } = useAppStore()
+  const { activeCircle, profile } = useAppStore()
   const { t } = useI18n()
+  const myName = profile?.display_name || ''
 
   const [showDialog, setShowDialog] = useState(false)
   const [editingChore, setEditingChore] = useState<Chore | null>(null)
   const [showWeekSummary, setShowWeekSummary] = useState(false)
   const [justCompleted, setJustCompleted] = useState<string | null>(null)
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('me')
 
   // Form state
   const [name, setName] = useState('')
@@ -210,16 +226,35 @@ export function ChoresPage() {
     return todayCompletions.some((c) => c.chore_id === choreId)
   }
 
-  // Group chores by assigned person
+  // Unique assignee names for filter chips
+  const assigneeNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const chore of chores) {
+      names.add(chore.assigned_name || chore.profile?.display_name || t('chore.unassigned'))
+    }
+    return [...names]
+  }, [chores, t])
+
+  // Filter chores by assignee
+  const filteredChores = useMemo(() => {
+    if (assigneeFilter === 'all') return chores
+    const filterName = assigneeFilter === 'me' ? myName : assigneeFilter
+    return chores.filter((c) => {
+      const name = c.assigned_name || c.profile?.display_name || t('chore.unassigned')
+      return name === filterName
+    })
+  }, [chores, assigneeFilter, myName, t])
+
+  // Group filtered chores by assigned person
   const byPerson = useMemo(() => {
     const map = new Map<string, Chore[]>()
-    for (const chore of chores) {
+    for (const chore of filteredChores) {
       const key = chore.assigned_name || chore.profile?.display_name || t('chore.unassigned')
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(chore)
     }
     return map
-  }, [chores, t])
+  }, [filteredChores, t])
 
   // Weekly points by person
   const weeklyPoints = useMemo(() => {
@@ -294,6 +329,48 @@ export function ChoresPage() {
         </div>
       )}
 
+      {/* Assignee filter chips */}
+      {chores.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
+          <button
+            onClick={() => setAssigneeFilter('all')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
+              assigneeFilter === 'all'
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+            )}
+          >
+            {t('chore.all')}
+          </button>
+          <button
+            onClick={() => setAssigneeFilter('me')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
+              assigneeFilter === 'me'
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+            )}
+          >
+            {t('chore.me')}
+          </button>
+          {assigneeNames.filter((n) => n !== myName).map((name) => (
+            <button
+              key={name}
+              onClick={() => setAssigneeFilter(name)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
+                assigneeFilter === name
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+              )}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="h-6 w-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
@@ -314,10 +391,17 @@ export function ChoresPage() {
         <div className="space-y-4">
           {[...byPerson.entries()].map(([person, personChores]) => (
             <div key={person}>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
-                <User className="h-3 w-3" />
-                {person}
-              </p>
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <div className={cn(
+                  'h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold',
+                  getPersonColor(person).bg, getPersonColor(person).text
+                )}>
+                  {person.charAt(0).toUpperCase()}
+                </div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  {person}
+                </p>
+              </div>
               <div className="space-y-2">
                 <AnimatePresence>
                   {personChores.map((chore) => {

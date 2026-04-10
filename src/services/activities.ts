@@ -10,6 +10,11 @@ export interface BringItem {
   checked: boolean
 }
 
+export interface Reminder {
+  amount: number
+  unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months'
+}
+
 export interface Activity {
   id: string
   circle_id: string
@@ -19,7 +24,7 @@ export interface Activity {
   location: string | null
   assigned_to: string | null
   assigned_name: string | null
-  recurrence_type: 'once' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'custom'
+  recurrence_type: 'once' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom'
   recurrence_days: number[]
   start_date: string
   end_date: string | null
@@ -30,6 +35,7 @@ export interface Activity {
   notes: string | null
   participants: Participant[]
   bring_items: BringItem[]
+  reminders: Reminder[]
   created_by: string
   created_at: string
   profile?: { display_name: string }
@@ -53,6 +59,7 @@ export function formatRecurrence(activity: Activity): string {
   if (activity.recurrence_type === 'once') return 'One-time'
   if (activity.recurrence_type === 'daily') return 'Daily'
   if (activity.recurrence_type === 'monthly') return 'Monthly'
+  if (activity.recurrence_type === 'yearly') return 'Yearly'
   if (activity.recurrence_type === 'biweekly') {
     const days = activity.recurrence_days.map((d) => DAY_NAMES[d]).join(', ')
     return `Every other ${days}`
@@ -84,6 +91,7 @@ export async function getActivities(circleId: string): Promise<Activity[]> {
     ...a,
     participants: Array.isArray(a.participants) ? a.participants : [],
     bring_items: Array.isArray(a.bring_items) ? a.bring_items : [],
+    reminders: Array.isArray(a.reminders) ? a.reminders : [],
   })) as Activity[]
 }
 
@@ -105,6 +113,7 @@ export async function createActivity(input: {
   notes?: string
   participants?: Participant[]
   bring_items?: BringItem[]
+  reminders?: Reminder[]
 }): Promise<Activity> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -119,6 +128,7 @@ export async function createActivity(input: {
       category: input.category || 'other',
       participants: input.participants || [],
       bring_items: input.bring_items || [],
+      reminders: input.reminders || [],
     })
     .select()
     .single()
@@ -144,6 +154,7 @@ export async function updateActivity(id: string, input: {
   notes?: string | null
   participants?: Participant[]
   bring_items?: BringItem[]
+  reminders?: Reminder[]
 }): Promise<Activity> {
   const { data, error } = await supabase
     .from('activities')
@@ -281,5 +292,52 @@ export function activityOccursOnDate(activity: Activity, date: string): boolean 
   if (activity.recurrence_type === 'monthly') {
     return d.getDate() === startDate.getDate()
   }
+  if (activity.recurrence_type === 'yearly') {
+    return d.getMonth() === startDate.getMonth() && d.getDate() === startDate.getDate()
+  }
   return false
+}
+
+// Get upcoming reminders for activities in the next N days
+export function getUpcomingReminders(
+  activities: Activity[],
+  daysAhead: number = 7
+): Array<{ activity: Activity; reminder: Reminder; triggerDate: string }> {
+  const result: Array<{ activity: Activity; reminder: Reminder; triggerDate: string }> = []
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+  const endLimit = new Date(today)
+  endLimit.setDate(endLimit.getDate() + daysAhead)
+  const endStr = endLimit.toISOString().split('T')[0]
+
+  for (const activity of activities) {
+    if (!activity.reminders || activity.reminders.length === 0) continue
+
+    // Find next occurrence
+    const current = new Date(today)
+    for (let i = 0; i <= daysAhead + 60; i++) {
+      const dateStr = current.toISOString().split('T')[0]
+      if (activityOccursOnDate(activity, dateStr)) {
+        // Check each reminder
+        for (const reminder of activity.reminders) {
+          const triggerDate = new Date(current)
+          switch (reminder.unit) {
+            case 'minutes': triggerDate.setMinutes(triggerDate.getMinutes() - reminder.amount); break
+            case 'hours': triggerDate.setHours(triggerDate.getHours() - reminder.amount); break
+            case 'days': triggerDate.setDate(triggerDate.getDate() - reminder.amount); break
+            case 'weeks': triggerDate.setDate(triggerDate.getDate() - reminder.amount * 7); break
+            case 'months': triggerDate.setMonth(triggerDate.getMonth() - reminder.amount); break
+          }
+          const triggerStr = triggerDate.toISOString().split('T')[0]
+          if (triggerStr >= todayStr && triggerStr <= endStr) {
+            result.push({ activity, reminder, triggerDate: triggerStr })
+          }
+        }
+        break // Only look at the next occurrence
+      }
+      current.setDate(current.getDate() + 1)
+    }
+  }
+
+  return result.sort((a, b) => a.triggerDate.localeCompare(b.triggerDate))
 }

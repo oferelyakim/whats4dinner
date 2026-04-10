@@ -4,12 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Plus, Calendar, MapPin, Clock, Repeat, Trash2, User,
   Pencil, Users, PackageCheck, ChevronDown, ChevronUp, X,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { MonthCalendar } from '@/components/ui/MonthCalendar'
 import * as Dialog from '@radix-ui/react-dialog'
 import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/cn'
@@ -19,7 +21,7 @@ import {
   getActivities, createActivity, updateActivity, deleteActivity,
   activityOccursOnDate,
   formatRecurrence, formatTimeRange,
-  type Activity, type Participant, type BringItem,
+  type Activity, type Participant, type BringItem, type Reminder,
 } from '@/services/activities'
 import { getCircleMembers } from '@/services/circles'
 
@@ -51,16 +53,16 @@ const DAYS = [
   { value: 6, label: 'activity.day.sa' },
 ]
 
-function getWeekDates(): { date: Date; dateStr: string }[] {
-  const today = new Date()
-  const dayOfWeek = today.getDay()
-  const weekStart = new Date(today)
-  weekStart.setDate(today.getDate() - dayOfWeek)
+function getWeekDatesForDate(refDate: string): { date: Date; dateStr: string }[] {
+  const d = new Date(refDate + 'T12:00:00')
+  const dayOfWeek = d.getDay()
+  const weekStart = new Date(d)
+  weekStart.setDate(d.getDate() - dayOfWeek)
   const dates: { date: Date; dateStr: string }[] = []
   for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart)
-    d.setDate(weekStart.getDate() + i)
-    dates.push({ date: d, dateStr: d.toISOString().split('T')[0] })
+    const dd = new Date(weekStart)
+    dd.setDate(weekStart.getDate() + i)
+    dates.push({ date: dd, dateStr: dd.toISOString().split('T')[0] })
   }
   return dates
 }
@@ -68,13 +70,15 @@ function getWeekDates(): { date: Date; dateStr: string }[] {
 export function ActivitiesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { activeCircle } = useAppStore()
-  const { t } = useI18n()
+  const { activeCircle, calendarView, setCalendarView, calendarDate, setCalendarDate } = useAppStore()
+  const { t, locale } = useI18n()
 
   const [showDialog, setShowDialog] = useState(false)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
+  // selectedDate is the date being viewed for filtering activities
+  const selectedDate = calendarView === 'month' ? null : calendarDate
 
   // Form state
   const [name, setName] = useState('')
@@ -99,7 +103,16 @@ export function ActivitiesPage() {
   // Bring item form
   const [newBringItem, setNewBringItem] = useState('')
 
-  const weekDates = useMemo(() => getWeekDates(), [])
+  // Reminders
+  const [reminders, setReminders] = useState<Reminder[]>([])
+  const [newReminderAmount, setNewReminderAmount] = useState('1')
+  const [newReminderUnit, setNewReminderUnit] = useState<Reminder['unit']>('hours')
+
+  const calendarDateObj = useMemo(() => new Date(calendarDate + 'T12:00:00'), [calendarDate])
+  const calYear = calendarDateObj.getFullYear()
+  const calMonth = calendarDateObj.getMonth()
+
+  const weekDates = useMemo(() => getWeekDatesForDate(calendarDate), [calendarDate])
   const todayStr = new Date().toISOString().split('T')[0]
 
   const { data: members = [] } = useQuery({
@@ -135,6 +148,21 @@ export function ActivitiesPage() {
     return set
   }, [activities, weekDates])
 
+  // Activity dots for month calendar
+  const activityDots = useMemo(() => {
+    const map = new Map<string, number>()
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      let count = 0
+      for (const activity of activities) {
+        if (activityOccursOnDate(activity, dateStr)) count++
+      }
+      if (count > 0) map.set(dateStr, count)
+    }
+    return map
+  }, [activities, calYear, calMonth])
+
   const createMutation = useMutation({
     mutationFn: () =>
       createActivity({
@@ -153,6 +181,7 @@ export function ActivitiesPage() {
         notes: notes.trim() || undefined,
         participants,
         bring_items: bringItems,
+        reminders,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['activities'] })
@@ -178,6 +207,7 @@ export function ActivitiesPage() {
         notes: notes.trim() || null,
         participants,
         bring_items: bringItems,
+        reminders,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['activities'] })
@@ -220,6 +250,7 @@ export function ActivitiesPage() {
     setNotes(activity.notes || '')
     setParticipants(activity.participants || [])
     setBringItems(activity.bring_items || [])
+    setReminders(activity.reminders || [])
     setShowDialog(true)
   }
 
@@ -244,8 +275,11 @@ export function ActivitiesPage() {
     setNotes('')
     setParticipants([])
     setBringItems([])
+    setReminders([])
     setNewParticipantName('')
     setNewBringItem('')
+    setNewReminderAmount('1')
+    setNewReminderUnit('hours')
   }
 
   function toggleDay(day: number) {
@@ -327,78 +361,152 @@ export function ActivitiesPage() {
         </Button>
       </div>
 
-      <p className="text-xs text-slate-400">{t('activity.subtitle')}</p>
-
-      {/* Weekly Mini Calendar */}
-      <div className="flex gap-1 justify-between">
-        {weekDates.map(({ date, dateStr }) => {
-          const isToday = dateStr === todayStr
-          const isSelected = dateStr === selectedDate
-          const hasActivity = daysWithActivities.has(dateStr)
-          const dayLabel = date.toLocaleDateString('en-US', { weekday: 'narrow' })
-          const dayNum = date.getDate()
-
-          return (
+      {/* View toggle */}
+      <div className="flex items-center gap-2">
+        <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5 flex-1">
+          {(['month', 'week', 'day'] as const).map((view) => (
             <button
-              key={dateStr}
-              onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+              key={view}
+              onClick={() => setCalendarView(view)}
               className={cn(
-                'flex flex-col items-center w-10 py-1.5 rounded-xl transition-all',
-                isSelected
-                  ? 'bg-brand-500 text-white'
-                  : isToday
-                    ? 'bg-brand-50 dark:bg-brand-900/30'
-                    : 'bg-slate-50 dark:bg-surface-dark-overlay',
+                'flex-1 py-1.5 rounded-md text-xs font-medium transition-all text-center',
+                calendarView === view
+                  ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-500'
               )}
             >
-              <span
-                className={cn(
-                  'text-[10px] font-medium',
-                  isSelected ? 'text-white/80' : 'text-slate-400',
-                )}
-              >
-                {dayLabel}
-              </span>
-              <span
-                className={cn(
-                  'text-sm font-bold mt-0.5',
-                  isSelected
-                    ? 'text-white'
-                    : isToday
-                      ? 'text-brand-500'
-                      : 'text-slate-700 dark:text-slate-200',
-                )}
-              >
-                {dayNum}
-              </span>
-              {hasActivity && (
-                <span
-                  className={cn(
-                    'h-1 w-1 rounded-full mt-0.5',
-                    isSelected ? 'bg-white' : 'bg-brand-500',
-                  )}
-                />
-              )}
+              {t(`calendar.${view}`)}
             </button>
-          )
-        })}
+          ))}
+        </div>
+        <button
+          onClick={() => setCalendarDate(todayStr)}
+          className="text-xs font-medium text-brand-500 px-2 py-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
+        >
+          {t('calendar.today')}
+        </button>
       </div>
 
-      {/* Selected date indicator */}
-      {selectedDate && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-brand-500 font-medium">
-            {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+      {/* Month Calendar View */}
+      {calendarView === 'month' && (
+        <MonthCalendar
+          year={calYear}
+          month={calMonth}
+          selectedDate={calendarDate}
+          onSelectDate={(dateStr) => {
+            setCalendarDate(dateStr)
+            setCalendarView('week')
+          }}
+          onNavigate={(y, m) => {
+            const d = new Date(y, m, 1)
+            setCalendarDate(d.toISOString().split('T')[0])
+          }}
+          activityDots={activityDots}
+          locale={locale}
+        />
+      )}
+
+      {/* Week View */}
+      {calendarView === 'week' && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={() => {
+                const d = new Date(calendarDate + 'T12:00:00')
+                d.setDate(d.getDate() - 7)
+                setCalendarDate(d.toISOString().split('T')[0])
+              }}
+              className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+            >
+              <ChevronLeft className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
+            </button>
+            <span className="text-xs font-medium text-slate-500">
+              {weekDates[0]?.date.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { month: 'short', day: 'numeric' })}
+              {' - '}
+              {weekDates[6]?.date.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { month: 'short', day: 'numeric' })}
+            </span>
+            <button
+              onClick={() => {
+                const d = new Date(calendarDate + 'T12:00:00')
+                d.setDate(d.getDate() + 7)
+                setCalendarDate(d.toISOString().split('T')[0])
+              }}
+              className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+            >
+              <ChevronRight className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
+            </button>
+          </div>
+          <div className="flex gap-1 justify-between">
+            {weekDates.map(({ date, dateStr }) => {
+              const isToday = dateStr === todayStr
+              const isSelected = dateStr === calendarDate
+              const hasActivity = daysWithActivities.has(dateStr)
+              const dayLabel = date.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { weekday: 'narrow' })
+              const dayNum = date.getDate()
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => {
+                    setCalendarDate(dateStr)
+                    setCalendarView('day')
+                  }}
+                  className={cn(
+                    'flex flex-col items-center w-10 py-1.5 rounded-xl transition-all',
+                    isSelected
+                      ? 'bg-brand-500 text-white'
+                      : isToday
+                        ? 'bg-brand-50 dark:bg-brand-900/30'
+                        : 'bg-slate-50 dark:bg-surface-dark-overlay',
+                  )}
+                >
+                  <span className={cn('text-[10px] font-medium', isSelected ? 'text-white/80' : 'text-slate-400')}>
+                    {dayLabel}
+                  </span>
+                  <span className={cn(
+                    'text-sm font-bold mt-0.5',
+                    isSelected ? 'text-white' : isToday ? 'text-brand-500' : 'text-slate-700 dark:text-slate-200',
+                  )}>
+                    {dayNum}
+                  </span>
+                  {hasActivity && (
+                    <span className={cn('h-1 w-1 rounded-full mt-0.5', isSelected ? 'bg-white' : 'bg-brand-500')} />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Day View header */}
+      {calendarView === 'day' && (
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              const d = new Date(calendarDate + 'T12:00:00')
+              d.setDate(d.getDate() - 1)
+              setCalendarDate(d.toISOString().split('T')[0])
+            }}
+            className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+          >
+            <ChevronLeft className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
+          </button>
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            {new Date(calendarDate + 'T12:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
               weekday: 'long',
               month: 'short',
               day: 'numeric',
             })}
           </span>
           <button
-            onClick={() => setSelectedDate(null)}
-            className="text-slate-400 hover:text-slate-600"
+            onClick={() => {
+              const d = new Date(calendarDate + 'T12:00:00')
+              d.setDate(d.getDate() + 1)
+              setCalendarDate(d.toISOString().split('T')[0])
+            }}
+            className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
           >
-            <X className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
           </button>
         </div>
       )}
@@ -689,6 +797,8 @@ export function ActivitiesPage() {
                     { value: 'weekly', label: t('activity.weekly') },
                     { value: 'biweekly', label: t('activity.biweekly') },
                     { value: 'daily', label: t('activity.daily') },
+                    { value: 'monthly', label: t('activity.monthly') },
+                    { value: 'yearly', label: t('activity.yearly') },
                   ].map((r) => (
                     <button
                       key={r.value}
@@ -758,6 +868,62 @@ export function ActivitiesPage() {
                 value={notes}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNotes(e.target.value)}
               />
+
+              {/* Reminders Section */}
+              <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  {t('reminder.reminders')}
+                </p>
+                {reminders.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {reminders.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className="flex-1 text-slate-600 dark:text-slate-300">
+                          {r.amount} {t(`reminder.${r.unit}`)} {t('reminder.before')}
+                        </span>
+                        <button
+                          onClick={() => setReminders((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="text-slate-400 hover:text-danger p-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    value={newReminderAmount}
+                    onChange={(e) => setNewReminderAmount(e.target.value)}
+                    className="w-16 px-2 py-1.5 rounded-lg text-xs bg-white dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                  />
+                  <select
+                    value={newReminderUnit}
+                    onChange={(e) => setNewReminderUnit(e.target.value as Reminder['unit'])}
+                    className="flex-1 px-2 py-1.5 rounded-lg text-xs bg-white dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="minutes">{t('reminder.minutes')}</option>
+                    <option value="hours">{t('reminder.hours')}</option>
+                    <option value="days">{t('reminder.days')}</option>
+                    <option value="weeks">{t('reminder.weeks')}</option>
+                    <option value="months">{t('reminder.months')}</option>
+                  </select>
+                  <button
+                    onClick={() => {
+                      const amount = parseInt(newReminderAmount)
+                      if (amount > 0) {
+                        setReminders((prev) => [...prev, { amount, unit: newReminderUnit }])
+                        setNewReminderAmount('1')
+                      }
+                    }}
+                    className="text-xs font-medium text-brand-500 px-2 py-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/20"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
 
               {/* Participants Section */}
               <div className="border-t border-slate-100 dark:border-slate-700 pt-3">

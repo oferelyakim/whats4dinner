@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/OferElyakim/.claude/projects/C--Users-OferElyakim-oferProjects-DriveChat/memory/**)",
+      "Bash(xargs grep:*)",
+      "Bash(wc -l /c/Users/OferElyakim/oferProjects/whats4dinner/e2e/*.spec.ts)",
+      "Bash(npx tsc:*)",
+      "Bash(npx playwright:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(grep -r \"export function\\\\|export const\" /c/Users/OferElyakim/oferProjects/whats4dinner/src/pages/*.tsx)",
+      "Bash(npm run:*)",
+      "Bash(find /c/Users/OferElyakim/oferProjects/whats4dinner/src/components -type f -name \"*.tsx\" -exec basename {} \\\\;)",
+      "Bash(xargs wc:*)",
+      "Bash(grep -l \"subscription\\\\|pricing\\\\|tier\\\\|premium\" /c/Users/OferElyakim/oferProjects/whats4dinner/src/services/*.ts /c/Users/OferElyakim/oferProjects/whats4dinner/src/pages/*.tsx)",
+      "Bash(grep -r \"useNavigate\\\\|navigate\\(-1\\)\" /c/Users/OferElyakim/oferProjects/whats4dinner/src/pages/*.tsx)"
+    ]
+  }
+}
