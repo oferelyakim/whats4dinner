@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Link2, Loader2, Check, ChefHat, Camera } from 'lucide-react'
+import { ArrowLeft, Link2, Loader2, Check, ChefHat, Camera, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { importRecipeFromUrl, importRecipeFromImage } from '@/services/recipeImport'
 import { createRecipe } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
+import { useAIAccess } from '@/hooks/useAIAccess'
+import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
+import { useI18n } from '@/lib/i18n'
 
 interface ImportedIngredient {
   name: string
@@ -20,6 +23,8 @@ export function RecipeImportPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { activeCircle } = useAppStore()
+  const ai = useAIAccess()
+  const { t } = useI18n()
 
   const [mode, setMode] = useState<'url' | 'image'>('url')
   const [url, setUrl] = useState('')
@@ -95,6 +100,16 @@ export function RecipeImportPage() {
     },
   })
 
+  function handleImportUrl() {
+    if (!ai.checkAIAccess()) return
+    fetchMutation.mutate()
+  }
+
+  function handleImportImage() {
+    if (!ai.checkAIAccess()) return
+    imageMutation.mutate()
+  }
+
   function toggleIngredient(index: number) {
     if (!imported) return
     setImported({
@@ -104,6 +119,10 @@ export function RecipeImportPage() {
       ),
     })
   }
+
+  const resetDate = ai.subscription?.current_period_end
+    ? new Date(ai.subscription.current_period_end).toLocaleDateString()
+    : undefined
 
   return (
     <div className="px-4 sm:px-6 py-4 space-y-5 animate-page-enter">
@@ -116,7 +135,26 @@ export function RecipeImportPage() {
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Import Recipe</h2>
+        <Sparkles className="h-4 w-4 text-brand-500" />
       </div>
+
+      {/* AI warning banner */}
+      {ai.hasAI && ai.isWarning && (
+        <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-xl px-3 py-2">
+          <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+            {t('ai.warningUsage')}
+          </p>
+        </div>
+      )}
+
+      {/* AI limit reached banner */}
+      {ai.hasAI && ai.isLimitReached && (
+        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+          <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+            {t('ai.limitReachedShort')}{resetDate ? ` ${t('ai.resetsOn')} ${resetDate}.` : ''}
+          </p>
+        </div>
+      )}
 
       {/* Import options */}
       {!imported && (
@@ -170,8 +208,8 @@ export function RecipeImportPage() {
               <Button
                 className="w-full"
                 size="lg"
-                onClick={() => fetchMutation.mutate()}
-                disabled={!url.trim() || fetchMutation.isPending}
+                onClick={handleImportUrl}
+                disabled={!url.trim() || fetchMutation.isPending || (ai.hasAI && ai.isLimitReached)}
               >
                 {fetchMutation.isPending ? (
                   <>
@@ -179,7 +217,10 @@ export function RecipeImportPage() {
                     Extracting recipe...
                   </>
                 ) : (
-                  'Import Recipe'
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Import Recipe
+                  </>
                 )}
               </Button>
             </>
@@ -231,8 +272,8 @@ export function RecipeImportPage() {
               <Button
                 className="w-full"
                 size="lg"
-                disabled={!imageFile || imageMutation.isPending}
-                onClick={() => imageMutation.mutate()}
+                disabled={!imageFile || imageMutation.isPending || (ai.hasAI && ai.isLimitReached)}
+                onClick={handleImportImage}
               >
                 {imageMutation.isPending ? (
                   <>
@@ -240,7 +281,10 @@ export function RecipeImportPage() {
                     Reading recipe...
                   </>
                 ) : (
-                  'Extract from Photo'
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Extract from Photo
+                  </>
                 )}
               </Button>
 
@@ -355,6 +399,13 @@ export function RecipeImportPage() {
           </div>
         </div>
       )}
+
+      <AIUpgradeModal
+        open={ai.showUpgradeModal}
+        onOpenChange={ai.setShowUpgradeModal}
+        isLimitReached={ai.hasAI && ai.isLimitReached}
+        resetDate={resetDate}
+      />
     </div>
   )
 }

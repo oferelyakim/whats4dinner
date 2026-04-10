@@ -2,19 +2,17 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BookOpen, ShoppingCart, CalendarDays, PartyPopper, Plus,
-  ChevronRight, Users, Crown, MapPin,
+  ChevronRight, Users, MapPin,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
-import { canUse } from '@/lib/subscription'
 import { getShoppingLists } from '@/services/shoppingLists'
 import { getRecipes } from '@/services/recipes'
 import { getEvents, type Event } from '@/services/events'
 import { getActivities, activityOccursOnDate, formatTimeRange, type Activity } from '@/services/activities'
 import { getChores, type Chore } from '@/services/chores'
-import { UpgradePrompt, useFeatureGate } from '@/components/ui/UpgradePrompt'
 
 const CATEGORIES_EMOJI: Record<string, string> = {
   sports: '⚽', music: '🎵', arts: '🎨', education: '📚',
@@ -35,7 +33,6 @@ export function HomePage() {
   const navigate = useNavigate()
   const { profile, activeCircle } = useAppStore()
   const { t } = useI18n()
-  const gate = useFeatureGate()
 
   const { data: lists = [] } = useQuery({
     queryKey: ['shopping-lists'],
@@ -84,18 +81,6 @@ export function HomePage() {
   const recentRecipes = recipes.slice(0, 5)
   const greeting = getGreeting(t)
 
-  function handleCreateEvent() {
-    if (gate.checkFeature('Organizing events', canUse(gate.tier, 'canCreateEvents'))) {
-      navigate('/events')
-    }
-  }
-
-  function handleCreateCircle() {
-    if (gate.checkFeature('Creating circles', canUse(gate.tier, 'canCreateCircles'))) {
-      navigate('/profile/circles')
-    }
-  }
-
   return (
     <motion.div
       className="px-4 sm:px-6 py-6 space-y-6"
@@ -118,15 +103,6 @@ export function HomePage() {
             </p>
           </div>
         </div>
-        {gate.tier === 'free' && (
-          <button
-            onClick={() => gate.setShowUpgrade(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-500 to-pink-500 text-white text-xs font-medium shadow-sm hover:shadow-md transition-shadow"
-          >
-            <Crown className="h-3 w-3" />
-            Upgrade
-          </button>
-        )}
       </motion.div>
 
       {/* Quick Actions - 2x2 grid */}
@@ -134,7 +110,7 @@ export function HomePage() {
         <Card
           variant="elevated"
           className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-pink-50/50 dark:from-surface-dark-elevated dark:to-pink-950/10"
-          onClick={handleCreateEvent}
+          onClick={() => navigate('/events')}
         >
           <div className="h-10 w-10 rounded-xl bg-pink-500/10 flex items-center justify-center mb-2">
             <PartyPopper className="h-5 w-5 text-pink-500" />
@@ -379,7 +355,7 @@ export function HomePage() {
             {t('action.myCircles')}
           </h3>
           <button
-            onClick={handleCreateCircle}
+            onClick={() => navigate('/profile/circles')}
             className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
           >
             {t('common.create')}
@@ -396,12 +372,6 @@ export function HomePage() {
           </div>
         </Card>
       </motion.section>
-
-      <UpgradePrompt
-        open={gate.showUpgrade}
-        onOpenChange={gate.setShowUpgrade}
-        feature={gate.upgradeFeature}
-      />
     </motion.div>
   )
 }

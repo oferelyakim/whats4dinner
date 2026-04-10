@@ -165,3 +165,31 @@ export interface ItemRequest {
   created_at: string
   profile?: Profile
 }
+
+export type SubscriptionPlan = 'free' | 'ai_individual' | 'ai_family'
+export type SubscriptionStatus = 'active' | 'cancelled' | 'expired'
+export type AIActionType = 'recipe_import_url' | 'recipe_import_photo' | 'meal_plan' | 'nlp_action'
+
+export interface Subscription {
+  id: string
+  user_id: string
+  plan: SubscriptionPlan
+  status: SubscriptionStatus
+  current_period_start: string
+  current_period_end: string
+  stripe_subscription_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AIUsage {
+  id: string
+  user_id: string
+  action_type: AIActionType
+  api_cost_usd: number
+  model_used: string
+  tokens_in: number
+  tokens_out: number
+  period_start: string
+  created_at: string
+}

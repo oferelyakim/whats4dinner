@@ -1,4 +1,6 @@
 import { supabase } from './supabase'
+import { logAIUsage } from './ai-usage'
+import type { AIActionType } from '@/types'
 
 interface ParsedRecipe {
   title: string
@@ -10,6 +12,30 @@ interface ParsedRecipe {
   servings?: number
   source_url: string
   ingredients: { name: string; quantity?: number; unit?: string }[]
+}
+
+interface AIUsageMetadata {
+  model: string
+  tokens_in: number
+  tokens_out: number
+  cost_usd: number
+}
+
+async function logUsageFromResponse(
+  actionType: AIActionType,
+  aiUsage: AIUsageMetadata | undefined,
+) {
+  if (!aiUsage) return
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await logAIUsage(
+    user.id,
+    actionType,
+    aiUsage.model,
+    aiUsage.tokens_in,
+    aiUsage.tokens_out,
+    aiUsage.cost_usd,
+  )
 }
 
 export async function importRecipeFromImage(file: File): Promise<ParsedRecipe> {
@@ -24,7 +50,11 @@ export async function importRecipeFromImage(file: File): Promise<ParsedRecipe> {
     throw new Error(error?.message || 'Could not extract recipe from image. Try a clearer photo or add manually.')
   }
 
-  return { ...data, source_url: '' } as ParsedRecipe
+  // Log AI usage in background
+  logUsageFromResponse('recipe_import_photo', data._ai_usage)
+
+  const { _ai_usage, ...recipe } = data
+  return { ...recipe, source_url: '' } as ParsedRecipe
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -47,7 +77,11 @@ export async function importRecipeFromUrl(url: string): Promise<ParsedRecipe> {
       body: { url },
     })
     if (!error && data && data.title) {
-      return { ...data, source_url: url }
+      // Log AI usage in background
+      logUsageFromResponse('recipe_import_url', data._ai_usage)
+
+      const { _ai_usage, ...recipe } = data
+      return { ...recipe, source_url: url }
     }
   } catch {
     // Edge function not deployed yet, fall back to client-side

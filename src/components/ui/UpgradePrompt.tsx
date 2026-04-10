@@ -1,25 +1,64 @@
-import { Crown, Check } from 'lucide-react'
+import { Sparkles, Check, AlertTriangle } from 'lucide-react'
 import { Button } from './Button'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
-import { PRICING, useSubscription } from '@/lib/subscription'
+import { AI_PRICING } from '@/lib/subscription'
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { mockActivateSubscription, mockCancelSubscription } from '@/services/ai-usage'
+import { useAuth } from '@/hooks/useAuth'
+import { useI18n } from '@/lib/i18n'
 
-interface UpgradePromptProps {
+interface AIUpgradeModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  feature: string
+  /** If true, user has AI plan but hit the usage limit */
+  isLimitReached?: boolean
+  /** Reset date string for limit-reached state */
+  resetDate?: string
 }
 
-export function UpgradePrompt({ open, onOpenChange, feature }: UpgradePromptProps) {
-  const { setTier } = useSubscription()
-  const [selectedPlan, setSelectedPlan] = useState<'premium' | 'family'>('premium')
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('yearly')
+export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }: AIUpgradeModalProps) {
+  const { session } = useAuth()
+  const { t } = useI18n()
+  const queryClient = useQueryClient()
+  const [selectedPlan, setSelectedPlan] = useState<'ai_individual' | 'ai_family'>('ai_individual')
 
-  // For now, simulate upgrade. In production: Stripe checkout
-  function handleUpgrade() {
-    setTier(selectedPlan)
-    onOpenChange(false)
+  // TODO: Replace with Stripe checkout
+  const activateMutation = useMutation({
+    mutationFn: () => mockActivateSubscription(session!.user.id, selectedPlan),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription'] })
+      queryClient.invalidateQueries({ queryKey: ['ai-usage'] })
+      onOpenChange(false)
+    },
+  })
+
+  if (isLimitReached) {
+    return (
+      <Dialog.Root open={open} onOpenChange={onOpenChange}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto">
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+            <div className="flex flex-col items-center text-center">
+              <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-3">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+              </div>
+              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                {t('ai.limitReached')}
+              </Dialog.Title>
+              <p className="text-sm text-slate-500 mb-4">
+                {t('ai.limitReachedDesc')}{resetDate ? ` ${t('ai.resetsOn')} ${resetDate}.` : ''}
+              </p>
+              <Button variant="secondary" className="w-full" onClick={() => onOpenChange(false)}>
+                {t('common.done')}
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    )
   }
 
   return (
@@ -29,80 +68,53 @@ export function UpgradePrompt({ open, onOpenChange, feature }: UpgradePromptProp
         <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
           <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white text-center mb-1">
-            Upgrade to unlock
+            {t('ai.unlockAI')}
           </Dialog.Title>
           <p className="text-sm text-slate-500 text-center mb-5">
-            {feature} is a premium feature
+            {t('ai.unlockDesc')}
           </p>
-
-          {/* Billing toggle */}
-          <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5 mb-4">
-            <button
-              onClick={() => setBilling('monthly')}
-              className={cn(
-                'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
-                billing === 'monthly'
-                  ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500'
-              )}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBilling('yearly')}
-              className={cn(
-                'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
-                billing === 'yearly'
-                  ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500'
-              )}
-            >
-              Yearly (save 33%)
-            </button>
-          </div>
 
           {/* Plans */}
           <div className="space-y-3">
             <PlanCard
-              name="Premium"
-              price={billing === 'monthly' ? PRICING.premium.monthly : PRICING.premium.yearlyMonthly}
-              period={billing === 'yearly' ? '/mo (billed yearly)' : '/mo'}
+              name={AI_PRICING.ai_individual.label}
+              price={AI_PRICING.ai_individual.monthly}
               features={[
-                'Create unlimited circles',
-                'Organize events & gatherings',
-                'AI recipe import (20/mo)',
-                'Share shopping lists',
-                'Unlimited recipes',
-                'Meal templates',
-                'Store route sorting',
+                t('ai.feature.recipeImport'),
+                t('ai.feature.recipePhoto'),
+                t('ai.feature.mealPlanAI'),
+                t('ai.feature.nlpActions'),
               ]}
-              selected={selectedPlan === 'premium'}
-              onSelect={() => setSelectedPlan('premium')}
+              selected={selectedPlan === 'ai_individual'}
+              onSelect={() => setSelectedPlan('ai_individual')}
             />
 
             <PlanCard
-              name="Family"
-              price={billing === 'monthly' ? PRICING.family.monthly : PRICING.family.yearlyMonthly}
-              period={billing === 'yearly' ? '/mo (billed yearly)' : '/mo'}
+              name={AI_PRICING.ai_family.label}
+              price={AI_PRICING.ai_family.monthly}
               features={[
-                'Everything in Premium',
-                `Up to ${PRICING.family.members} premium members`,
-                'AI recipe import (50/mo)',
-                'Priority support',
-                'Early access to features',
+                t('ai.feature.everythingIndividual'),
+                `${t('ai.feature.upToMembers')} ${AI_PRICING.ai_family.members} ${t('ai.feature.members')}`,
+                t('ai.feature.sharedUsage'),
               ]}
-              selected={selectedPlan === 'family'}
-              onSelect={() => setSelectedPlan('family')}
-              badge="Best Value"
+              selected={selectedPlan === 'ai_family'}
+              onSelect={() => setSelectedPlan('ai_family')}
+              badge={t('ai.bestValue')}
             />
           </div>
 
-          <Button className="w-full mt-4" size="lg" onClick={handleUpgrade}>
-            <Crown className="h-4 w-4" />
-            Start Free Trial
+          {/* TODO: Replace with Stripe checkout */}
+          <Button
+            className="w-full mt-4"
+            size="lg"
+            onClick={() => activateMutation.mutate()}
+            disabled={activateMutation.isPending}
+          >
+            <Sparkles className="h-4 w-4" />
+            {activateMutation.isPending ? t('common.loading') : t('ai.activate')}
           </Button>
           <p className="text-[10px] text-slate-400 text-center mt-2">
-            7-day free trial. Cancel anytime.
+            {t('ai.testMode')}
           </p>
         </Dialog.Content>
       </Dialog.Portal>
@@ -111,11 +123,10 @@ export function UpgradePrompt({ open, onOpenChange, feature }: UpgradePromptProp
 }
 
 function PlanCard({
-  name, price, period, features, selected, onSelect, badge,
+  name, price, features, selected, onSelect, badge,
 }: {
   name: string
   price: number
-  period: string
   features: string[]
   selected: boolean
   onSelect: () => void
@@ -142,7 +153,7 @@ function PlanCard({
         </div>
         <div className="text-right">
           <span className="text-lg font-bold text-slate-900 dark:text-white">${price.toFixed(2)}</span>
-          <span className="text-xs text-slate-400">{period}</span>
+          <span className="text-xs text-slate-400">/mo</span>
         </div>
       </div>
       <div className="space-y-1">
@@ -157,24 +168,53 @@ function PlanCard({
   )
 }
 
-// Simple hook to check and prompt upgrade
-export function useFeatureGate() {
-  const { tier } = useSubscription()
-  const [showUpgrade, setShowUpgrade] = useState(false)
-  const [upgradeFeature, setUpgradeFeature] = useState('')
+/** Usage meter progress bar for Profile/Settings */
+export function UsageMeter({
+  usageDollars,
+  limitDollars,
+  percentUsed,
+  isWarning,
+  isLimitReached,
+}: {
+  usageDollars: number
+  limitDollars: number
+  percentUsed: number
+  isWarning: boolean
+  isLimitReached: boolean
+}) {
+  const { t } = useI18n()
 
-  function checkFeature(feature: string, allowed: boolean): boolean {
-    if (allowed) return true
-    setUpgradeFeature(feature)
-    setShowUpgrade(true)
-    return false
-  }
+  const barColor = isLimitReached
+    ? 'bg-red-500'
+    : isWarning
+      ? 'bg-orange-500'
+      : 'bg-emerald-500'
 
-  return {
-    tier,
-    showUpgrade,
-    upgradeFeature,
-    setShowUpgrade,
-    checkFeature,
-  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-slate-600 dark:text-slate-400">{t('ai.usageThisMonth')}</span>
+        <span className={cn(
+          'font-medium',
+          isLimitReached ? 'text-red-500' : isWarning ? 'text-orange-500' : 'text-slate-600 dark:text-slate-400'
+        )}>
+          ${usageDollars.toFixed(2)} / ${limitDollars.toFixed(2)}
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-100 dark:bg-surface-dark-overlay overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500', barColor)}
+          style={{ width: `${Math.min(percentUsed, 100)}%` }}
+        />
+      </div>
+      {isLimitReached && (
+        <p className="text-xs text-red-500 font-medium">{t('ai.limitReachedShort')}</p>
+      )}
+      {isWarning && !isLimitReached && (
+        <p className="text-xs text-orange-500 font-medium">{t('ai.warningUsage')}</p>
+      )}
+    </div>
+  )
 }
+
+export { mockCancelSubscription }

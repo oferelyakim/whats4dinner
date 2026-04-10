@@ -11,8 +11,6 @@ import { cn } from '@/lib/cn'
 import { getMyCircles, createCircle, joinCircleByInviteCode } from '@/services/circles'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
-import { canUse } from '@/lib/subscription'
-import { UpgradePrompt, useFeatureGate } from '@/components/ui/UpgradePrompt'
 
 const CIRCLE_ICONS = ['👨‍👩‍👧‍👦', '👪', '🏠', '❤️', '🍽️', '👫', '🫂', '✨']
 
@@ -20,7 +18,6 @@ export function CirclesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { activeCircle, setActiveCircle } = useAppStore()
-  const gate = useFeatureGate()
   const { t } = useI18n()
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
@@ -75,7 +72,7 @@ export function CirclesPage() {
             <Link2 className="h-4 w-4" />
             {t('circle.join')}
           </Button>
-          <Button size="sm" onClick={() => { if (gate.checkFeature('Creating circles', canUse(gate.tier, 'canCreateCircles'))) { setShowCreate(true); setError('') } }}>
+          <Button size="sm" onClick={() => { setShowCreate(true); setError('') }}>
             <Plus className="h-4 w-4" />
             {t('common.create')}
           </Button>
@@ -229,12 +226,6 @@ export function CirclesPage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
-
-      <UpgradePrompt
-        open={gate.showUpgrade}
-        onOpenChange={gate.setShowUpgrade}
-        feature={gate.upgradeFeature}
-      />
     </div>
   )
 }

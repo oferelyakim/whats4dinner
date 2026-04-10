@@ -6,23 +6,33 @@ import {
   LogOut,
   ChevronRight,
   User,
-  Crown,
+  Sparkles,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { useAppStore } from '@/stores/appStore'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/cn'
 import { useI18n, type Locale } from '@/lib/i18n'
-import { useSubscription } from '@/lib/subscription'
-import { UpgradePrompt, useFeatureGate } from '@/components/ui/UpgradePrompt'
+import { useAIAccess } from '@/hooks/useAIAccess'
+import { AIUpgradeModal, UsageMeter, mockCancelSubscription } from '@/components/ui/UpgradePrompt'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 export function MorePage() {
   const navigate = useNavigate()
   const { theme, setTheme, profile } = useAppStore()
-  const { signOut } = useAuth()
+  const { session, signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
-  const { tier } = useSubscription()
-  const gate = useFeatureGate()
+  const ai = useAIAccess()
+  const queryClient = useQueryClient()
+
+  // TODO: Replace with Stripe cancellation
+  const cancelMutation = useMutation({
+    mutationFn: () => mockCancelSubscription(session!.user.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription'] })
+    },
+  })
 
   const menuItems = [
     {
@@ -38,6 +48,10 @@ export function MorePage() {
       onClick: () => navigate('/profile/settings'),
     },
   ]
+
+  const resetDate = ai.subscription?.current_period_end
+    ? new Date(ai.subscription.current_period_end).toLocaleDateString()
+    : undefined
 
   return (
     <div className="px-4 py-4 space-y-4">
@@ -76,27 +90,54 @@ export function MorePage() {
         ))}
       </Card>
 
-      {/* Subscription */}
-      {tier === 'free' ? (
-        <Card
-          variant="elevated"
-          className="p-4 cursor-pointer bg-gradient-to-r from-brand-500/10 to-pink-500/10 border-brand-500/30 active:scale-[0.98] transition-transform"
-          onClick={() => gate.setShowUpgrade(true)}
-        >
-          <div className="flex items-center gap-3">
-            <Crown className="h-6 w-6 text-brand-500" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">Upgrade to Premium</p>
-              <p className="text-xs text-slate-500">Create circles, organize events, AI features & more</p>
+      {/* AI Subscription */}
+      {ai.hasAI ? (
+        <Card variant="elevated" className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-brand-500" />
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t('ai.plan')}
+              </span>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
+                {t('ai.planActive')}
+              </span>
             </div>
-            <ChevronRight className="h-4 w-4 text-brand-500" />
+            <span className="text-xs text-slate-400 capitalize">
+              {ai.subscription?.plan === 'ai_individual' ? 'Individual' : 'Family'}
+            </span>
           </div>
+          <UsageMeter
+            usageDollars={ai.usageDollars}
+            limitDollars={ai.limitDollars}
+            percentUsed={ai.usagePercent}
+            isWarning={ai.isWarning}
+            isLimitReached={ai.isLimitReached}
+          />
+          {/* TODO: Replace with Stripe portal */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-slate-400"
+            onClick={() => cancelMutation.mutate()}
+            disabled={cancelMutation.isPending}
+          >
+            {t('ai.cancelPlan')}
+          </Button>
         </Card>
       ) : (
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <Crown className="h-4 w-4 text-brand-500" />
-            <span className="text-sm font-medium text-brand-500 capitalize">{tier} Plan</span>
+        <Card
+          variant="elevated"
+          className="p-4 cursor-pointer bg-gradient-to-r from-brand-500/10 to-purple-500/10 border-brand-500/30 active:scale-[0.98] transition-transform"
+          onClick={() => ai.setShowUpgradeModal(true)}
+        >
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-6 w-6 text-brand-500" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">{t('ai.upgradeToAI')}</p>
+              <p className="text-xs text-slate-500">{t('ai.upgradeDesc')}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-brand-500" />
           </div>
         </Card>
       )}
@@ -170,10 +211,11 @@ export function MorePage() {
         {t('auth.signOut')}
       </button>
 
-      <UpgradePrompt
-        open={gate.showUpgrade}
-        onOpenChange={gate.setShowUpgrade}
-        feature={gate.upgradeFeature}
+      <AIUpgradeModal
+        open={ai.showUpgradeModal}
+        onOpenChange={ai.setShowUpgradeModal}
+        isLimitReached={ai.isLimitReached}
+        resetDate={resetDate}
       />
     </div>
   )

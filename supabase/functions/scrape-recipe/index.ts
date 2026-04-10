@@ -6,6 +6,11 @@ const corsHeaders = {
 }
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+const MODEL = 'claude-haiku-4-5-20251001'
+
+// Pricing per 1M tokens (Claude Haiku 4.5)
+const INPUT_COST_PER_1M = 1.00
+const OUTPUT_COST_PER_1M = 5.00
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -114,7 +119,7 @@ ${html}`,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: MODEL,
         max_tokens: 4096,
         messages: [{ role: 'user', content }],
       }),
@@ -132,6 +137,11 @@ ${html}`,
     const claudeData = await claudeResponse.json()
     const responseText = claudeData.content?.[0]?.text || ''
 
+    // Extract token usage from Claude response
+    const tokensIn = claudeData.usage?.input_tokens ?? 0
+    const tokensOut = claudeData.usage?.output_tokens ?? 0
+    const costUsd = (tokensIn / 1_000_000) * INPUT_COST_PER_1M + (tokensOut / 1_000_000) * OUTPUT_COST_PER_1M
+
     // Parse the JSON response from Claude
     const jsonMatch = responseText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
@@ -143,7 +153,17 @@ ${html}`,
 
     const recipe = JSON.parse(jsonMatch[0])
 
-    return new Response(JSON.stringify({ ...recipe, source_url: url || '' }), {
+    return new Response(JSON.stringify({
+      ...recipe,
+      source_url: url || '',
+      // AI usage metadata for client-side logging
+      _ai_usage: {
+        model: MODEL,
+        tokens_in: tokensIn,
+        tokens_out: tokensOut,
+        cost_usd: Math.round(costUsd * 1_000_000) / 1_000_000, // 6 decimal places
+      },
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {

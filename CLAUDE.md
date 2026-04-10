@@ -10,7 +10,7 @@ Family household management PWA - meals, shopping, events, chores, activities.
 
 ## Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Vite 8 + Tailwind CSS v4 + Radix UI + dnd-kit
+- **Frontend**: React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + Radix UI + dnd-kit + Framer Motion
 - **Database**: Supabase (PostgreSQL + Auth + Realtime + Edge Functions)
 - **State**: Zustand (UI) + TanStack Query (server)
 - **Hosting**: Vercel (auto-deploys from GitHub `master` branch)
@@ -38,15 +38,38 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 
 - **Name**: OurTable (Hebrew: השולחן שלנו)
 - **Brand color**: #f97316 (orange)
-- **i18n**: Hebrew/English, 260+ translation keys, full RTL support
+- **i18n**: Hebrew/English, 290+ translation keys, full RTL support
 - **Theme**: Dark / Light / System
 
 ## Navigation
 
-- **Bottom nav**: Home | Events | Lists | Recipes | More
-- **More menu**: Circles, Activities, Chores, Meal Plan, Meal Templates, Stores, Profile, Theme, Language, Subscription
+- **Bottom nav**: Home | Food | Events | Household | Profile (5 domain-based tabs, replaced old "More" menu)
+- **Food hub** (`/food`): Pill tabs — Overview | Recipes | Plan | Lists. Quick actions, this week's meals, active lists, templates & stores shortcuts
+- **Household hub** (`/household`): Segmented control — Chores | Activities. Today's summary banner, daily/weekly chores, activity categories
+- **Profile** (`/profile`): Circles, Settings, Theme, Language, Subscription (slim replacement for old MorePage)
+- **Legacy routes**: `/more/*` paths redirect to `/profile/*` for backward compatibility
 
-## Database Migrations (17 total)
+## Routes
+
+```
+/                          → HomePage (daily dashboard)
+/food                      → FoodHubPage (recipes, lists, plan, stores)
+/recipes, /recipes/new, /recipes/:id, /recipes/:id/edit
+/lists, /lists/new, /lists/:id
+/plan                      → PlanPage (weekly meal planner)
+/food/templates            → MealMenusPage
+/food/stores, /food/stores/:id
+/events, /events/:id       → Events
+/household                 → HouseholdHubPage (chores + activities)
+/household/activities      → ActivitiesPage (full page)
+/household/chores          → ChoresPage (full page)
+/profile                   → MorePage (settings)
+/profile/circles, /profile/circles/:id
+/profile/settings          → ProfilePage
+/join/:code, /join-event/:code, /r/:code  → Public join/share links
+```
+
+## Database Migrations (18 total)
 
 001-006: Core tables (profiles, circles, items, recipes, shopping lists, stores)
 007: Recipe shares + events
@@ -60,6 +83,7 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 015: Remove meal_plans unique constraint (multi-recipe slots)
 016: Supply kits (type + kit_category on recipes table)
 017: Chores tables + chore_completions + activities participants/bring_items columns (idempotent, `017_chores_and_activity_fields.sql`)
+018: Subscriptions + AI usage tracking (`018_subscriptions_and_ai_usage.sql`) — subscriptions table, ai_usage table, `get_user_monthly_usage()` function, RLS policies
 
 Additional SQL fixes applied directly (not in migration files):
 - Events RLS fix: `get_my_event_ids()` security definer function
@@ -73,9 +97,12 @@ Additional SQL fixes applied directly (not in migration files):
 - **RLS**: All tables use Row Level Security. Circle-scoped queries use `get_my_circle_ids()` security definer function
 - **Assignment**: Chores and activities use `AutocompleteInput` with circle member suggestions + free-text custom names
 - **Circle members**: `getCircleMembers(circleId)` in `src/services/circles.ts` returns members with profiles
-- **Services layer**: Each feature has a service file in `src/services/` (supabase queries + helpers)
-- **Pages**: Each route maps to a page in `src/pages/`
-- **Subscription tiers**: Free (participate) / Premium $4.99/mo (organize) / Family $7.99/mo (5 members) - Stripe not yet integrated
+- **Services layer**: Each feature has a service file in `src/services/` (12 service files — supabase queries + helpers)
+- **Pages**: 24+ pages in `src/pages/`, organized by domain (food, household, events, circles, profile)
+- **Hub pages**: FoodHubPage and HouseholdHubPage aggregate related features with internal tab navigation
+- **Subscription tiers**: Free (all features) / AI Individual $4.99/mo / AI Family $6.99/mo (5 members) — Stripe not yet integrated, mock upgrade flow in place
+- **AI gating**: `useAIAccess` hook checks subscription + usage cap. `AIUpgradeModal` for upgrade/limit-reached. `UsageMeter` progress bar in Profile/Settings
+- **AI usage tracking**: Edge function returns `_ai_usage` metadata (model, tokens, cost). `logAIUsage()` logs to `ai_usage` table. $4.00/mo hard cap, $3.00 warning threshold
 
 ## Features
 
@@ -94,7 +121,7 @@ Additional SQL fixes applied directly (not in migration files):
 ## E2E Tests
 
 - Config: `playwright.config.ts` (chromium + mobile-chrome, baseURL localhost:5173)
-- Tests in `e2e/` directory (~86 tests across 13 spec files)
+- Tests in `e2e/` directory (~86 tests across 14 spec files)
 - Chores/activities tests mock Supabase auth via `page.route()` and localStorage
 - Key test files: `chores.spec.ts` (~40 tests), `activities.spec.ts` (~46 tests)
 
@@ -104,5 +131,8 @@ Additional SQL fixes applied directly (not in migration files):
 - Recipe detail page partially updated for supply kits
 - Assignment approval UI built but needs multi-user testing
 - Onboarding flow: not built
-- Stripe integration: not built (subscription simulated locally)
+- Stripe integration: not built (mock upgrade flow sets subscription in DB directly, marked with TODO comments)
 - Push notifications: not built
+- AI Meal Planning: UI placeholder only, feature not built (gated behind AI plan)
+- NLP Quick Actions: UI placeholder only, feature not built (gated behind AI plan)
+- Family plan member sharing: currently checks only the subscribing user, not shared across circle members
