@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { getRecipes } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/cn'
+import { SkeletonList } from '@/components/ui/Skeleton'
 import { SpeedDial } from '@/components/ui/SpeedDial'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
@@ -105,9 +106,7 @@ export function RecipesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-6 w-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-        </div>
+        <SkeletonList count={5} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={viewType === 'recipe' ? <BookOpen className="h-12 w-12" /> : <Package className="h-12 w-12" />}

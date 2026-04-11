@@ -4,6 +4,7 @@ import { Plus, ShoppingCart, ChevronRight, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonList } from '@/components/ui/Skeleton'
 import { getShoppingLists } from '@/services/shoppingLists'
 import { useI18n } from '@/lib/i18n'
 
@@ -36,9 +37,7 @@ export function ListsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-6 w-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-        </div>
+        <SkeletonList count={3} />
       ) : lists.length === 0 ? (
         <EmptyState
           icon={<ShoppingCart className="h-12 w-12" />}
