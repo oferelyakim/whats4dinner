@@ -18,7 +18,12 @@
       "Edit(/.claude/skills/circle-architecture/**)",
       "Edit(/.claude/skills/supabase-patterns/**)",
       "Edit(/.claude/skills/rtl-i18n/**)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Edit(/.claude/skills/navigation-routing/**)",
+      "Edit(/.claude/skills/shopping-list-sync/**)",
+      "Edit(/.claude/skills/ai-features/**)",
+      "Edit(/.claude/skills/event-planning/**)",
+      "Edit(/.claude/skills/component-patterns/**)"
     ]
   }
 }
