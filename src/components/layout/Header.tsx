@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { ChefHat, ChevronDown } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/cn'
+import { NotificationCenter } from '@/components/ui/NotificationCenter'
 
 interface HeaderProps {
   title?: string
@@ -37,20 +38,23 @@ export function Header({ title, onCircleSelect }: HeaderProps) {
           </h1>
         </div>
 
-        {activeCircle && (
-          <button
-            onClick={onCircleSelect}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs',
-              'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300',
-              'active:scale-95 transition-transform border border-brand-200/50 dark:border-brand-500/20'
-            )}
-          >
-            <span className="text-sm">{activeCircle.icon}</span>
-            <span className="font-medium max-w-[100px] truncate">{activeCircle.name}</span>
-            <ChevronDown className="h-3 w-3" />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <NotificationCenter />
+          {activeCircle && (
+            <button
+              onClick={onCircleSelect}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs',
+                'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300',
+                'active:scale-95 transition-transform border border-brand-200/50 dark:border-brand-500/20'
+              )}
+            >
+              <span className="text-sm">{activeCircle.icon}</span>
+              <span className="font-medium max-w-[100px] truncate">{activeCircle.name}</span>
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
     </header>
   )
