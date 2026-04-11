@@ -5,8 +5,7 @@ import { cn } from '@/lib/cn'
 import { AI_PRICING } from '@/lib/subscription'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { mockActivateSubscription, mockCancelSubscription } from '@/services/ai-usage'
-import { useAuth } from '@/hooks/useAuth'
+import { activateSubscription, cancelSubscription } from '@/services/ai-usage'
 import { useI18n } from '@/lib/i18n'
 
 interface AIUpgradeModalProps {
@@ -19,18 +18,22 @@ interface AIUpgradeModalProps {
 }
 
 export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }: AIUpgradeModalProps) {
-  const { session } = useAuth()
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const [selectedPlan, setSelectedPlan] = useState<'ai_individual' | 'ai_family'>('ai_individual')
 
-  // TODO: Replace with Stripe checkout
   const activateMutation = useMutation({
-    mutationFn: () => mockActivateSubscription(session!.user.id, selectedPlan),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subscription'] })
-      queryClient.invalidateQueries({ queryKey: ['ai-usage'] })
-      onOpenChange(false)
+    mutationFn: () => activateSubscription(selectedPlan),
+    onSuccess: (result) => {
+      if (result.url) {
+        // Stripe checkout — redirect to Stripe
+        window.location.href = result.url
+      } else {
+        // Mock mode — refresh subscription data
+        queryClient.invalidateQueries({ queryKey: ['subscription'] })
+        queryClient.invalidateQueries({ queryKey: ['ai-usage'] })
+        onOpenChange(false)
+      }
     },
   })
 
@@ -103,7 +106,6 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
             />
           </div>
 
-          {/* TODO: Replace with Stripe checkout */}
           <Button
             className="w-full mt-4"
             size="lg"
@@ -217,4 +219,4 @@ export function UsageMeter({
   )
 }
 
-export { mockCancelSubscription }
+export { cancelSubscription }

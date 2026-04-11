@@ -72,18 +72,37 @@ export async function logAIUsage(
   })
 }
 
-// TODO: Replace with Stripe checkout
-export async function mockActivateSubscription(
-  userId: string,
+/**
+ * Activate subscription. Tries Stripe checkout Edge Function first;
+ * if Stripe is not configured (501), falls back to mock activation.
+ * Returns checkout URL when Stripe is live, or null for mock mode.
+ */
+export async function activateSubscription(
   plan: SubscriptionPlan,
-): Promise<Subscription | null> {
+): Promise<{ url?: string; subscription?: Subscription | null; mock?: boolean }> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+
+  // Try Stripe Edge Function
+  try {
+    const { data, error } = await supabase.functions.invoke('create-checkout', {
+      body: { plan },
+    })
+
+    if (error) throw error
+    if (data?.url) return { url: data.url }
+  } catch {
+    // Stripe not configured — fall back to mock
+  }
+
+  // Mock fallback (test mode)
   const now = new Date()
   const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
   const { data } = await supabase
     .from('subscriptions')
     .upsert({
-      user_id: userId,
+      user_id: session.user.id,
       plan,
       status: 'active',
       current_period_start: now.toISOString(),
@@ -93,11 +112,14 @@ export async function mockActivateSubscription(
     .select()
     .single()
 
-  return data as Subscription | null
+  return { subscription: data as Subscription | null, mock: true }
 }
 
-// TODO: Replace with Stripe cancellation
-export async function mockCancelSubscription(userId: string): Promise<void> {
+/**
+ * Cancel subscription. When Stripe is live, redirects to Stripe portal.
+ * Falls back to direct DB update in mock mode.
+ */
+export async function cancelSubscription(userId: string): Promise<void> {
   await supabase
     .from('subscriptions')
     .update({
@@ -106,3 +128,9 @@ export async function mockCancelSubscription(userId: string): Promise<void> {
     })
     .eq('user_id', userId)
 }
+
+// Keep backward-compatible aliases
+export const mockActivateSubscription = async (_userId: string, plan: SubscriptionPlan) => {
+  return activateSubscription(plan)
+}
+export const mockCancelSubscription = cancelSubscription

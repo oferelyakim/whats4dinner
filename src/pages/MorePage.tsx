@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/cn'
 import { useI18n, type Locale } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
-import { AIUpgradeModal, UsageMeter, mockCancelSubscription } from '@/components/ui/UpgradePrompt'
+import { AIUpgradeModal, UsageMeter, cancelSubscription } from '@/components/ui/UpgradePrompt'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 export function MorePage() {
@@ -26,9 +26,8 @@ export function MorePage() {
   const ai = useAIAccess()
   const queryClient = useQueryClient()
 
-  // TODO: Replace with Stripe cancellation
   const cancelMutation = useMutation({
-    mutationFn: () => mockCancelSubscription(session!.user.id),
+    mutationFn: () => cancelSubscription(session!.user.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] })
     },
