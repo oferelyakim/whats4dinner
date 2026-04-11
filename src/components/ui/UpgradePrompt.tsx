@@ -1,4 +1,4 @@
-import { Sparkles, Check, AlertTriangle } from 'lucide-react'
+import { Sparkles, Check, AlertTriangle, CreditCard } from 'lucide-react'
 import { Button } from './Button'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
@@ -21,6 +21,7 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const [selectedPlan, setSelectedPlan] = useState<'ai_individual' | 'ai_family'>('ai_individual')
+  const [showPaymentStep, setShowPaymentStep] = useState(false)
 
   const activateMutation = useMutation({
     mutationFn: () => activateSubscription(selectedPlan),
@@ -32,6 +33,7 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
         // Mock mode — refresh subscription data
         queryClient.invalidateQueries({ queryKey: ['subscription'] })
         queryClient.invalidateQueries({ queryKey: ['ai-usage'] })
+        setShowPaymentStep(false)
         onOpenChange(false)
       }
     },
@@ -64,60 +66,117 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
     )
   }
 
+  const handleOpenChange = (v: boolean) => {
+    if (!v) setShowPaymentStep(false)
+    onOpenChange(v)
+  }
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
         <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
-          <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white text-center mb-1">
-            {t('ai.unlockAI')}
-          </Dialog.Title>
-          <p className="text-sm text-slate-500 text-center mb-5">
-            {t('ai.unlockDesc')}
-          </p>
 
-          {/* Plans */}
-          <div className="space-y-3">
-            <PlanCard
-              name={AI_PRICING.ai_individual.label}
-              price={AI_PRICING.ai_individual.monthly}
-              features={[
-                t('ai.feature.recipeImport'),
-                t('ai.feature.recipePhoto'),
-                t('ai.feature.mealPlanAI'),
-                t('ai.feature.nlpActions'),
-              ]}
-              selected={selectedPlan === 'ai_individual'}
-              onSelect={() => setSelectedPlan('ai_individual')}
-            />
+          {showPaymentStep ? (
+            /* Payment placeholder step */
+            <div className="flex flex-col items-center text-center">
+              <div className="h-14 w-14 rounded-2xl bg-brand-500/10 flex items-center justify-center mb-4">
+                <CreditCard className="h-7 w-7 text-brand-500" />
+              </div>
+              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                {t('ai.paymentTitle')}
+              </Dialog.Title>
+              <p className="text-sm text-slate-500 mb-1">
+                {t('ai.paymentDesc')}
+              </p>
+              <p className="text-xs text-slate-400 mb-6">
+                {selectedPlan === 'ai_individual'
+                  ? `${AI_PRICING.ai_individual.label} — $${AI_PRICING.ai_individual.monthly.toFixed(2)}/mo`
+                  : `${AI_PRICING.ai_family.label} — $${AI_PRICING.ai_family.monthly.toFixed(2)}/mo`}
+              </p>
 
-            <PlanCard
-              name={AI_PRICING.ai_family.label}
-              price={AI_PRICING.ai_family.monthly}
-              features={[
-                t('ai.feature.everythingIndividual'),
-                `${t('ai.feature.upToMembers')} ${AI_PRICING.ai_family.members} ${t('ai.feature.members')}`,
-                t('ai.feature.sharedUsage'),
-              ]}
-              selected={selectedPlan === 'ai_family'}
-              onSelect={() => setSelectedPlan('ai_family')}
-              badge={t('ai.bestValue')}
-            />
-          </div>
+              {/* Fake CC form placeholder */}
+              <div className="w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-5 mb-5">
+                <div className="space-y-3 opacity-40 pointer-events-none">
+                  <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                  <div className="flex gap-3">
+                    <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex-1" />
+                    <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800 w-20" />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mt-3 italic">
+                  {t('ai.paymentPlaceholder')}
+                </p>
+              </div>
 
-          <Button
-            className="w-full mt-4"
-            size="lg"
-            onClick={() => activateMutation.mutate()}
-            disabled={activateMutation.isPending}
-          >
-            <Sparkles className="h-4 w-4" />
-            {activateMutation.isPending ? t('common.loading') : t('ai.activate')}
-          </Button>
-          <p className="text-[10px] text-slate-400 text-center mt-2">
-            {t('ai.testMode')}
-          </p>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => activateMutation.mutate()}
+                disabled={activateMutation.isPending}
+              >
+                <CreditCard className="h-4 w-4" />
+                {activateMutation.isPending ? t('common.loading') : t('ai.confirmPayment')}
+              </Button>
+              <button
+                className="text-sm text-slate-400 hover:text-slate-600 mt-3 transition-colors"
+                onClick={() => setShowPaymentStep(false)}
+              >
+                {t('common.back')}
+              </button>
+            </div>
+          ) : (
+            /* Plan selection step */
+            <>
+              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white text-center mb-1">
+                {t('ai.unlockAI')}
+              </Dialog.Title>
+              <p className="text-sm text-slate-500 text-center mb-5">
+                {t('ai.unlockDesc')}
+              </p>
+
+              <div className="space-y-3">
+                <PlanCard
+                  name={AI_PRICING.ai_individual.label}
+                  price={AI_PRICING.ai_individual.monthly}
+                  features={[
+                    t('ai.feature.recipeImport'),
+                    t('ai.feature.recipePhoto'),
+                    t('ai.feature.mealPlanAI'),
+                    t('ai.feature.nlpActions'),
+                  ]}
+                  selected={selectedPlan === 'ai_individual'}
+                  onSelect={() => setSelectedPlan('ai_individual')}
+                />
+
+                <PlanCard
+                  name={AI_PRICING.ai_family.label}
+                  price={AI_PRICING.ai_family.monthly}
+                  features={[
+                    t('ai.feature.everythingIndividual'),
+                    `${t('ai.feature.upToMembers')} ${AI_PRICING.ai_family.members} ${t('ai.feature.members')}`,
+                    t('ai.feature.sharedUsage'),
+                  ]}
+                  selected={selectedPlan === 'ai_family'}
+                  onSelect={() => setSelectedPlan('ai_family')}
+                  badge={t('ai.bestValue')}
+                />
+              </div>
+
+              <Button
+                className="w-full mt-4"
+                size="lg"
+                onClick={() => setShowPaymentStep(true)}
+              >
+                <Sparkles className="h-4 w-4" />
+                {t('ai.activate')}
+              </Button>
+              <p className="text-[10px] text-slate-400 text-center mt-2">
+                {t('ai.testMode')}
+              </p>
+            </>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
