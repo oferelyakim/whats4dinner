@@ -38,7 +38,7 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 
 - **Name**: OurTable (Hebrew: השולחן שלנו)
 - **Brand color**: #f97316 (orange)
-- **i18n**: Hebrew/English, 290+ translation keys, full RTL support
+- **i18n**: Hebrew/English, 300+ translation keys, full RTL support
 - **Theme**: Dark / Light / System
 
 ## Navigation
@@ -133,6 +133,8 @@ Additional SQL fixes applied directly (not in migration files):
 - Onboarding flow: not built
 - Stripe integration: not built (mock upgrade flow sets subscription in DB directly, marked with TODO comments)
 - Push notifications: not built
-- AI Meal Planning: UI placeholder only, feature not built (gated behind AI plan)
-- NLP Quick Actions: UI placeholder only, feature not built (gated behind AI plan)
+- AI Meal Planning: placeholder card on PlanPage (gated behind AI plan, shows "Coming soon" for AI subscribers). Edge function + actual generation not built
+- NLP Quick Actions: placeholder card on HomePage (gated behind AI plan, shows "Coming soon" for AI subscribers). No backend logic built
+- Recipe import FAB on RecipesPage: gated behind `useAIAccess` — shows Sparkles icon, triggers AIUpgradeModal for free users
+- Global AI usage warning: AppShell shows dismissible banner at 75% usage (orange) and limit-reached (red) for AI subscribers
 - Family plan member sharing: currently checks only the subscribing user, not shared across circle members

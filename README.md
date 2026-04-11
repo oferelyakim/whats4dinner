@@ -1,73 +1,100 @@
-# React + TypeScript + Vite
+# OurTable — השולחן שלנו
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Family coordination PWA for meals, shopping, events, chores, and activities. Built for the Israeli market with full Hebrew/RTL support.
 
-Currently, two official plugins are available:
+**Live**: [whats4dinner-gamma.vercel.app](https://whats4dinner-gamma.vercel.app)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tech Stack
 
-## React Compiler
+- **Frontend**: React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + Radix UI
+- **State**: Zustand (UI) + TanStack Query (server) + IndexedDB (offline)
+- **Database**: Supabase (PostgreSQL + Auth + Realtime + Edge Functions)
+- **Hosting**: Vercel (auto-deploy from `master`)
+- **PWA**: vite-plugin-pwa + Workbox for offline support
+- **i18n**: Hebrew + English with full RTL layout support
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Getting Started
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 18+
+- npm
+- Supabase account (or use the hosted project)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Installation
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Create `.env`:
 ```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
+
+### Development
+
+```bash
+npm run dev          # Dev server at localhost:5173
+npm run build        # Production build
+npx tsc --noEmit     # Type-check
+npx playwright test  # E2E tests
+```
+
+### Supabase Setup
+
+```bash
+# Apply migrations
+npx supabase db push
+
+# Deploy edge functions
+npx supabase functions deploy scrape-recipe --no-verify-jwt
+```
+
+## Project Structure
+
+```
+whats4dinner/
+├── src/
+│   ├── pages/        24+ page components by domain
+│   ├── components/   Shared UI components
+│   ├── services/     12 service files (all Supabase queries)
+│   ├── hooks/        Custom React hooks
+│   └── lib/          i18n, utilities, constants
+├── supabase/
+│   └── migrations/   18 numbered SQL migrations
+├── e2e/              Playwright E2E tests (~86 tests)
+└── public/           PWA manifest, icons
+```
+
+## Features
+
+- **Circles**: Family groups with invite codes/links/email
+- **Recipes**: CRUD, AI import from URL/photo, ingredient search, sharing, supply kits
+- **Shopping Lists**: Real-time sync, offline-first, drag reorder, store route sorting
+- **Meal Planning**: Week view, multi-recipe slots, templates, calendar export
+- **Events**: Potluck coordination with item claiming, co-organizers, 5-tab view
+- **Chores**: Frequency-based scheduling, points system, completion tracking
+- **Activities**: Recurring schedules, participant management, weekly calendar
+- **i18n**: Full Hebrew/English with RTL layout support
+- **PWA**: Installable, offline shopping lists, background sync
+
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
+
+## Deployment
+
+Frontend auto-deploys to Vercel on push to `master`. Database hosted on Supabase.
+
+```bash
+git push origin master  # Triggers Vercel deploy
+```
+
+## License
+
+MIT
