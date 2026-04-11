@@ -9,6 +9,7 @@ export interface Profile {
     theme: 'dark' | 'light' | 'system'
     default_store_id?: string
   }
+  has_onboarded?: boolean
   created_at: string
   updated_at: string
 }

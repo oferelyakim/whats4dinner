@@ -3,10 +3,11 @@ import { useAuth } from '@/hooks/useAuth'
 import { isSupabaseConfigured } from '@/services/supabase'
 import { useAppStore } from '@/stores/appStore'
 import { LoginPage } from './LoginPage'
+import { OnboardingPage } from '@/pages/OnboardingPage'
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
-  const { setProfile } = useAppStore()
+  const { profile, setProfile } = useAppStore()
 
   // Dev mode: bypass auth when Supabase isn't configured
   useEffect(() => {
@@ -17,6 +18,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         avatar_url: null,
         email: 'dev@ourtable.app',
         preferences: { theme: 'dark' },
+        has_onboarded: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -37,6 +39,11 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   if (!session) {
     return <LoginPage />
+  }
+
+  // Show onboarding for new users who haven't completed it
+  if (profile && !profile.has_onboarded) {
+    return <OnboardingPage />
   }
 
   return <>{children}</>

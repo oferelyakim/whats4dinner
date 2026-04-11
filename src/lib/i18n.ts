@@ -363,6 +363,27 @@ const translations: Record<string, Record<Locale, string>> = {
   'reminder.months': { en: 'months', he: 'חודשים' },
   'reminder.upcoming': { en: 'Upcoming Reminders', he: 'תזכורות קרובות' },
   'reminder.noReminders': { en: 'No upcoming reminders', he: 'אין תזכורות קרובות' },
+
+  // Onboarding
+  'onboard.welcome': { en: 'Welcome to OurTable', he: 'ברוכים הבאים לשולחן שלנו' },
+  'onboard.welcomeDesc': { en: 'Your family\'s place for meals, shopping, events, and more — all in one app.', he: 'המקום של המשפחה שלכם לארוחות, קניות, אירועים ועוד — הכל באפליקציה אחת.' },
+  'onboard.getStarted': { en: 'Get Started', he: 'בואו נתחיל' },
+  'onboard.createCircle': { en: 'Create Your Circle', he: 'צור את המעגל שלך' },
+  'onboard.createCircleDesc': { en: 'A circle is your family or household group. You can invite others to join later.', he: 'מעגל הוא הקבוצה של המשפחה או הבית שלך. תוכל להזמין אחרים להצטרף מאוחר יותר.' },
+  'onboard.circleName': { en: 'Circle Name', he: 'שם המעגל' },
+  'onboard.circleNamePlaceholder': { en: 'e.g., The Smiths, Our Home', he: 'לדוגמה: משפחת כהן, הבית שלנו' },
+  'onboard.circleIcon': { en: 'Pick an icon', he: 'בחר אייקון' },
+  'onboard.orJoin': { en: 'Or join an existing circle', he: 'או הצטרף למעגל קיים' },
+  'onboard.joinCircle': { en: 'Join a Circle', he: 'הצטרף למעגל' },
+  'onboard.inviteCode': { en: 'Invite Code', he: 'קוד הזמנה' },
+  'onboard.inviteCodePlaceholder': { en: 'Paste your invite code', he: 'הדבק את קוד ההזמנה שלך' },
+  'onboard.join': { en: 'Join', he: 'הצטרף' },
+  'onboard.create': { en: 'Create Circle', he: 'צור מעגל' },
+  'onboard.allSet': { en: 'You\'re All Set!', he: 'הכל מוכן!' },
+  'onboard.allSetDesc': { en: 'Your circle is ready. Start adding recipes, planning meals, and managing your household.', he: 'המעגל שלך מוכן. התחל להוסיף מתכונים, לתכנן ארוחות ולנהל את הבית.' },
+  'onboard.goHome': { en: 'Go to OurTable', he: 'לך לשולחן שלנו' },
+  'onboard.skip': { en: 'Skip for now', he: 'דלג לבינתיים' },
+  'onboard.back': { en: 'Back', he: 'חזרה' },
 }
 
 export const useI18n = create<I18nState>()(
