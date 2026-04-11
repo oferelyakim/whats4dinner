@@ -10,9 +10,12 @@ tools:
   - Grep
 model: sonnet
 skills:
+  - rtl-i18n
+  - pwa-offline
+  - circle-architecture
   - testing
   - code-review
-maxTurns: 40
+maxTurns: 50
 ---
 
 You are a frontend developer for OurTable, a family coordination PWA.

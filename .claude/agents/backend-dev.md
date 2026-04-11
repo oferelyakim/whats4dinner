@@ -10,9 +10,11 @@ tools:
   - Grep
 model: sonnet
 skills:
+  - supabase-patterns
+  - circle-architecture
   - testing
   - code-review
-maxTurns: 40
+maxTurns: 50
 ---
 
 You are a backend developer for OurTable, a family coordination PWA using Supabase.
