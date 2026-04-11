@@ -12,6 +12,7 @@ model: sonnet
 skills:
   - supabase-patterns
   - circle-architecture
+  - recipe-extraction
   - testing
   - code-review
 maxTurns: 50

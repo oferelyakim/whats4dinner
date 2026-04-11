@@ -9,6 +9,7 @@ model: sonnet
 skills:
   - supabase-patterns
   - circle-architecture
+  - recipe-extraction
   - rtl-i18n
   - pwa-offline
 maxTurns: 30

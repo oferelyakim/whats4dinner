@@ -12,6 +12,7 @@ interface ParsedRecipe {
   servings?: number
   source_url: string
   ingredients: { name: string; quantity?: number; unit?: string }[]
+  tags?: string[]
 }
 
 interface AIUsageMetadata {

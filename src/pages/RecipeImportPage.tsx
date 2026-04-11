@@ -40,6 +40,7 @@ export function RecipeImportPage() {
     servings?: number
     source_url: string
     ingredients: ImportedIngredient[]
+    tags?: string[]
   } | null>(null)
   const [error, setError] = useState('')
 
@@ -81,6 +82,7 @@ export function RecipeImportPage() {
         prep_time_min: imported.prep_time_min,
         cook_time_min: imported.cook_time_min,
         servings: imported.servings,
+        tags: imported.tags,
         circle_id: activeCircle?.id,
         ingredients: imported.ingredients
           .filter((i) => i.include && i.name)
