@@ -20,7 +20,16 @@ import { useI18n } from '@/lib/i18n'
 import { exportMealPlanToCalendar } from '@/lib/calendar'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
+import { supabase } from '@/services/supabase'
+import { logAIUsage } from '@/services/ai-usage'
 import type { MealPlan, Recipe } from '@/types'
+
+interface AIMealSuggestion {
+  date: string
+  meal_type: string
+  recipe_title: string
+  recipe_id: string | null
+}
 
 // MEAL_LABELS moved inside component for i18n access
 
@@ -54,6 +63,8 @@ export function PlanPage() {
   const [showAddToList, setShowAddToList] = useState(false)
   const [addingToList, setAddingToList] = useState(false)
   const ai = useAIAccess()
+  const [aiPlan, setAiPlan] = useState<AIMealSuggestion[]>([])
+  const [showAiReview, setShowAiReview] = useState(false)
 
   const week = useMemo(() => {
     const ref = new Date()
@@ -145,6 +156,39 @@ export function PlanPage() {
     queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
     setAddingToList(false)
     setShowAddToList(false)
+  }
+
+  // AI Meal Plan generation
+  const generateAiPlan = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+        body: { circleId: activeCircle!.id, dates: week.dates },
+      })
+      if (error) throw error
+      if (data?._ai_usage) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await logAIUsage(user.id, 'meal_plan', data._ai_usage.model, data._ai_usage.tokens_in, data._ai_usage.tokens_out, data._ai_usage.cost_usd)
+        }
+      }
+      return data.plan as AIMealSuggestion[]
+    },
+    onSuccess: (plan) => {
+      setAiPlan(plan)
+      setShowAiReview(true)
+    },
+  })
+
+  async function acceptAiPlan() {
+    if (!activeCircle) return
+    for (const item of aiPlan) {
+      if (item.recipe_id) {
+        await setMealPlan(activeCircle.id, item.date, item.meal_type as MealType, item.recipe_id)
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
+    setShowAiReview(false)
+    setAiPlan([])
   }
 
   function openAddMeal(date: string, mealType: MealType) {
@@ -289,28 +333,32 @@ export function PlanPage() {
         </div>
       )}
 
-      {/* AI Meal Planning placeholder */}
+      {/* AI Meal Planning */}
       <button
         onClick={() => {
           if (!ai.checkAIAccess()) return
-          // AI plan users see "coming soon" — no action yet
+          generateAiPlan.mutate()
         }}
+        disabled={generateAiPlan.isPending}
         className={cn(
           'w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all text-left',
-          ai.hasAI
-            ? 'border-brand-300 dark:border-brand-700 bg-brand-500/5'
-            : 'border-slate-300 dark:border-slate-600 hover:border-brand-400'
+          'border-brand-300 dark:border-brand-700 bg-brand-500/5 hover:bg-brand-500/10',
+          generateAiPlan.isPending && 'opacity-60'
         )}
       >
         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
-          <Sparkles className="h-5 w-5 text-white" />
+          {generateAiPlan.isPending ? (
+            <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Sparkles className="h-5 w-5 text-white" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            {t('ai.mealPlanPlaceholder')}
+            {generateAiPlan.isPending ? t('common.loading') : t('ai.mealPlanPlaceholder')}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {ai.hasAI ? t('ai.comingSoon') : t('ai.mealPlanPlaceholderDesc')}
+            {generateAiPlan.isPending ? 'Generating meal suggestions...' : t('ai.mealPlanPlaceholderDesc')}
           </p>
         </div>
         {!ai.hasAI && (
@@ -318,12 +366,45 @@ export function PlanPage() {
             AI
           </span>
         )}
-        {ai.hasAI && (
-          <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium shrink-0">
-            {t('ai.comingSoon')}
-          </span>
-        )}
       </button>
+
+      {/* AI Plan Review Dialog */}
+      <Dialog.Root open={showAiReview} onOpenChange={setShowAiReview}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[80vh] overflow-y-auto">
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+              AI Meal Plan Suggestion
+            </Dialog.Title>
+            <p className="text-sm text-slate-500 mb-4">Review and accept the AI-generated plan for this week.</p>
+            <div className="space-y-2 mb-4">
+              {aiPlan.map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-surface-dark-overlay">
+                  <div className="w-16 text-xs text-slate-400">
+                    <div>{item.date.split('-')[2]}</div>
+                    <div className="capitalize">{item.meal_type}</div>
+                  </div>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.recipe_title}</p>
+                  {item.recipe_id && (
+                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
+                      Saved
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowAiReview(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button className="flex-1" onClick={acceptAiPlan}>
+                Accept Plan
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <AIUpgradeModal
         open={ai.showUpgradeModal}

@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   BookOpen, ShoppingCart, CalendarDays, PartyPopper, Plus,
-  ChevronRight, Users, MapPin, Bell, Sparkles,
+  ChevronRight, Users, MapPin, Bell, Sparkles, Send,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
@@ -10,6 +11,8 @@ import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
+import { supabase } from '@/services/supabase'
+import { logAIUsage } from '@/services/ai-usage'
 import { getShoppingLists } from '@/services/shoppingLists'
 import { getRecipes } from '@/services/recipes'
 import { getEvents, type Event } from '@/services/events'
@@ -36,6 +39,28 @@ export function HomePage() {
   const { profile, activeCircle } = useAppStore()
   const { t } = useI18n()
   const ai = useAIAccess()
+  const [nlpInput, setNlpInput] = useState('')
+  const [nlpResult, setNlpResult] = useState<{ action: string; confirmation: string } | null>(null)
+
+  const nlpMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const { data, error } = await supabase.functions.invoke('nlp-action', {
+        body: { text, circleId: activeCircle?.id },
+      })
+      if (error) throw error
+      if (data?._ai_usage) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await logAIUsage(user.id, 'nlp_action', data._ai_usage.model, data._ai_usage.tokens_in, data._ai_usage.tokens_out, data._ai_usage.cost_usd)
+        }
+      }
+      return data as { action: string; confirmation: string; params: Record<string, unknown> }
+    },
+    onSuccess: (data) => {
+      setNlpResult(data)
+      setNlpInput('')
+    },
+  })
 
   const { data: lists = [] } = useQuery({
     queryKey: ['shopping-lists'],
@@ -158,37 +183,57 @@ export function HomePage() {
         </Card>
       </motion.div>
 
-      {/* NLP Quick Actions placeholder */}
+      {/* NLP Quick Actions */}
       <motion.div variants={fadeUp}>
-        <button
-          onClick={() => {
-            if (!ai.checkAIAccess()) return
-            // AI plan users see "coming soon" — no action yet
-          }}
-          className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated text-left active:scale-[0.98] transition-transform"
-        >
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-brand-500 flex items-center justify-center shrink-0">
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-              {t('ai.nlpTitle')}
-            </p>
-            <p className="text-[11px] text-slate-400 truncate mt-0.5">
-              {ai.hasAI ? t('ai.comingSoon') : t('ai.nlpPlaceholder')}
-            </p>
-          </div>
-          {!ai.hasAI && (
-            <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-medium shrink-0">
-              AI
-            </span>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated overflow-hidden">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!nlpInput.trim() || nlpMutation.isPending) return
+              if (!ai.checkAIAccess()) return
+              nlpMutation.mutate(nlpInput.trim())
+            }}
+            className="flex items-center gap-2 p-2"
+          >
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-brand-500 flex items-center justify-center shrink-0">
+              <Sparkles className="h-3.5 w-3.5 text-white" />
+            </div>
+            <input
+              type="text"
+              value={nlpInput}
+              onChange={(e) => setNlpInput(e.target.value)}
+              placeholder={t('ai.nlpPlaceholder')}
+              className="flex-1 text-sm bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none"
+              disabled={nlpMutation.isPending}
+            />
+            <button
+              type="submit"
+              disabled={!nlpInput.trim() || nlpMutation.isPending}
+              className="h-8 w-8 rounded-lg bg-brand-500 text-white flex items-center justify-center shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
+            >
+              {nlpMutation.isPending ? (
+                <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </form>
+          {nlpResult && (
+            <div className="px-3 pb-3">
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-surface-dark-overlay">
+                <Sparkles className="h-3.5 w-3.5 text-brand-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-600 dark:text-slate-300">{nlpResult.confirmation}</p>
+              </div>
+            </div>
           )}
-          {ai.hasAI && (
-            <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium shrink-0">
-              {t('ai.comingSoon')}
-            </span>
+          {!ai.hasAI && !nlpInput && (
+            <div className="px-3 pb-2">
+              <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-medium">
+                AI
+              </span>
+            </div>
           )}
-        </button>
+        </div>
         <AIUpgradeModal
           open={ai.showUpgradeModal}
           onOpenChange={ai.setShowUpgradeModal}
