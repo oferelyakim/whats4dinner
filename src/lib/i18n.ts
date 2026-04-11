@@ -281,6 +281,15 @@ const translations: Record<string, Record<Locale, string>> = {
   'ai.feature.sharedUsage': { en: 'Shared AI usage pool', he: 'מאגר שימוש AI משותף' },
   'ai.activated': { en: 'AI Plan activated! (Test mode)', he: 'תוכנית AI הופעלה! (מצב בדיקה)' },
   'ai.requiresAI': { en: 'This feature requires an AI Plan', he: 'פיצ\'ר זה דורש תוכנית AI' },
+  'ai.mealPlanPlaceholder': { en: 'Plan meals with AI', he: 'תכנן ארוחות עם AI' },
+  'ai.mealPlanPlaceholderDesc': { en: 'Get personalized weekly meal suggestions based on your recipes and preferences', he: 'קבל הצעות ארוחות שבועיות מותאמות אישית על בסיס המתכונים וההעדפות שלך' },
+  'ai.comingSoon': { en: 'Coming soon', he: 'בקרוב' },
+  'ai.nlpPlaceholder': { en: 'Try: "Add soccer practice every Monday 3-5pm"', he: 'נסה: "הוסף אימון כדורגל כל יום שני 15:00-17:00"' },
+  'ai.nlpTitle': { en: 'Quick Actions with AI', he: 'פעולות מהירות עם AI' },
+  'ai.nlpDesc': { en: 'Add activities, chores, and more using natural language', he: 'הוסף פעילויות, מטלות ועוד בשפה טבעית' },
+  'ai.usageWarningBanner': { en: "You've used 75% of your monthly AI credits", he: 'השתמשת ב-75% מנקודות ה-AI החודשיות שלך' },
+  'ai.limitReachedBanner': { en: 'Monthly AI limit reached', he: 'הגעת למגבלת AI החודשית' },
+  'ai.dismiss': { en: 'Dismiss', he: 'סגור' },
 
   // Chores
   'chore.chores': { en: 'Chores', he: 'מטלות בית' },

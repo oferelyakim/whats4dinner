@@ -150,6 +150,8 @@ export function RecipeFormPage() {
     saveMutation.mutate()
   }
 
+  const isKit = existingRecipe?.type === 'supply_kit'
+
   if (isEdit && !loaded) {
     return (
       <div className="flex justify-center py-20">
@@ -188,42 +190,48 @@ export function RecipeFormPage() {
           value={description}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
         />
-        <Input
-          label="Source URL"
-          placeholder="Link to original recipe (optional)"
-          value={sourceUrl}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSourceUrl(e.target.value)}
-          type="url"
-        />
-        <div className="grid grid-cols-3 gap-3">
+        {!isKit && (
           <Input
-            label={t('recipe.prepTime')}
-            type="number"
-            placeholder="15"
-            value={prepTime}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrepTime(e.target.value)}
+            label="Source URL"
+            placeholder="Link to original recipe (optional)"
+            value={sourceUrl}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSourceUrl(e.target.value)}
+            type="url"
           />
+        )}
+        {!isKit && (
+          <div className="grid grid-cols-3 gap-3">
+            <Input
+              label={t('recipe.prepTime')}
+              type="number"
+              placeholder="15"
+              value={prepTime}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrepTime(e.target.value)}
+            />
+            <Input
+              label={t('recipe.cookTime')}
+              type="number"
+              placeholder="30"
+              value={cookTime}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCookTime(e.target.value)}
+            />
+            <Input
+              label={t('recipe.servings')}
+              type="number"
+              placeholder="4"
+              value={servings}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setServings(e.target.value)}
+            />
+          </div>
+        )}
+        {!isKit && (
           <Input
-            label={t('recipe.cookTime')}
-            type="number"
-            placeholder="30"
-            value={cookTime}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCookTime(e.target.value)}
+            label={t('recipe.tags')}
+            placeholder="e.g., indian, dinner, spicy"
+            value={tags}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
           />
-          <Input
-            label={t('recipe.servings')}
-            type="number"
-            placeholder="4"
-            value={servings}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setServings(e.target.value)}
-          />
-        </div>
-        <Input
-          label={t('recipe.tags')}
-          placeholder="e.g., indian, dinner, spicy"
-          value={tags}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
-        />
+        )}
       </div>
 
       {/* Ingredients */}
@@ -302,24 +310,26 @@ export function RecipeFormPage() {
         )}
       </section>
 
-      {/* Instructions */}
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-          {t('recipe.instructions')}
-        </label>
-        <textarea
-          placeholder="Step-by-step instructions..."
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          rows={6}
-          className={cn(
-            'w-full rounded-xl border px-4 py-2.5 text-sm transition-colors resize-none',
-            'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400',
-            'dark:bg-surface-dark-elevated dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500',
-            'focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500'
-          )}
-        />
-      </div>
+      {/* Instructions (recipes only) */}
+      {!isKit && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            {t('recipe.instructions')}
+          </label>
+          <textarea
+            placeholder="Step-by-step instructions..."
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            rows={6}
+            className={cn(
+              'w-full rounded-xl border px-4 py-2.5 text-sm transition-colors resize-none',
+              'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400',
+              'dark:bg-surface-dark-elevated dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500',
+              'focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500'
+            )}
+          />
+        </div>
+      )}
 
       {saveError && (
         <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{saveError}</p>

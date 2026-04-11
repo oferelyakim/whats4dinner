@@ -242,7 +242,7 @@ export function ShoppingListPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/lists')}
+          onClick={() => navigate(-1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />

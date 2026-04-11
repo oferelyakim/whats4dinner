@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Search, BookOpen, Clock, Users as UsersIcon, Link2, PenLine, Package, Camera } from 'lucide-react'
+import { Plus, Search, BookOpen, Clock, Users as UsersIcon, PenLine, Package, Camera, Sparkles, ArrowLeft } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -10,12 +10,15 @@ import { getRecipes } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/cn'
 import { SpeedDial } from '@/components/ui/SpeedDial'
+import { useAIAccess } from '@/hooks/useAIAccess'
+import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import type { Recipe } from '@/types'
 
 export function RecipesPage() {
   const navigate = useNavigate()
   const { activeCircle } = useAppStore()
   const { t } = useI18n()
+  const ai = useAIAccess()
   const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [viewType, setViewType] = useState<'recipe' | 'supply_kit'>(
@@ -48,6 +51,19 @@ export function RecipesPage() {
 
   return (
     <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
+      {/* Header with back button */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        </button>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">
+          {viewType === 'recipe' ? t('nav.recipes') : t('essentials.essentials')}
+        </h2>
+      </div>
+
       {/* Type toggle */}
       <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-lg p-0.5">
         <button
@@ -177,13 +193,20 @@ export function RecipesPage() {
 
       {/* FAB */}
       {viewType === 'recipe' ? (
-        <SpeedDial
-          items={[
-            { icon: Link2, label: t('recipe.importUrl'), onClick: () => navigate('/recipes/import'), color: '#3b82f6' },
-            { icon: Camera, label: t('recipe.importPhoto'), onClick: () => navigate('/recipes/import'), color: '#8b5cf6' },
-            { icon: PenLine, label: t('recipe.writeManually'), onClick: () => navigate('/recipes/new'), color: '#f97316' },
-          ]}
-        />
+        <>
+          <SpeedDial
+            items={[
+              { icon: Sparkles, label: t('recipe.importUrl'), onClick: () => { if (ai.checkAIAccess()) navigate('/recipes/import') }, color: '#3b82f6' },
+              { icon: Camera, label: t('recipe.importPhoto'), onClick: () => { if (ai.checkAIAccess()) navigate('/recipes/import') }, color: '#8b5cf6' },
+              { icon: PenLine, label: t('recipe.writeManually'), onClick: () => navigate('/recipes/new'), color: '#f97316' },
+            ]}
+          />
+          <AIUpgradeModal
+            open={ai.showUpgradeModal}
+            onOpenChange={ai.setShowUpgradeModal}
+            isLimitReached={ai.isLimitReached}
+          />
+        </>
       ) : (
         <div className="fixed bottom-20 end-4 z-50">
           <button

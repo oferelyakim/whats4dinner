@@ -2,12 +2,14 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BookOpen, ShoppingCart, CalendarDays, PartyPopper, Plus,
-  ChevronRight, Users, MapPin, Bell,
+  ChevronRight, Users, MapPin, Bell, Sparkles,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
+import { useAIAccess } from '@/hooks/useAIAccess'
+import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import { getShoppingLists } from '@/services/shoppingLists'
 import { getRecipes } from '@/services/recipes'
 import { getEvents, type Event } from '@/services/events'
@@ -33,6 +35,7 @@ export function HomePage() {
   const navigate = useNavigate()
   const { profile, activeCircle } = useAppStore()
   const { t } = useI18n()
+  const ai = useAIAccess()
 
   const { data: lists = [] } = useQuery({
     queryKey: ['shopping-lists'],
@@ -153,6 +156,44 @@ export function HomePage() {
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.planWeek')}</p>
           <p className="text-[11px] text-slate-400 mt-0.5">Meals for the week</p>
         </Card>
+      </motion.div>
+
+      {/* NLP Quick Actions placeholder */}
+      <motion.div variants={fadeUp}>
+        <button
+          onClick={() => {
+            if (!ai.checkAIAccess()) return
+            // AI plan users see "coming soon" — no action yet
+          }}
+          className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated text-left active:scale-[0.98] transition-transform"
+        >
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-brand-500 flex items-center justify-center shrink-0">
+            <Sparkles className="h-4 w-4 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+              {t('ai.nlpTitle')}
+            </p>
+            <p className="text-[11px] text-slate-400 truncate mt-0.5">
+              {ai.hasAI ? t('ai.comingSoon') : t('ai.nlpPlaceholder')}
+            </p>
+          </div>
+          {!ai.hasAI && (
+            <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-medium shrink-0">
+              AI
+            </span>
+          )}
+          {ai.hasAI && (
+            <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium shrink-0">
+              {t('ai.comingSoon')}
+            </span>
+          )}
+        </button>
+        <AIUpgradeModal
+          open={ai.showUpgradeModal}
+          onOpenChange={ai.setShowUpgradeModal}
+          isLimitReached={ai.isLimitReached}
+        />
       </motion.div>
 
       {/* Today's Schedule */}

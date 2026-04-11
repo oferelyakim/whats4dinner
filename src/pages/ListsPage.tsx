@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, ShoppingCart, ChevronRight } from 'lucide-react'
+import { Plus, ShoppingCart, ChevronRight, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -21,8 +21,14 @@ export function ListsPage() {
 
   return (
     <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('list.shoppingLists')}</h2>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        </button>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">{t('list.shoppingLists')}</h2>
         <Button size="sm" onClick={() => navigate('/lists/new')}>
           <Plus className="h-4 w-4" />
           {t('list.newList')}

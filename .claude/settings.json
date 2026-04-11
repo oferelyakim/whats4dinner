@@ -14,7 +14,11 @@
       "Bash(find /c/Users/OferElyakim/oferProjects/whats4dinner/src/components -type f -name \"*.tsx\" -exec basename {} \\\\;)",
       "Bash(xargs wc:*)",
       "Bash(grep -l \"subscription\\\\|pricing\\\\|tier\\\\|premium\" /c/Users/OferElyakim/oferProjects/whats4dinner/src/services/*.ts /c/Users/OferElyakim/oferProjects/whats4dinner/src/pages/*.tsx)",
-      "Bash(grep -r \"useNavigate\\\\|navigate\\(-1\\)\" /c/Users/OferElyakim/oferProjects/whats4dinner/src/pages/*.tsx)"
+      "Bash(grep -r \"useNavigate\\\\|navigate\\(-1\\)\" /c/Users/OferElyakim/oferProjects/whats4dinner/src/pages/*.tsx)",
+      "Edit(/.claude/skills/circle-architecture/**)",
+      "Edit(/.claude/skills/supabase-patterns/**)",
+      "Edit(/.claude/skills/rtl-i18n/**)",
+      "Bash(npx supabase:*)"
     ]
   }
 }

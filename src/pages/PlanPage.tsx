@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download, Sparkles, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -18,6 +18,8 @@ import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/serv
 import { MEAL_TYPES, type MealType } from '@/lib/constants'
 import { useI18n } from '@/lib/i18n'
 import { exportMealPlanToCalendar } from '@/lib/calendar'
+import { useAIAccess } from '@/hooks/useAIAccess'
+import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import type { MealPlan, Recipe } from '@/types'
 
 // MEAL_LABELS moved inside component for i18n access
@@ -51,6 +53,7 @@ export function PlanPage() {
   const [addSource, setAddSource] = useState<'recipes' | 'templates'>('recipes')
   const [showAddToList, setShowAddToList] = useState(false)
   const [addingToList, setAddingToList] = useState(false)
+  const ai = useAIAccess()
 
   const week = useMemo(() => {
     const ref = new Date()
@@ -215,6 +218,19 @@ export function PlanPage() {
 
   return (
     <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
+      {/* Header with back button */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        </button>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">
+          {t('plan.mealPlan')}
+        </h2>
+      </div>
+
       {/* Week navigation */}
       <div className="flex items-center justify-between">
         <button
@@ -224,7 +240,7 @@ export function PlanPage() {
           <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <div className="text-center">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">{weekLabel}</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{weekLabel}</h2>
           {weekOffset !== 0 && (
             <button
               onClick={() => setWeekOffset(0)}
@@ -272,6 +288,48 @@ export function PlanPage() {
           </Button>
         </div>
       )}
+
+      {/* AI Meal Planning placeholder */}
+      <button
+        onClick={() => {
+          if (!ai.checkAIAccess()) return
+          // AI plan users see "coming soon" — no action yet
+        }}
+        className={cn(
+          'w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all text-left',
+          ai.hasAI
+            ? 'border-brand-300 dark:border-brand-700 bg-brand-500/5'
+            : 'border-slate-300 dark:border-slate-600 hover:border-brand-400'
+        )}
+      >
+        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
+          <Sparkles className="h-5 w-5 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            {t('ai.mealPlanPlaceholder')}
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {ai.hasAI ? t('ai.comingSoon') : t('ai.mealPlanPlaceholderDesc')}
+          </p>
+        </div>
+        {!ai.hasAI && (
+          <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-medium shrink-0">
+            AI
+          </span>
+        )}
+        {ai.hasAI && (
+          <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full font-medium shrink-0">
+            {t('ai.comingSoon')}
+          </span>
+        )}
+      </button>
+
+      <AIUpgradeModal
+        open={ai.showUpgradeModal}
+        onOpenChange={ai.setShowUpgradeModal}
+        isLimitReached={ai.isLimitReached}
+      />
 
       {/* Day columns */}
       <div className="space-y-3">
