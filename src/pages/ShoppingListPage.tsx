@@ -271,7 +271,7 @@ export function ShoppingListPage() {
       {mutationError && (
         <button
           onClick={() => setMutationError('')}
-          className="w-full text-left text-sm text-danger bg-danger/10 rounded-lg px-3 py-2"
+          className="w-full text-start text-sm text-danger bg-danger/10 rounded-lg px-3 py-2"
         >
           {mutationError} (tap to dismiss)
         </button>
@@ -479,7 +479,7 @@ export function ShoppingListPage() {
                         await shareListWithUser(id!, member.user_id, 'edit')
                         setSharedUsers((prev) => new Set([...prev, member.user_id]))
                       }}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors"
+                      className="w-full flex items-center gap-3 p-3 rounded-xl text-start hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors"
                     >
                       <div className="h-9 w-9 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-500 font-bold text-sm shrink-0">
                         {member.profile?.display_name?.[0]?.toUpperCase() ?? '?'}
@@ -589,11 +589,11 @@ function ListItemRow({
 }) {
   return (
     <div className="flex items-center gap-2 flex-1 min-w-0">
-      <button onClick={onToggle} className="shrink-0 active:scale-90 transition-transform">
+      <button onClick={onToggle} className="shrink-0 active:scale-90 transition-transform p-2">
         {item.is_checked ? (
-          <CheckSquare className="h-5 w-5 text-success" />
+          <CheckSquare className="h-6 w-6 text-success" />
         ) : (
-          <Square className="h-5 w-5 text-slate-300 dark:text-slate-600" />
+          <Square className="h-6 w-6 text-slate-300 dark:text-slate-600" />
         )}
       </button>
       <div className="flex-1 min-w-0" onClick={onToggle}>

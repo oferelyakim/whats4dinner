@@ -13,6 +13,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/components/ui/Toast'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   getChores,
@@ -78,6 +79,7 @@ export function ChoresPage() {
   const queryClient = useQueryClient()
   const { activeCircle, profile } = useAppStore()
   const { t } = useI18n()
+  const toast = useToast()
   const myName = profile?.display_name || ''
 
   const [showDialog, setShowDialog] = useState(false)
@@ -143,7 +145,7 @@ export function ChoresPage() {
       await queryClient.invalidateQueries({ queryKey: ['chores'] })
       closeDialog()
     },
-    onError: (err: Error) => alert(err.message),
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const updateMutation = useMutation({
@@ -162,12 +164,13 @@ export function ChoresPage() {
       await queryClient.invalidateQueries({ queryKey: ['chores'] })
       closeDialog()
     },
-    onError: (err: Error) => alert(err.message),
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteChore(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chores'] }),
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const completeMutation = useMutation({
@@ -280,7 +283,7 @@ export function ChoresPage() {
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
-            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
           </button>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('chore.chores')}</h2>
         </div>

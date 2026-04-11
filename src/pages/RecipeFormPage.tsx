@@ -257,7 +257,9 @@ export function RecipeFormPage() {
             {ingredients.map((ing) => (
               <Card key={ing.id} className="p-3">
                 <div className="flex items-start gap-2">
-                  <GripVertical className="h-5 w-5 text-slate-300 dark:text-slate-600 mt-2 shrink-0 cursor-grab" />
+                  <div className="p-2 shrink-0 cursor-grab touch-none" aria-label="Drag to reorder">
+                    <GripVertical className="h-5 w-5 text-slate-300 dark:text-slate-600" />
+                  </div>
                   <div className="flex-1 space-y-2">
                     <AutocompleteInput
                       placeholder="Ingredient name"
@@ -266,13 +268,17 @@ export function RecipeFormPage() {
                       suggestions={ingredientSuggestions}
                     />
                     <div className="flex gap-2">
+                      <label className="sr-only" htmlFor={`qty-${ing.id}`}>{t('recipe.quantity')}</label>
                       <input
+                        id={`qty-${ing.id}`}
                         placeholder="Qty"
                         value={ing.quantity}
                         onChange={(e) => updateIngredient(ing.id, 'quantity', e.target.value)}
                         className="w-16 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
                       />
+                      <label className="sr-only" htmlFor={`unit-${ing.id}`}>{t('recipe.unit')}</label>
                       <select
+                        id={`unit-${ing.id}`}
                         value={ing.unit}
                         onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)}
                         className="text-sm border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 bg-white dark:bg-surface-dark-elevated rounded focus:outline-none focus:border-brand-500"
@@ -283,7 +289,9 @@ export function RecipeFormPage() {
                           </option>
                         ))}
                       </select>
+                      <label className="sr-only" htmlFor={`cat-${ing.id}`}>{t('recipe.category')}</label>
                       <select
+                        id={`cat-${ing.id}`}
                         value={ing.category}
                         onChange={(e) => updateIngredient(ing.id, 'category', e.target.value)}
                         className="flex-1 text-sm border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 bg-white dark:bg-surface-dark-elevated rounded focus:outline-none focus:border-brand-500"

@@ -46,6 +46,15 @@ const translations: Record<string, Record<Locale, string>> = {
   'home.activeLists': { en: 'Active Lists', he: 'רשימות פעילות' },
   'home.recentRecipes': { en: 'Recent Recipes', he: 'מתכונים אחרונים' },
   'home.viewAll': { en: 'View all', he: 'הצג הכל' },
+  'home.today': { en: 'Today', he: 'היום' },
+  'home.upcomingEvents': { en: 'Upcoming Events', he: 'אירועים קרובים' },
+  'home.planEvent': { en: 'Plan Event', he: 'תכנן אירוע' },
+  'home.planEventDesc': { en: 'Potlucks, gatherings & more', he: 'פוטלאק, כינוסים ועוד' },
+  'home.shopTogether': { en: 'Shop together', he: 'קנייה משותפת' },
+  'home.saveAndShare': { en: 'Save & share', he: 'שמור ושתף' },
+  'home.mealsForTheWeek': { en: 'Meals for the week', he: 'ארוחות לשבוע' },
+  'home.createFirstList': { en: 'Create your first shopping list', he: 'צור את רשימת הקניות הראשונה שלך' },
+  'home.manageCircles': { en: 'Manage your family & friend groups', he: 'נהל את קבוצות המשפחה והחברים שלך' },
 
   // Quick actions
   'action.newList': { en: 'New List', he: 'רשימה חדשה' },
@@ -73,6 +82,9 @@ const translations: Record<string, Record<Locale, string>> = {
   'recipe.addToList': { en: 'Add to List', he: 'הוסף לרשימה' },
   'recipe.importUrl': { en: 'Import from URL', he: 'ייבוא מקישור' },
   'recipe.importPhoto': { en: 'From Photo', he: 'מתמונה' },
+  'recipe.quantity': { en: 'Quantity', he: 'כמות' },
+  'recipe.unit': { en: 'Unit', he: 'יחידה' },
+  'recipe.category': { en: 'Category', he: 'קטגוריה' },
 
   // Shopping lists
   'list.shoppingLists': { en: 'Shopping Lists', he: 'רשימות קניות' },
@@ -95,6 +107,25 @@ const translations: Record<string, Record<Locale, string>> = {
   'circle.delete': { en: 'Delete Circle', he: 'מחק מעגל' },
   'circle.members': { en: 'Members', he: 'חברים' },
   'circle.noCircles': { en: 'No circles yet', he: 'אין מעגלים עדיין' },
+  'circle.noCirclesDesc': { en: 'Create a circle for your family or join one with an invite code', he: 'צור מעגל למשפחה שלך או הצטרף עם קוד הזמנה' },
+  'circle.tapToManage': { en: 'Tap to manage members', he: 'לחץ לניהול חברים' },
+  'circle.chooseIcon': { en: 'Choose an icon', he: 'בחר אייקון' },
+  'circle.circleName': { en: 'Circle Name', he: 'שם המעגל' },
+  'circle.circleNamePlaceholder': { en: 'e.g., The Smiths', he: 'למשל, משפחת ישראלי' },
+  'circle.inviteCodePlaceholder': { en: 'Paste the invite code', he: 'הדבק קוד הזמנה' },
+  'circle.notFound': { en: 'Circle not found', he: 'מעגל לא נמצא' },
+  'circle.shareCodeHint': { en: 'Share this code to invite members', he: 'שתף קוד זה להזמנת חברים' },
+  'circle.noEvents': { en: 'No events yet for this circle', he: 'אין אירועים עדיין במעגל זה' },
+  'circle.inviteMember': { en: 'Invite Member', he: 'הזמן חבר' },
+  'circle.shareInviteLink': { en: 'Share invite link', he: 'שתף קישור הזמנה' },
+  'circle.inviteLinkHint': { en: 'Anyone with this link can sign up and join. Share via text or WhatsApp.', he: 'כל מי שיש לו קישור זה יכול להירשם ולהצטרף. שתף בוואטסאפ או SMS.' },
+  'circle.orAddByEmail': { en: 'or add by email', he: 'או הוסף באמצעות אימייל' },
+  'circle.emailPlaceholder': { en: 'family@example.com', he: 'משפחה@example.com' },
+  'circle.inviteEmailHint': { en: "If they already have an account, they'll be added instantly.", he: 'אם יש להם חשבון, הם יתווספו מיד.' },
+  'circle.deleteConfirm': { en: 'Are you sure you want to delete', he: 'האם אתה בטוח שאתה רוצה למחוק' },
+  'circle.deleteWarning': { en: 'All shared recipes, lists, and meal plans will be removed for all members. This cannot be undone.', he: 'כל המתכונים, הרשימות ותכניות הארוחות המשותפות יוסרו לכל החברים. לא ניתן לבטל פעולה זו.' },
+  'circle.leaveConfirm': { en: 'Are you sure you want to leave', he: 'האם אתה בטוח שאתה רוצה לעזוב' },
+  'circle.leaveWarning': { en: "You'll lose access to shared recipes, lists, and meal plans.", he: 'תאבד גישה למתכונים, רשימות ותכניות ארוחות משותפות.' },
 
   // Events
   'event.events': { en: 'Events', he: 'אירועים' },
@@ -115,6 +146,16 @@ const translations: Record<string, Record<Locale, string>> = {
   'event.clone': { en: 'Clone Event (reuse items)', he: 'שכפל אירוע (שימוש חוזר)' },
   'event.delete': { en: 'Delete Event', he: 'מחק אירוע' },
   'event.makeHost': { en: 'Make host', he: 'הפוך למארגן' },
+  'event.noEvents': { en: 'No events yet', he: 'אין אירועים עדיין' },
+  'event.noEventsDesc': { en: 'Create your first event and invite people to join', he: 'צור את האירוע הראשון שלך והזמן אנשים להצטרף' },
+  'event.upcoming': { en: 'Upcoming', he: 'קרובים' },
+  'event.past': { en: 'Past', he: 'עברו' },
+  'event.noSearchResults': { en: 'No events matching', he: 'לא נמצאו אירועים התואמים' },
+  'event.eventName': { en: 'Event Name', he: 'שם האירוע' },
+  'event.eventDescription': { en: 'Description (optional)', he: 'תיאור (אופציונלי)' },
+  'event.eventDate': { en: 'Date & Time', he: 'תאריך ושעה' },
+  'event.eventLocation': { en: 'Location (optional)', he: 'מיקום (אופציונלי)' },
+  'event.noCircleEvents': { en: 'No events yet for this circle', he: 'אין אירועים עדיין עבור מעגל זה' },
 
   // Meal plan
   'plan.mealPlan': { en: 'Meal Plan', he: 'תכנון ארוחות' },
@@ -144,11 +185,15 @@ const translations: Record<string, Record<Locale, string>> = {
   'food.recentRecipes': { en: 'Recent Recipes', he: 'מתכונים אחרונים' },
   'food.noMealsPlanned': { en: 'No meals planned yet', he: 'אין ארוחות מתוכננות' },
   'food.startPlanning': { en: 'Start planning your week', he: 'התחל לתכנן את השבוע' },
+  'food.nTemplates': { en: 'templates', he: 'תבניות' },
+  'food.sortByAisle': { en: 'Sort by aisle', he: 'מיון לפי מדף' },
 
   // Household Hub
   'household.title': { en: 'Household', he: 'משק בית' },
   'household.today': { en: 'Today', he: 'היום' },
   'household.noToday': { en: 'Nothing scheduled for today', he: 'אין דבר מתוכנן להיום' },
+  'household.createFirstChore': { en: 'Create your first chore', he: 'צור את המטלה הראשונה שלך' },
+  'household.addFirstActivity': { en: 'Add your first activity', he: 'הוסף את הפעילות הראשונה שלך' },
 
   // More / Settings (kept for ProfilePage)
   'more.more': { en: 'More', he: 'עוד' },
@@ -162,6 +207,12 @@ const translations: Record<string, Record<Locale, string>> = {
   'more.dark': { en: 'Dark', he: 'כהה' },
   'more.system': { en: 'System', he: 'מערכת' },
   'more.settings': { en: 'Settings', he: 'הגדרות' },
+  'more.familyGroups': { en: 'Family & friend groups', he: 'קבוצות משפחה וחברים' },
+  'more.manageAccount': { en: 'Manage your account', he: 'נהל את החשבון שלך' },
+
+  // Profile
+  'profile.displayName': { en: 'Display Name', he: 'שם תצוגה' },
+  'profile.displayNamePlaceholder': { en: 'How your family sees you', he: 'איך המשפחה רואה אותך' },
 
   // Common
   'common.cancel': { en: 'Cancel', he: 'ביטול' },
@@ -176,6 +227,13 @@ const translations: Record<string, Record<Locale, string>> = {
   'common.loading': { en: 'Loading...', he: 'טוען...' },
   'common.areYouSure': { en: 'Are you sure?', he: 'האם את/ה בטוח/ה?' },
   'common.tapToDismiss': { en: 'tap to dismiss', he: 'לחץ לסגירה' },
+  'common.close': { en: 'Close', he: 'סגור' },
+  'common.skipToContent': { en: 'Skip to main content', he: 'דלג לתוכן הראשי' },
+  'common.error': { en: 'Error', he: 'שגיאה' },
+  'common.items': { en: 'items', he: 'פריטים' },
+  'common.today': { en: 'Today', he: 'היום' },
+  'common.notFound': { en: 'Not found', he: 'לא נמצא' },
+  'common.somethingWentWrong': { en: 'Something went wrong', he: 'משהו השתבש' },
 
   // Activities
   'activity.activities': { en: 'Activities', he: 'פעילויות' },

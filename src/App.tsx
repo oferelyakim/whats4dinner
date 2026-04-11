@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryCache, restoreQueryCache } from '@/lib/queryPersist'
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
+import { ToastProvider } from '@/components/ui/Toast'
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -79,6 +80,7 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           {/* Public routes (outside AuthGuard) */}
@@ -139,6 +141,7 @@ export default function App() {
           </Suspense>
         </AuthGuard>
       </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
   )
 }

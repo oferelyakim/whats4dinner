@@ -29,6 +29,7 @@ export function BottomNav() {
 
   return (
     <nav
+      aria-label="Main navigation"
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
         'bg-white/80 dark:bg-surface-dark/80 backdrop-blur-xl',
@@ -49,6 +50,7 @@ export function BottomNav() {
               onClick={() => navigate(path)}
               whileTap={{ scale: 0.85 }}
               transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors min-w-[56px]',
                 isActive

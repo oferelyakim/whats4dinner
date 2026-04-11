@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/components/ui/Toast'
 import {
   getActivities, createActivity, updateActivity, deleteActivity,
   activityOccursOnDate,
@@ -72,6 +73,7 @@ export function ActivitiesPage() {
   const queryClient = useQueryClient()
   const { activeCircle, calendarView, setCalendarView, calendarDate, setCalendarDate } = useAppStore()
   const { t, locale } = useI18n()
+  const toast = useToast()
 
   const [showDialog, setShowDialog] = useState(false)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
@@ -187,7 +189,7 @@ export function ActivitiesPage() {
       await queryClient.invalidateQueries({ queryKey: ['activities'] })
       closeDialog()
     },
-    onError: (err: Error) => alert(err.message),
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const updateMutation = useMutation({
@@ -213,12 +215,13 @@ export function ActivitiesPage() {
       await queryClient.invalidateQueries({ queryKey: ['activities'] })
       closeDialog()
     },
-    onError: (err: Error) => alert(err.message),
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteActivity(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['activities'] }),
+    onError: (err: Error) => toast.error(err.message),
   })
 
   // Update bring_items inline (toggle check)
@@ -331,7 +334,7 @@ export function ActivitiesPage() {
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
-            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
           </button>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('activity.activities')}</h2>
         </div>
@@ -352,7 +355,7 @@ export function ActivitiesPage() {
           onClick={() => navigate(-1)}
           className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">{t('activity.activities')}</h2>
         <Button size="sm" onClick={openCreate}>

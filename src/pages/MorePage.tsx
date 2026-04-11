@@ -17,6 +17,7 @@ import { useI18n, type Locale } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { AIUpgradeModal, UsageMeter, cancelSubscription } from '@/components/ui/UpgradePrompt'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useToast } from '@/components/ui/Toast'
 
 export function MorePage() {
   const navigate = useNavigate()
@@ -25,12 +26,14 @@ export function MorePage() {
   const { t, locale, setLocale } = useI18n()
   const ai = useAIAccess()
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const cancelMutation = useMutation({
     mutationFn: () => cancelSubscription(session!.user.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] })
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const menuItems = [
@@ -84,7 +87,7 @@ export function MorePage() {
               <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</p>
               <p className="text-xs text-slate-400 truncate">{description}</p>
             </div>
-            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0" />
+            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
           </button>
         ))}
       </Card>
@@ -136,7 +139,7 @@ export function MorePage() {
               <p className="text-sm font-semibold text-slate-900 dark:text-white">{t('ai.upgradeToAI')}</p>
               <p className="text-xs text-slate-500">{t('ai.upgradeDesc')}</p>
             </div>
-            <ChevronRight className="h-4 w-4 text-brand-500" />
+            <ChevronRight className="h-4 w-4 text-brand-500 rtl-flip" />
           </div>
         </Card>
       )}
@@ -160,7 +163,7 @@ export function MorePage() {
                 key={themeOption}
                 onClick={() => setTheme(themeOption)}
                 className={cn(
-                  'px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize',
+                  'px-4 py-2 rounded-md text-sm font-medium transition-colors capitalize',
                   theme === themeOption
                     ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-500'
@@ -188,7 +191,7 @@ export function MorePage() {
                 key={lang.code}
                 onClick={() => setLocale(lang.code as Locale)}
                 className={cn(
-                  'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
                   locale === lang.code
                     ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-500'

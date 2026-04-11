@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
+import { useToast } from '@/components/ui/Toast'
 import * as Dialog from '@radix-ui/react-dialog'
 import { getEvents, createEvent, type Event } from '@/services/events'
 import { useI18n } from '@/lib/i18n'
@@ -15,7 +16,8 @@ export function EventsPage() {
   const [searchParams] = useSearchParams()
   const circleId = searchParams.get('circle')
   const queryClient = useQueryClient()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const toast = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -52,7 +54,7 @@ export function EventsPage() {
       navigate(`/events/${event.id}`)
     },
     onError: (err: Error) => {
-      alert(`Failed to create event: ${err.message}`)
+      toast.error(err.message)
     },
   })
 
@@ -92,13 +94,15 @@ export function EventsPage() {
       {/* Search */}
       {events.length > 0 && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <label className="sr-only" htmlFor="event-search">{t('common.search')}</label>
           <input
+            id="event-search"
             type="text"
             placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+            className="w-full ps-10 pe-4 py-2.5 rounded-xl text-sm bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
           />
         </div>
       )}
@@ -110,8 +114,8 @@ export function EventsPage() {
       ) : events.length === 0 ? (
         <EmptyState
           icon={<PartyPopper className="h-12 w-12" />}
-          title="No events yet"
-          description="Plan a potluck, dinner party, or any gathering and coordinate who brings what"
+          title={t('event.noEvents')}
+          description={t('event.noEventsDesc')}
           action={
             <Button onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4" />
@@ -125,7 +129,7 @@ export function EventsPage() {
           {upcoming.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
-                Upcoming ({upcoming.length})
+                {t('event.upcoming')} ({upcoming.length})
               </p>
               {upcoming.map((event: Event) => (
                 <Card
@@ -139,7 +143,7 @@ export function EventsPage() {
                     {event.event_date && (
                       <span className="flex items-center gap-1 text-xs text-slate-400">
                         <CalendarDays className="h-3 w-3" />
-                        {new Date(event.event_date).toLocaleDateString('en-US', {
+                        {new Date(event.event_date).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
                           weekday: 'short', month: 'short', day: 'numeric',
                         })}
                       </span>
@@ -160,7 +164,7 @@ export function EventsPage() {
           {past.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">
-                Past ({past.length})
+                {t('event.past')} ({past.length})
               </p>
               <div className="space-y-2 opacity-60">
                 {past.map((event: Event) => (
@@ -172,7 +176,7 @@ export function EventsPage() {
                     <p className="text-sm text-slate-500">{event.name}</p>
                     {event.event_date && (
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {new Date(event.event_date).toLocaleDateString('en-US', {
+                        {new Date(event.event_date).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
                           month: 'short', day: 'numeric', year: 'numeric',
                         })}
                       </p>

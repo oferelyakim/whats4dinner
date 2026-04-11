@@ -10,6 +10,7 @@ import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle, deleteCircl
 import { getEvents, type Event } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/components/ui/Toast'
 import type { CircleMember } from '@/types'
 
 const ROLE_ICONS = {
@@ -34,9 +35,10 @@ export function CircleDetailPage() {
   const [copied, setCopied] = useState(false)
   const [showLeave, setShowLeave] = useState(false)
   const { activeCircle, setActiveCircle } = useAppStore()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const toast = useToast()
 
-  const { data: circles = [] } = useQuery({
+  const { data: circles = [], isLoading: isCirclesLoading } = useQuery({
     queryKey: ['circles'],
     queryFn: getMyCircles,
   })
@@ -72,6 +74,7 @@ export function CircleDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['circles'] })
       navigate('/profile/circles')
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const deleteCircleMutation = useMutation({
@@ -81,6 +84,7 @@ export function CircleDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['circles'] })
       navigate('/profile/circles')
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   // Check if current user is owner
@@ -93,13 +97,24 @@ export function CircleDetailPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  if (isCirclesLoading) {
+    return (
+      <div className="px-4 py-4 space-y-4 animate-pulse">
+        <div className="h-9 w-9 rounded-xl bg-slate-200 dark:bg-surface-dark-elevated" />
+        <div className="h-6 w-48 rounded-lg bg-slate-200 dark:bg-surface-dark-elevated" />
+        <div className="h-24 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay" />
+        <div className="h-48 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay" />
+      </div>
+    )
+  }
+
   if (!circle) {
     return (
       <div className="px-4 py-4">
         <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
-        <p className="text-center text-slate-500">Circle not found</p>
+        <p className="text-center text-slate-500">{t('circle.notFound')}</p>
       </div>
     )
   }
@@ -122,7 +137,7 @@ export function CircleDetailPage() {
 
       {/* Invite code */}
       <Card className="p-4">
-        <p className="text-xs text-slate-400 mb-2">Share this code to invite members</p>
+        <p className="text-xs text-slate-400 mb-2">{t('circle.shareCodeHint')}</p>
         <div className="flex items-center gap-2">
           <code className="flex-1 bg-slate-100 dark:bg-surface-dark-overlay px-3 py-2 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300">
             {circle.invite_code}
@@ -194,7 +209,7 @@ export function CircleDetailPage() {
         </div>
         {circleEvents.length === 0 ? (
           <Card className="p-4 text-center">
-            <p className="text-xs text-slate-400">No events yet for this circle</p>
+            <p className="text-xs text-slate-400">{t('circle.noEvents')}</p>
           </Card>
         ) : (
           <div className="space-y-2">
@@ -208,7 +223,7 @@ export function CircleDetailPage() {
                 {event.event_date && (
                   <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                     <CalendarDays className="h-3 w-3" />
-                    {new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {new Date(event.event_date).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                   </p>
                 )}
               </Card>
@@ -223,13 +238,13 @@ export function CircleDetailPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              Invite Member
+              {t('circle.inviteMember')}
             </Dialog.Title>
             <div className="space-y-4">
               {/* Share invite link */}
               <div>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
-                  Share invite link
+                  {t('circle.shareInviteLink')}
                 </label>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-slate-100 dark:bg-surface-dark-overlay px-3 py-2 rounded-lg text-xs font-mono text-slate-600 dark:text-slate-400 truncate">
@@ -248,26 +263,26 @@ export function CircleDetailPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
-                  Anyone with this link can sign up and join. Share via text or WhatsApp.
+                  {t('circle.inviteLinkHint')}
                 </p>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-                <span className="text-xs text-slate-400">or add by email</span>
+                <span className="text-xs text-slate-400">{t('circle.orAddByEmail')}</span>
                 <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
               </div>
 
               {/* Add by email */}
               <Input
-                label="Email address"
+                label={t('auth.email')}
                 type="email"
-                placeholder="family@example.com"
+                placeholder={t('circle.emailPlaceholder')}
                 value={inviteEmail}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteEmail(e.target.value)}
               />
               <p className="text-xs text-slate-400">
-                If they already have an account, they'll be added instantly.
+                {t('circle.inviteEmailHint')}
               </p>
               {error && (
                 <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
@@ -308,8 +323,8 @@ export function CircleDetailPage() {
             </Dialog.Title>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               {isOwner
-                ? <>Are you sure you want to delete <strong>{circle.name}</strong>? All shared recipes, lists, and meal plans will be removed for all members. This cannot be undone.</>
-                : <>Are you sure you want to leave <strong>{circle.name}</strong>? You'll lose access to shared recipes, lists, and meal plans.</>
+                ? <>{t('circle.deleteConfirm')} <strong>{circle.name}</strong>? {t('circle.deleteWarning')}</>
+                : <>{t('circle.leaveConfirm')} <strong>{circle.name}</strong>? {t('circle.leaveWarning')}</>
               }
             </p>
             <div className="flex gap-3">

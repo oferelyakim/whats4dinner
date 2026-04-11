@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
@@ -37,10 +38,12 @@ const fadeUp = {
 export function HomePage() {
   const navigate = useNavigate()
   const { profile, activeCircle } = useAppStore()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const ai = useAIAccess()
   const [nlpInput, setNlpInput] = useState('')
   const [nlpResult, setNlpResult] = useState<{ action: string; confirmation: string } | null>(null)
+
+  const dateLocale = locale === 'he' ? 'he-IL' : 'en-US'
 
   const nlpMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -62,32 +65,34 @@ export function HomePage() {
     },
   })
 
-  const { data: lists = [] } = useQuery({
+  const { data: lists = [], isLoading: listsLoading } = useQuery({
     queryKey: ['shopping-lists'],
     queryFn: getShoppingLists,
   })
 
-  const { data: recipes = [] } = useQuery({
+  const { data: recipes = [], isLoading: recipesLoading } = useQuery({
     queryKey: ['recipes', activeCircle?.id],
     queryFn: () => getRecipes(activeCircle?.id),
   })
 
-  const { data: events = [] } = useQuery({
+  const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ['events'],
     queryFn: getEvents,
   })
 
-  const { data: activities = [] } = useQuery({
+  const { data: activities = [], isLoading: activitiesLoading } = useQuery({
     queryKey: ['activities', activeCircle?.id],
     queryFn: () => getActivities(activeCircle!.id),
     enabled: !!activeCircle,
   })
 
-  const { data: chores = [] } = useQuery({
+  const { data: chores = [], isLoading: choresLoading } = useQuery({
     queryKey: ['chores', activeCircle?.id],
     queryFn: () => getChores(activeCircle!.id),
     enabled: !!activeCircle,
   })
+
+  const isLoading = listsLoading || recipesLoading || eventsLoading || activitiesLoading || choresLoading
 
   const today = new Date().toISOString().split('T')[0]
   const todayActivities = activities.filter((a: Activity) => activityOccursOnDate(a, today))
@@ -110,6 +115,46 @@ export function HomePage() {
     .slice(0, 3)
   const recentRecipes = recipes.slice(0, 5)
   const greeting = getGreeting(t)
+
+  if (isLoading) {
+    return (
+      <div className="px-4 sm:px-6 py-6 space-y-6">
+        {/* Greeting skeleton */}
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-11 w-11 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+
+        {/* Quick action cards skeleton */}
+        <div className="grid grid-cols-2 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="p-4 rounded-xl bg-white dark:bg-surface-dark-elevated border border-slate-100 dark:border-slate-800">
+              <Skeleton className="h-10 w-10 rounded-xl mb-2" />
+              <Skeleton className="h-4 w-3/4 mb-1" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
+        </div>
+
+        {/* Section skeletons */}
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <motion.div
@@ -137,50 +182,79 @@ export function HomePage() {
 
       {/* Quick Actions - 2x2 grid */}
       <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3">
-        <Card
-          variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-pink-50/50 dark:from-surface-dark-elevated dark:to-pink-950/10"
+        <button
+          role="button"
           onClick={() => navigate('/events')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/events') } }}
+          className="text-start"
         >
-          <div className="h-10 w-10 rounded-xl bg-pink-500/10 flex items-center justify-center mb-2">
-            <PartyPopper className="h-5 w-5 text-pink-500" />
-          </div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Plan Event</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Gather, eat, celebrate</p>
-        </Card>
-        <Card
-          variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-emerald-50/50 dark:from-surface-dark-elevated dark:to-emerald-950/10"
+          <Card
+            variant="elevated"
+            className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-pink-50/50 dark:from-surface-dark-elevated dark:to-pink-950/10"
+          >
+            <div className="h-10 w-10 rounded-xl bg-pink-500/10 flex items-center justify-center mb-2">
+              <PartyPopper className="h-5 w-5 text-pink-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              {t('home.planEvent')}            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {t('home.planEventDesc')}            </p>
+          </Card>
+        </button>
+        <button
+          role="button"
           onClick={() => navigate('/lists/new')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/lists/new') } }}
+          className="text-start"
         >
-          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">
-            <ShoppingCart className="h-5 w-5 text-emerald-500" />
-          </div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.newList')}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Shop together</p>
-        </Card>
-        <Card
-          variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-blue-50/50 dark:from-surface-dark-elevated dark:to-blue-950/10"
+          <Card
+            variant="elevated"
+            className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-emerald-50/50 dark:from-surface-dark-elevated dark:to-emerald-950/10"
+          >
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">
+              <ShoppingCart className="h-5 w-5 text-emerald-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.newList')}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {t('home.shopTogether')}            </p>
+          </Card>
+        </button>
+        <button
+          role="button"
           onClick={() => navigate('/recipes/new')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/recipes/new') } }}
+          className="text-start"
         >
-          <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-2">
-            <BookOpen className="h-5 w-5 text-blue-500" />
-          </div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.addRecipe')}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Save & share</p>
-        </Card>
-        <Card
-          variant="elevated"
-          className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-purple-50/50 dark:from-surface-dark-elevated dark:to-purple-950/10"
+          <Card
+            variant="elevated"
+            className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-blue-50/50 dark:from-surface-dark-elevated dark:to-blue-950/10"
+          >
+            <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-2">
+              <BookOpen className="h-5 w-5 text-blue-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.addRecipe')}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {t('home.saveAndShare')}            </p>
+          </Card>
+        </button>
+        <button
+          role="button"
           onClick={() => navigate('/plan')}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/plan') } }}
+          className="text-start"
         >
-          <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-2">
-            <CalendarDays className="h-5 w-5 text-purple-500" />
-          </div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.planWeek')}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Meals for the week</p>
-        </Card>
+          <Card
+            variant="elevated"
+            className="p-4 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-purple-50/50 dark:from-surface-dark-elevated dark:to-purple-950/10"
+          >
+            <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-2">
+              <CalendarDays className="h-5 w-5 text-purple-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.planWeek')}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {t('home.mealsForTheWeek')}            </p>
+          </Card>
+        </button>
       </motion.div>
 
       {/* NLP Quick Actions */}
@@ -246,10 +320,9 @@ export function HomePage() {
         <motion.section variants={fadeUp}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-              Today
-            </h3>
+              {t('home.today')}            </h3>
             <span className="text-xs text-slate-400">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+              {new Date().toLocaleDateString(dateLocale, { weekday: 'long', month: 'short', day: 'numeric' })}
             </span>
           </div>
 
@@ -334,8 +407,7 @@ export function HomePage() {
         <motion.section variants={fadeUp}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-              Upcoming Events
-            </h3>
+              {t('home.upcomingEvents')}            </h3>
             <button
               onClick={() => navigate('/events')}
               className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
@@ -362,7 +434,7 @@ export function HomePage() {
                       {event.event_date && (
                         <span className="flex items-center gap-0.5">
                           <CalendarDays className="h-3 w-3" />
-                          {new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          {new Date(event.event_date).toLocaleDateString(dateLocale, { weekday: 'short', month: 'short', day: 'numeric' })}
                         </span>
                       )}
                       {event.location && (
@@ -402,7 +474,7 @@ export function HomePage() {
               <div className="h-9 w-9 rounded-xl bg-brand-500/10 flex items-center justify-center">
                 <Plus className="h-4 w-4 text-brand-500" />
               </div>
-              <p className="text-sm text-slate-500">Create your first shopping list</p>
+              <p className="text-sm text-slate-500">{t('home.createFirstList')} {/* TODO: add i18n key */}</p>
             </div>
           </Card>
         ) : (
@@ -419,7 +491,7 @@ export function HomePage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{list.name}</p>
-                    <p className="text-xs text-slate-400">{list.item_count ?? 0} items</p>
+                    <p className="text-xs text-slate-400">{list.item_count ?? 0} {t('common.items')} {/* TODO: add i18n key */}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 rtl-flip" />
                 </div>
@@ -484,7 +556,7 @@ export function HomePage() {
             <div className="h-9 w-9 rounded-xl bg-brand-500/10 flex items-center justify-center">
               <Users className="h-4 w-4 text-brand-500" />
             </div>
-            <p className="text-sm text-slate-500 flex-1">Manage your family & friend groups</p>
+            <p className="text-sm text-slate-500 flex-1">{t('home.manageCircles')} {/* TODO: add i18n key */}</p>
             <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 rtl-flip" />
           </div>
         </Card>

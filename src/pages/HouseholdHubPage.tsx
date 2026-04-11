@@ -32,7 +32,7 @@ export function HouseholdHubPage() {
   const [activeTab, setActiveTab] = useState<Tab>('chores')
   const navigate = useNavigate()
   const { activeCircle, profile } = useAppStore()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   const { data: activities = [] } = useQuery({
     queryKey: ['activities', activeCircle?.id],
@@ -86,7 +86,7 @@ export function HouseholdHubPage() {
               {t('household.today')}
             </h3>
             <span className="text-xs text-slate-400">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+              {new Date().toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
             </span>
           </div>
 
@@ -180,7 +180,7 @@ export function HouseholdHubPage() {
                   <div className="h-9 w-9 rounded-xl bg-brand-500/10 flex items-center justify-center">
                     <Plus className="h-4 w-4 text-brand-500" />
                   </div>
-                  <p className="text-sm text-slate-500">Create your first chore</p>
+                  <p className="text-sm text-slate-500">{t('chore.createFirst')}</p>
                 </div>
               </Card>
             </motion.div>
@@ -220,8 +220,9 @@ export function HouseholdHubPage() {
           {chores.length > 6 && (
             <motion.div variants={fadeUp}>
               <Card className="p-3 cursor-pointer active:scale-[0.97]" onClick={() => navigate('/household/chores')}>
-                <p className="text-sm font-medium text-brand-500 text-center">
-                  {t('home.viewAll')} ({chores.length}) →
+                <p className="text-sm font-medium text-brand-500 text-center flex items-center justify-center gap-1">
+                  {t('home.viewAll')} ({chores.length})
+                  <ChevronRight className="h-4 w-4 rtl-flip" />
                 </p>
               </Card>
             </motion.div>
@@ -249,7 +250,7 @@ export function HouseholdHubPage() {
                   <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
                     <Plus className="h-4 w-4 text-blue-500" />
                   </div>
-                  <p className="text-sm text-slate-500">Add your first activity</p>
+                  <p className="text-sm text-slate-500">{t('activity.addFirst')}</p>
                 </div>
               </Card>
             </motion.div>
@@ -281,8 +282,9 @@ export function HouseholdHubPage() {
           {activities.length > 6 && (
             <motion.div variants={fadeUp}>
               <Card className="p-3 cursor-pointer active:scale-[0.97]" onClick={() => navigate('/household/activities')}>
-                <p className="text-sm font-medium text-brand-500 text-center">
-                  {t('home.viewAll')} ({activities.length}) →
+                <p className="text-sm font-medium text-brand-500 text-center flex items-center justify-center gap-1">
+                  {t('home.viewAll')} ({activities.length})
+                  <ChevronRight className="h-4 w-4 rtl-flip" />
                 </p>
               </Card>
             </motion.div>

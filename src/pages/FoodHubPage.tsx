@@ -38,7 +38,9 @@ export function FoodHubPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const navigate = useNavigate()
   const { activeCircle } = useAppStore()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+
+  const dateLocale = locale === 'he' ? 'he-IL' : 'en-US'
 
   const { start, end, dates } = getWeekDates()
 
@@ -61,7 +63,10 @@ export function FoodHubPage() {
 
   const activeLists = lists.filter((l: ShoppingList) => l.status === 'active')
 
-  const DAY_NAMES_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  // Derive locale-aware short day names from the week dates using Intl
+  const dayNamesShort = dates.slice(0, 7).map((date) =>
+    new Intl.DateTimeFormat(dateLocale, { weekday: 'short' }).format(new Date(date + 'T12:00:00'))
+  )
 
   return (
     <motion.div
@@ -169,7 +174,7 @@ export function FoodHubPage() {
                           'w-10 text-center shrink-0',
                           isToday ? 'text-brand-500 font-bold' : 'text-slate-400'
                         )}>
-                          <div className="text-[10px] uppercase">{DAY_NAMES_SHORT[i]}</div>
+                          <div className="text-[10px] uppercase">{dayNamesShort[i]}</div>
                           <div className="text-sm">{date.split('-')[2]}</div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -209,7 +214,7 @@ export function FoodHubPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{list.name}</p>
-                        <p className="text-xs text-slate-400">{list.item_count ?? 0} items</p>
+                        <p className="text-xs text-slate-400">{list.item_count ?? 0} {t('common.items')} {/* TODO: add i18n key */}</p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 rtl-flip" />
                     </div>
@@ -229,7 +234,8 @@ export function FoodHubPage() {
                 <UtensilsCrossed className="h-4.5 w-4.5 text-brand-500 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{t('more.mealTemplates')}</p>
-                  <p className="text-xs text-slate-400">{templates.length} templates</p>
+                  <p className="text-xs text-slate-400">
+                    {templates.length} {t('food.templates')}                  </p>
                 </div>
               </div>
             </Card>
@@ -241,7 +247,8 @@ export function FoodHubPage() {
                 <Store className="h-4.5 w-4.5 text-brand-500 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{t('more.myStores')}</p>
-                  <p className="text-xs text-slate-400">Sort by aisle</p>
+                  <p className="text-xs text-slate-400">
+                    {t('food.sortByAisle')}                  </p>
                 </div>
               </div>
             </Card>

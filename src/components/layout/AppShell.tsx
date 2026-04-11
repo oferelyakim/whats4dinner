@@ -15,6 +15,12 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto relative">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:dark:bg-surface-dark-base focus:text-slate-900 focus:dark:text-slate-100 focus:rounded focus:shadow-lg"
+      >
+        {t('common.skipToContent')}
+      </a>
       <Header />
       {showBanner && (
         <div className={`flex items-center gap-2 px-4 py-2 text-xs font-medium ${
@@ -31,7 +37,7 @@ export function AppShell() {
           </button>
         </div>
       )}
-      <main className="flex-1 pb-safe animate-page-enter">
+      <main id="main-content" className="flex-1 pb-safe animate-page-enter">
         <Outlet />
       </main>
       <BottomNav />

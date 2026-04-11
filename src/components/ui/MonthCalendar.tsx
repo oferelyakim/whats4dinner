@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/cn'
+import { useI18n } from '@/lib/i18n'
 
 interface MonthCalendarProps {
   year: number
@@ -29,6 +30,8 @@ export function MonthCalendar({
   activityDots,
   locale = 'en',
 }: MonthCalendarProps) {
+  const { dir } = useI18n()
+  const rtlMultiplier = dir() === 'rtl' ? -1 : 1
   const todayStr = new Date().toISOString().split('T')[0]
   const dayLabels = locale === 'he' ? DAY_LABELS_HE : DAY_LABELS_EN
 
@@ -100,9 +103,9 @@ export function MonthCalendar({
       <AnimatePresence mode="wait">
         <motion.div
           key={`${year}-${month}`}
-          initial={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, x: 20 * rtlMultiplier }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
+          exit={{ opacity: 0, x: -20 * rtlMultiplier }}
           transition={{ duration: 0.15 }}
           className="grid grid-cols-7 gap-y-0.5"
         >

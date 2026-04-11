@@ -87,7 +87,7 @@ export function CirclesPage() {
         <EmptyState
           icon={<Users className="h-12 w-12" />}
           title={t('circle.noCircles')}
-          description="Create a circle for your family or join one with an invite code"
+          description={t('circle.noCirclesDesc')}
           action={
             <Button onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4" />
@@ -114,7 +114,7 @@ export function CirclesPage() {
                     {circle.name}
                   </p>
                   <p className="text-xs text-slate-400 truncate">
-                    Tap to manage members
+                    {t('circle.tapToManage')}
                   </p>
                 </div>
                 <button
@@ -147,7 +147,7 @@ export function CirclesPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                  Choose an icon
+                  {t('circle.chooseIcon')}
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {CIRCLE_ICONS.map((icon) => (
@@ -167,8 +167,8 @@ export function CirclesPage() {
                 </div>
               </div>
               <Input
-                label="Circle Name"
-                placeholder="e.g., The Elyakims"
+                label={t('circle.circleName')}
+                placeholder={t('circle.circleNamePlaceholder')}
                 value={newName}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
               />
@@ -203,7 +203,7 @@ export function CirclesPage() {
             <div className="space-y-4">
               <Input
                 label={t('circle.inviteCode')}
-                placeholder="Paste the invite code"
+                placeholder={t('circle.inviteCodePlaceholder')}
                 value={inviteCode}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInviteCode(e.target.value)}
               />

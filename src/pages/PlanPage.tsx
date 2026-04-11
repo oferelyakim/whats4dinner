@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, D
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { useToast } from '@/components/ui/Toast'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
@@ -40,13 +41,14 @@ const MEAL_COLORS: Record<MealType, string> = {
   snack: 'bg-green-500/20 text-green-700 dark:text-green-400',
 }
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
 export function PlanPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { activeCircle, setActiveCircle } = useAppStore()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const toast = useToast()
+
+  const dateLocale = locale === 'he' ? 'he-IL' : 'en-US'
 
   const MEAL_LABELS: Record<MealType, string> = {
     breakfast: t('plan.breakfast'),
@@ -71,6 +73,11 @@ export function PlanPage() {
     ref.setDate(ref.getDate() + weekOffset * 7)
     return getWeekDates(ref)
   }, [weekOffset])
+
+  // Derive locale-aware short day names from week dates using Intl
+  const dayNamesShort = week.dates.map((date) =>
+    new Intl.DateTimeFormat(dateLocale, { weekday: 'short' }).format(new Date(date + 'T12:00:00'))
+  )
 
   const { data: plans = [] } = useQuery({
     queryKey: ['meal-plans', activeCircle?.id, week.start, week.end],
@@ -104,6 +111,7 @@ export function PlanPage() {
       setShowAddMeal(false)
       setSearch('')
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const addMenuMutation = useMutation({
@@ -114,6 +122,7 @@ export function PlanPage() {
       setShowAddMeal(false)
       setSearch('')
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const removeMutation = useMutation({
@@ -121,6 +130,7 @@ export function PlanPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const copyMutation = useMutation({
@@ -132,30 +142,41 @@ export function PlanPage() {
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
       setWeekOffset((w) => w + 1)
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   async function handleAddWeekToList(listId: string) {
     setAddingToList(true)
-    const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
-    if (planIds.length) {
-      await addMealPlansToList(listId, planIds)
-      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    try {
+      const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
+      if (planIds.length) {
+        await addMealPlansToList(listId, planIds)
+        queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setAddingToList(false)
+      setShowAddToList(false)
     }
-    setAddingToList(false)
-    setShowAddToList(false)
   }
 
   async function handleAddWeekToNewList() {
     if (!activeCircle) return
     setAddingToList(true)
-    const list = await createShoppingList(`${weekLabel} Groceries`, activeCircle.id)
-    const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
-    if (planIds.length) {
-      await addMealPlansToList(list.id, planIds)
+    try {
+      const list = await createShoppingList(`${weekLabel} Groceries`, activeCircle.id)
+      const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
+      if (planIds.length) {
+        await addMealPlansToList(list.id, planIds)
+      }
+      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setAddingToList(false)
+      setShowAddToList(false)
     }
-    queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
-    setAddingToList(false)
-    setShowAddToList(false)
   }
 
   // AI Meal Plan generation
@@ -177,18 +198,23 @@ export function PlanPage() {
       setAiPlan(plan)
       setShowAiReview(true)
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   async function acceptAiPlan() {
     if (!activeCircle) return
-    for (const item of aiPlan) {
-      if (item.recipe_id) {
-        await setMealPlan(activeCircle.id, item.date, item.meal_type as MealType, item.recipe_id)
+    try {
+      for (const item of aiPlan) {
+        if (item.recipe_id) {
+          await setMealPlan(activeCircle.id, item.date, item.meal_type as MealType, item.recipe_id)
+        }
       }
+      queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
+      setShowAiReview(false)
+      setAiPlan([])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
     }
-    queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
-    setShowAiReview(false)
-    setAiPlan([])
   }
 
   function openAddMeal(date: string, mealType: MealType) {
@@ -206,7 +232,7 @@ export function PlanPage() {
   }, {})
 
   const today = new Date().toISOString().split('T')[0]
-  const weekLabel = formatWeekLabel(week.dates[0], week.dates[6])
+  const weekLabel = formatWeekLabel(week.dates[0], week.dates[6], dateLocale)
 
   const filteredRecipes = search
     ? recipes.filter((r: Recipe) => r.title.toLowerCase().includes(search.toLowerCase()))
@@ -230,17 +256,16 @@ export function PlanPage() {
         {allCircles.length === 0 ? (
           <EmptyState
             icon={<CalendarDays className="h-12 w-12" />}
-            title="Create a circle first"
-            description="Meal plans are shared within circles. Create one for your family to start planning."
+            title={t('plan.createCircleFirst')}
+            description={t('plan.createCircleDesc')}
             action={
               <Button onClick={() => navigate('/profile/circles')}>
-                Go to Circles
-              </Button>
+                {t('plan.goToCircles')}              </Button>
             }
           />
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-slate-500">Select a circle to plan meals for:</p>
+            <p className="text-sm text-slate-500">{t('plan.selectCircle')}</p>
             {allCircles.map((circle: Circle) => (
               <Card
                 key={circle.id}
@@ -358,7 +383,7 @@ export function PlanPage() {
             {generateAiPlan.isPending ? t('common.loading') : t('ai.mealPlanPlaceholder')}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {generateAiPlan.isPending ? 'Generating meal suggestions...' : t('ai.mealPlanPlaceholderDesc')}
+            {generateAiPlan.isPending ? t('plan.generatingMeals') : t('ai.mealPlanPlaceholderDesc')} {/* TODO: add i18n key for generatingMeals */}
           </p>
         </div>
         {!ai.hasAI && (
@@ -375,9 +400,8 @@ export function PlanPage() {
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[80vh] overflow-y-auto">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-              AI Meal Plan Suggestion
-            </Dialog.Title>
-            <p className="text-sm text-slate-500 mb-4">Review and accept the AI-generated plan for this week.</p>
+              {t('plan.aiPlanTitle')}            </Dialog.Title>
+            <p className="text-sm text-slate-500 mb-4">{t('plan.aiPlanReviewDesc')}</p>
             <div className="space-y-2 mb-4">
               {aiPlan.map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-surface-dark-overlay">
@@ -388,8 +412,7 @@ export function PlanPage() {
                   <p className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.recipe_title}</p>
                   {item.recipe_id && (
                     <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
-                      Saved
-                    </span>
+                      {t('plan.saved')}                    </span>
                   )}
                 </div>
               ))}
@@ -399,8 +422,7 @@ export function PlanPage() {
                 {t('common.cancel')}
               </Button>
               <Button className="flex-1" onClick={acceptAiPlan}>
-                Accept Plan
-              </Button>
+                {t('plan.acceptPlan')}              </Button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>
@@ -431,7 +453,7 @@ export function PlanPage() {
                     isToday ? 'text-brand-500' : 'text-slate-400'
                   )}
                 >
-                  {DAY_NAMES[i]}
+                  {dayNamesShort[i]}
                 </span>
                 <span
                   className={cn(
@@ -470,22 +492,22 @@ export function PlanPage() {
                               <span className="flex-1 truncate">
                                 {plan.recipe?.title ?? plan.menu?.name ?? plan.notes ?? ''}
                               </span>
+                              {/* Issue 2: adequate touch target for X button */}
                               <button
                                 onClick={() => removeMutation.mutate(plan.id)}
-                                className="shrink-0 opacity-60 hover:opacity-100"
-                              >
-                                <X className="h-3 w-3" />
+                                className="shrink-0 p-2 -m-2 opacity-60 hover:opacity-100 active:scale-90 transition-all"
+                                aria-label={t('common.remove')}                              >
+                                <X className="h-4 w-4" />
                               </button>
                             </div>
                           ))}
-                          {/* Add more to this slot */}
+                          {/* Issue 3: adequate touch target for "add more" button */}
                           <button
                             onClick={() => openAddMeal(date, mealType)}
-                            className="flex items-center gap-1 px-2.5 py-0.5 text-[10px] text-slate-400 hover:text-brand-500 transition-colors"
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-400 hover:text-brand-500 transition-colors"
                           >
-                            <Plus className="h-2.5 w-2.5" />
-                            add more
-                          </button>
+                            <Plus className="h-3 w-3" />
+                            {t('plan.addMore')}                          </button>
                         </div>
                       ) : (
                         <button
@@ -511,14 +533,16 @@ export function PlanPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-              Add {MEAL_LABELS[selectedMealType]}
+              {t('plan.addMeal')} {MEAL_LABELS[selectedMealType]} {/* TODO: add i18n key for addMeal */}
             </Dialog.Title>
             <p className="text-xs text-slate-400 mb-4">
-              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric',
-              })}
+              {selectedDate
+                ? new Date(selectedDate + 'T12:00:00').toLocaleDateString(dateLocale, {
+                    weekday: 'long',
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                : ''}
             </p>
 
             {/* Recipes / Templates toggle */}
@@ -530,8 +554,7 @@ export function PlanPage() {
                   addSource === 'recipes' ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
                 )}
               >
-                Recipes
-              </button>
+                {t('plan.recipes')}              </button>
               <button
                 onClick={() => setAddSource('templates')}
                 className={cn(
@@ -539,8 +562,7 @@ export function PlanPage() {
                   addSource === 'templates' ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
                 )}
               >
-                Templates
-              </button>
+                {t('plan.templates')}              </button>
             </div>
 
             <input
@@ -555,7 +577,9 @@ export function PlanPage() {
               <>
                 {filteredRecipes.length === 0 ? (
                   <p className="text-sm text-slate-400 text-center py-6">
-                    {recipes.length === 0 ? 'No recipes yet. Add some first!' : 'No matching recipes'}
+                    {recipes.length === 0
+                      ? t('plan.noRecipesYet') /* TODO: add i18n key */
+                      : t('plan.noMatchingRecipes') /* TODO: add i18n key */}
                   </p>
                 ) : (
                   <div className="space-y-1.5">
@@ -586,8 +610,7 @@ export function PlanPage() {
               <>
                 {menus.length === 0 ? (
                   <p className="text-sm text-slate-400 text-center py-6">
-                    No templates yet. Create one in More &gt; Meal Templates.
-                  </p>
+                    {t('plan.noTemplatesYet')}                  </p>
                 ) : (
                   <div className="space-y-1.5">
                     {menus
@@ -609,8 +632,7 @@ export function PlanPage() {
                             </p>
                           )}
                           <p className="text-[10px] text-slate-500 mt-0.5">
-                            {menu.recipes?.length || 0} recipes - adds all to this slot
-                          </p>
+                            {menu.recipes?.length || 0} {t('plan.recipesAddsAll')}                          </p>
                         </div>
                         <Plus className="h-4 w-4 text-slate-400 shrink-0 mt-1" />
                       </button>
@@ -629,11 +651,9 @@ export function PlanPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              Add Week's Ingredients to List
-            </Dialog.Title>
+              {t('plan.addIngredientsTitle')}            </Dialog.Title>
             <p className="text-xs text-slate-400 mb-4">
-              All ingredients from {plans.filter((p) => p.recipe_id).length} planned recipes will be added and deduplicated.
-            </p>
+              {plans.filter((p) => p.recipe_id).length} {t('plan.plannedRecipesDedup')}            </p>
             <div className="space-y-2">
               {lists.filter((l) => l.status === 'active').map((list) => (
                 <button
@@ -653,7 +673,8 @@ export function PlanPage() {
                 className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-left active:scale-[0.98]"
               >
                 <Plus className="h-5 w-5 text-brand-500" />
-                <p className="text-sm font-medium text-brand-500">Create "{weekLabel} Groceries" list</p>
+                <p className="text-sm font-medium text-brand-500">
+                  {t('plan.createNewGroceryList')} "{weekLabel}"                </p>
               </button>
             </div>
           </Dialog.Content>
@@ -663,11 +684,11 @@ export function PlanPage() {
   )
 }
 
-function formatWeekLabel(start: string, end: string): string {
+function formatWeekLabel(start: string, end: string, dateLocale: string): string {
   const s = new Date(start + 'T12:00:00')
   const e = new Date(end + 'T12:00:00')
-  const sMonth = s.toLocaleDateString('en-US', { month: 'short' })
-  const eMonth = e.toLocaleDateString('en-US', { month: 'short' })
+  const sMonth = s.toLocaleDateString(dateLocale, { month: 'short' })
+  const eMonth = e.toLocaleDateString(dateLocale, { month: 'short' })
 
   if (sMonth === eMonth) {
     return `${sMonth} ${s.getDate()} - ${e.getDate()}`

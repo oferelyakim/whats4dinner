@@ -46,7 +46,7 @@ export function EventDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { profile } = useAppStore()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: 'overview', label: t('event.overview'), icon: Users },
@@ -70,7 +70,7 @@ export function EventDetailPage() {
   const [addDueAt, setAddDueAt] = useState('')
   const [error, setError] = useState('')
 
-  const { data: event } = useQuery({
+  const { data: event, isLoading: isEventLoading } = useQuery({
     queryKey: ['event', id],
     queryFn: () => getEvent(id!),
     enabled: !!id,
@@ -176,13 +176,28 @@ export function EventDetailPage() {
   })
 
 
+  if (isEventLoading) {
+    return (
+      <div className="px-4 py-4">
+        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
+          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        </button>
+        <div className="space-y-3 animate-pulse">
+          <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-lg w-2/3" />
+          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded-lg w-1/3" />
+          <div className="h-32 bg-slate-200 dark:bg-slate-700 rounded-xl" />
+        </div>
+      </div>
+    )
+  }
+
   if (!event) {
     return (
       <div className="px-4 py-4">
         <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
-        <p className="text-center text-slate-500">Event not found</p>
+        <p className="text-center text-slate-500">{t('event.notFound')}</p>
       </div>
     )
   }
@@ -213,7 +228,7 @@ export function EventDetailPage() {
             {event.event_date && (
               <span className="flex items-center gap-1">
                 <CalendarDays className="h-3 w-3" />
-                {new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                {new Date(event.event_date).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </span>
             )}
             {event.location && (

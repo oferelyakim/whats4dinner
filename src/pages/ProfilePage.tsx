@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/Input'
 import { useAppStore } from '@/stores/appStore'
 import { supabase } from '@/services/supabase'
 import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/components/ui/Toast'
 
 export function ProfilePage() {
   const navigate = useNavigate()
   const { profile, setProfile } = useAppStore()
   const { t } = useI18n()
+  const toast = useToast()
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [saved, setSaved] = useState(false)
@@ -33,6 +35,7 @@ export function ProfilePage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     },
+    onError: (err: Error) => toast.error(err.message),
   })
 
   return (
@@ -63,8 +66,8 @@ export function ProfilePage() {
       {/* Form */}
       <div className="space-y-4">
         <Input
-          label="Display Name"
-          placeholder="How your family sees you"
+          label={t('profile.displayName')}
+          placeholder={t('profile.displayNamePlaceholder')}
           value={displayName}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
         />

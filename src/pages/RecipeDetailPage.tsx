@@ -12,12 +12,14 @@ import { getMyCircles } from '@/services/circles'
 import type { Circle } from '@/types'
 import { getShoppingLists, createShoppingList, addRecipeToList } from '@/services/shoppingLists'
 import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/components/ui/Toast'
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { t } = useI18n()
+  const toast = useToast()
   const [showShare, setShowShare] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
   const [sharedToCircles, setSharedToCircles] = useState<Set<string>>(new Set())
@@ -57,6 +59,7 @@ export function RecipeDetailPage() {
         setAddedToList(null)
       }, 1000)
     },
+    onError: (err: Error) => toast.error(t('common.error'), err.message),
   })
 
   const createListMutation = useMutation({
@@ -68,6 +71,7 @@ export function RecipeDetailPage() {
       setShowAddToList(false)
       setNewListName('')
     },
+    onError: (err: Error) => toast.error(t('common.error'), err.message),
   })
 
   const deleteMutation = useMutation({
@@ -255,7 +259,7 @@ export function RecipeDetailPage() {
                       const code = await createRecipeShare(id!)
                       setShareUrl(`${window.location.origin}/r/${code}`)
                     } catch (err) {
-                      alert(err instanceof Error ? err.message : 'Failed')
+                      toast.error(t('common.error'), err instanceof Error ? err.message : 'Failed')
                     }
                   }}
                 >
@@ -304,10 +308,10 @@ export function RecipeDetailPage() {
                         setSharedToCircles((prev) => new Set([...prev, circle.id]))
                         queryClient.invalidateQueries({ queryKey: ['recipe', id] })
                       } catch (err) {
-                        alert(err instanceof Error ? err.message : 'Failed')
+                        toast.error(t('common.error'), err instanceof Error ? err.message : 'Failed')
                       }
                     }}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors disabled:opacity-50"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl text-start hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors disabled:opacity-50"
                   >
                     <span className="text-xl">{circle.icon}</span>
                     <div className="flex-1 min-w-0">
@@ -425,32 +429,45 @@ export function RecipeDetailPage() {
                       </button>
                     </div>
                     <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {recipe.ingredients.map((ing) => (
-                        <button
-                          key={ing.id}
-                          onClick={() => {
-                            setSelectedIngredients((prev) => {
-                              const next = new Set(prev)
-                              if (next.has(ing.id)) next.delete(ing.id)
-                              else next.add(ing.id)
-                              return next
-                            })
-                          }}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay"
-                        >
-                          <div className={cn(
-                            'h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
-                            selectedIngredients.has(ing.id) ? 'bg-brand-500 border-brand-500' : 'border-slate-300 dark:border-slate-600'
-                          )}>
-                            {selectedIngredients.has(ing.id) && <Check className="h-2.5 w-2.5 text-white" />}
+                      {recipe.ingredients.map((ing) => {
+                        const isChecked = selectedIngredients.has(ing.id)
+                        const handleToggle = () => {
+                          setSelectedIngredients((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(ing.id)) next.delete(ing.id)
+                            else next.add(ing.id)
+                            return next
+                          })
+                        }
+                        return (
+                          <div
+                            key={ing.id}
+                            role="checkbox"
+                            aria-checked={isChecked}
+                            tabIndex={0}
+                            onClick={handleToggle}
+                            onKeyDown={(e) => {
+                              if (e.key === ' ' || e.key === 'Enter') {
+                                e.preventDefault()
+                                handleToggle()
+                              }
+                            }}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-start hover:bg-slate-50 dark:hover:bg-surface-dark-overlay cursor-pointer"
+                          >
+                            <div className={cn(
+                              'h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
+                              isChecked ? 'bg-brand-500 border-brand-500' : 'border-slate-300 dark:border-slate-600'
+                            )}>
+                              {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
+                            </div>
+                            <span className="text-sm text-slate-700 dark:text-slate-300">
+                              {ing.quantity && <strong>{ing.quantity} </strong>}
+                              {ing.unit && `${ing.unit} `}
+                              {ing.name}
+                            </span>
                           </div>
-                          <span className="text-sm text-slate-700 dark:text-slate-300">
-                            {ing.quantity && <strong>{ing.quantity} </strong>}
-                            {ing.unit && `${ing.unit} `}
-                            {ing.name}
-                          </span>
-                        </button>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -462,7 +479,7 @@ export function RecipeDetailPage() {
                     key={list.id}
                     onClick={() => addToListMutation.mutate(list.id)}
                     disabled={addToListMutation.isPending || selectedIngredients.size === 0}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left active:scale-[0.98] transition-all hover:border-brand-500 disabled:opacity-50"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-start active:scale-[0.98] transition-all hover:border-brand-500 disabled:opacity-50"
                   >
                     <ShoppingCart className="h-5 w-5 text-slate-400 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -480,7 +497,7 @@ export function RecipeDetailPage() {
 
                 <button
                   onClick={() => setShowNewList(true)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-left active:scale-[0.98] transition-all"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-start active:scale-[0.98] transition-all"
                 >
                   <Plus className="h-5 w-5 text-brand-500" />
                   <p className="text-sm font-medium text-brand-500">Create new list</p>
