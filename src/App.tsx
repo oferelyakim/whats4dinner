@@ -1,35 +1,45 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryCache, restoreQueryCache } from '@/lib/queryPersist'
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
-import { HomePage } from '@/pages/HomePage'
-import { RecipesPage } from '@/pages/RecipesPage'
-import { RecipeFormPage } from '@/pages/RecipeFormPage'
-import { RecipeDetailPage } from '@/pages/RecipeDetailPage'
-import { ListsPage } from '@/pages/ListsPage'
-import { NewListPage } from '@/pages/NewListPage'
-import { ShoppingListPage } from '@/pages/ShoppingListPage'
-import { PlanPage } from '@/pages/PlanPage'
-import { MorePage } from '@/pages/MorePage'
-import { CirclesPage } from '@/pages/CirclesPage'
-import { CircleDetailPage } from '@/pages/CircleDetailPage'
-import { JoinCirclePage } from '@/pages/JoinCirclePage'
-import { StoresPage } from '@/pages/StoresPage'
-import { StoreRoutePage } from '@/pages/StoreRoutePage'
-import { RecipeImportPage } from '@/pages/RecipeImportPage'
-import { SharedRecipePage } from '@/pages/SharedRecipePage'
-import { EventsPage } from '@/pages/EventsPage'
-import { EventDetailPage } from '@/pages/EventDetailPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { MealMenusPage } from '@/pages/MealMenusPage'
-import { JoinEventPage } from '@/pages/JoinEventPage'
-import { ActivitiesPage } from '@/pages/ActivitiesPage'
-import { ChoresPage } from '@/pages/ChoresPage'
-import { SupplyKitFormPage } from '@/pages/SupplyKitFormPage'
-import { FoodHubPage } from '@/pages/FoodHubPage'
-import { HouseholdHubPage } from '@/pages/HouseholdHubPage'
+
+// Lazy-loaded pages for code splitting
+const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
+const RecipesPage = lazy(() => import('@/pages/RecipesPage').then(m => ({ default: m.RecipesPage })))
+const RecipeFormPage = lazy(() => import('@/pages/RecipeFormPage').then(m => ({ default: m.RecipeFormPage })))
+const RecipeDetailPage = lazy(() => import('@/pages/RecipeDetailPage').then(m => ({ default: m.RecipeDetailPage })))
+const ListsPage = lazy(() => import('@/pages/ListsPage').then(m => ({ default: m.ListsPage })))
+const NewListPage = lazy(() => import('@/pages/NewListPage').then(m => ({ default: m.NewListPage })))
+const ShoppingListPage = lazy(() => import('@/pages/ShoppingListPage').then(m => ({ default: m.ShoppingListPage })))
+const PlanPage = lazy(() => import('@/pages/PlanPage').then(m => ({ default: m.PlanPage })))
+const MorePage = lazy(() => import('@/pages/MorePage').then(m => ({ default: m.MorePage })))
+const CirclesPage = lazy(() => import('@/pages/CirclesPage').then(m => ({ default: m.CirclesPage })))
+const CircleDetailPage = lazy(() => import('@/pages/CircleDetailPage').then(m => ({ default: m.CircleDetailPage })))
+const JoinCirclePage = lazy(() => import('@/pages/JoinCirclePage').then(m => ({ default: m.JoinCirclePage })))
+const StoresPage = lazy(() => import('@/pages/StoresPage').then(m => ({ default: m.StoresPage })))
+const StoreRoutePage = lazy(() => import('@/pages/StoreRoutePage').then(m => ({ default: m.StoreRoutePage })))
+const RecipeImportPage = lazy(() => import('@/pages/RecipeImportPage').then(m => ({ default: m.RecipeImportPage })))
+const SharedRecipePage = lazy(() => import('@/pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })))
+const EventsPage = lazy(() => import('@/pages/EventsPage').then(m => ({ default: m.EventsPage })))
+const EventDetailPage = lazy(() => import('@/pages/EventDetailPage').then(m => ({ default: m.EventDetailPage })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
+const MealMenusPage = lazy(() => import('@/pages/MealMenusPage').then(m => ({ default: m.MealMenusPage })))
+const JoinEventPage = lazy(() => import('@/pages/JoinEventPage').then(m => ({ default: m.JoinEventPage })))
+const ActivitiesPage = lazy(() => import('@/pages/ActivitiesPage').then(m => ({ default: m.ActivitiesPage })))
+const ChoresPage = lazy(() => import('@/pages/ChoresPage').then(m => ({ default: m.ChoresPage })))
+const SupplyKitFormPage = lazy(() => import('@/pages/SupplyKitFormPage').then(m => ({ default: m.SupplyKitFormPage })))
+const FoodHubPage = lazy(() => import('@/pages/FoodHubPage').then(m => ({ default: m.FoodHubPage })))
+const HouseholdHubPage = lazy(() => import('@/pages/HouseholdHubPage').then(m => ({ default: m.HouseholdHubPage })))
+
+function PageLoader() {
+  return (
+    <div className="flex justify-center py-20">
+      <div className="h-6 w-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,6 +87,7 @@ export default function App() {
           <Route path="/r/:code" element={<SharedRecipePage />} />
         </Routes>
         <AuthGuard>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route element={<AppShell />}>
               {/* Home */}
@@ -125,6 +136,7 @@ export default function App() {
               <Route path="/more/stores/:id" element={<StoreRoutePage />} />
             </Route>
           </Routes>
+          </Suspense>
         </AuthGuard>
       </BrowserRouter>
     </QueryClientProvider>

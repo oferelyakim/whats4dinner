@@ -109,14 +109,17 @@ Additional SQL fixes applied directly (not in migration files):
 - **Auth**: Email/password + Google OAuth, email confirmation
 - **Circles**: Create, join (invite code/link/email), member management
 - **Recipes**: CRUD, ingredients with autocomplete, auto-tags, multi-ingredient search, import from URL/photo (AI via Claude Haiku), share via link
-- **Supply Kits**: Non-food item collections (same tab as Recipes with toggle)
+- **Essentials**: Non-food item collections (renamed from Supply Kits), accessible from FoodHub tab + Recipes toggle
 - **Shopping Lists**: CRUD, check/uncheck, DnD reorder, real-time sync, share with circle, sort by store route, ingredient deduplication
 - **Store Routes**: DnD department ordering, sort shopping list by route
-- **Meal Planning**: Week view, multi-recipe per slot, templates, copy week, add to list, calendar export
+- **Meal Planning**: Week view, multi-recipe per slot, templates, copy week, add to list, calendar export, AI meal plan generation (Edge Function)
 - **Events**: 5 tabs (Overview/Mine/Menu/Supplies/Tasks), invite link, co-organizers, claim/assign items, clone, calendar export
-- **Activities**: Recurring schedules (weekly/biweekly/daily), circle member assignment dropdown + custom names, participants with roles, bring items, weekly calendar view
-- **Chores**: Create/edit/delete, emoji icons, frequency (daily/weekly/biweekly/monthly/once), recurrence days, points system, completion tracking, weekly summary
-- **Home**: Daily dashboard showing today's activities and chores
+- **Activities**: Recurring schedules (weekly/biweekly/daily/monthly/yearly), circle member assignment, participants, bring items, month/week/day calendar drill-down with Zustand persistence, reminders (any activity, flexible timing)
+- **Chores**: Create/edit/delete, emoji icons, frequency (daily/weekly/biweekly/monthly/once), recurrence days, points system, completion tracking, assignee filter chips (defaults to "Me"), colored person headers
+- **Home**: Daily dashboard, today's activities/chores, upcoming reminders widget, NLP quick action input (AI)
+- **Onboarding**: 3-step first-run flow (Welcome → Create/Join Circle → Done), gated via has_onboarded flag
+- **Notifications**: In-app notification center (bell icon in header), activity reminders + chore nudges, browser Notification API
+- **Subscriptions**: AI Individual/Family plans, Stripe checkout Edge Function (with mock fallback), webhook handler
 
 ## E2E Tests
 
@@ -127,14 +130,12 @@ Additional SQL fixes applied directly (not in migration files):
 
 ## Known Issues / Incomplete
 
-- RecipeFormPage shows "Edit Recipe" when editing a supply kit (needs type awareness)
-- Recipe detail page partially updated for supply kits
+- Recipe detail page partially updated for supply kits (Essentials)
 - Assignment approval UI built but needs multi-user testing
-- Onboarding flow: not built
-- Stripe integration: not built (mock upgrade flow sets subscription in DB directly, marked with TODO comments)
-- Push notifications: not built
-- AI Meal Planning: placeholder card on PlanPage (gated behind AI plan, shows "Coming soon" for AI subscribers). Edge function + actual generation not built
-- NLP Quick Actions: placeholder card on HomePage (gated behind AI plan, shows "Coming soon" for AI subscribers). No backend logic built
-- Recipe import FAB on RecipesPage: gated behind `useAIAccess` — shows Sparkles icon, triggers AIUpgradeModal for free users
-- Global AI usage warning: AppShell shows dismissible banner at 75% usage (orange) and limit-reached (red) for AI subscribers
 - Family plan member sharing: currently checks only the subscribing user, not shared across circle members
+- Stripe integration: Edge Functions built (create-checkout, stripe-webhook) but needs STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_* secrets configured in Supabase
+- Edge Functions not yet deployed: generate-meal-plan, nlp-action, create-checkout, stripe-webhook (deploy with `npx supabase functions deploy <name> --no-verify-jwt`)
+- Server-side push notifications: deferred (VAPID/cron), currently browser Notification API only
+- Calendar import from external calendars: deferred (needs Google OAuth)
+- Code splitting: 1MB+ bundle, needs lazy routes via dynamic import()
+- App store listing (TWA/Capacitor): not started

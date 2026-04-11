@@ -150,8 +150,8 @@ export function RecipeDetailPage() {
         )}
       </div>
 
-      {/* Tags */}
-      {recipe.tags?.length > 0 && (
+      {/* Tags (recipes only) */}
+      {!isKit && recipe.tags?.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {recipe.tags.map((tag: string) => (
             <span
@@ -164,8 +164,8 @@ export function RecipeDetailPage() {
         </div>
       )}
 
-      {/* Source link */}
-      {recipe.source_url && (
+      {/* Source link (recipes only) */}
+      {!isKit && recipe.source_url && (
         <a
           href={recipe.source_url}
           target="_blank"
