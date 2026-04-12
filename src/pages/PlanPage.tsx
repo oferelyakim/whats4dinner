@@ -1,18 +1,20 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download, Sparkles, ArrowLeft } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download, Sparkles, ArrowLeft, ChevronDown, ChevronUp, Clipboard, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
+import { MealPlanPreferencesDialog } from '@/components/ui/MealPlanPreferencesDialog'
+import type { MealPlanPreferences } from '@/components/ui/MealPlanPreferencesDialog'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
 import { getMyCircles } from '@/services/circles'
 import type { Circle } from '@/types'
 import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates, copyWeekPlan, addMenuToPlan } from '@/services/mealPlans'
-import { getRecipes } from '@/services/recipes'
+import { getRecipes, createRecipe } from '@/services/recipes'
 import { getMealMenus } from '@/services/mealMenus'
 import type { MealMenu, Recipe as RecipeType } from '@/types'
 import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/services/shoppingLists'
@@ -25,11 +27,23 @@ import { supabase } from '@/services/supabase'
 import { logAIUsage } from '@/services/ai-usage'
 import type { MealPlan, Recipe } from '@/types'
 
+interface AIMealIngredient {
+  name: string
+  quantity: number | null
+  unit: string
+}
+
 interface AIMealSuggestion {
   date: string
   meal_type: string
   recipe_title: string
   recipe_id: string | null
+  quick_description?: string
+  estimated_time_min?: number | null
+  ingredients?: AIMealIngredient[]
+  instructions?: string
+  tags?: string[]
+  servings?: number | null
 }
 
 // MEAL_LABELS moved inside component for i18n access
@@ -66,7 +80,13 @@ export function PlanPage() {
   const [addingToList, setAddingToList] = useState(false)
   const ai = useAIAccess()
   const [aiPlan, setAiPlan] = useState<AIMealSuggestion[]>([])
+  const [aiNotes, setAiNotes] = useState<string>('')
+  const [aiShoppingSuggestions, setAiShoppingSuggestions] = useState<string[]>([])
   const [showAiReview, setShowAiReview] = useState(false)
+  const [showPreferencesDialog, setShowPreferencesDialog] = useState(false)
+  const [notesExpanded, setNotesExpanded] = useState(false)
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false)
+  const [acceptingPlan, setAcceptingPlan] = useState(false)
 
   const week = useMemo(() => {
     const ref = new Date()
@@ -181,9 +201,39 @@ export function PlanPage() {
 
   // AI Meal Plan generation
   const generateAiPlan = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (preferences: MealPlanPreferences) => {
+      // Convert structured preferences into the format the edge function expects
+      const dietaryString = preferences.dietary.length > 0 ? preferences.dietary.join(', ') : undefined
+      const cuisineString = preferences.cuisines.length > 0 ? preferences.cuisines.join(', ') : undefined
+      const skillLevel =
+        preferences.cookingStyle === 'quick'
+          ? 'beginner'
+          : preferences.cookingStyle === 'gourmet'
+            ? 'advanced'
+            : preferences.cookingStyle === 'balanced'
+              ? 'intermediate'
+              : undefined
+      const calorieTarget =
+        preferences.calories === 'light'
+          ? '~400 calories per meal'
+          : preferences.calories === 'regular'
+            ? '~600 calories per meal'
+            : preferences.calories === 'hearty'
+              ? '~800 calories per meal'
+              : undefined
+
       const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
-        body: { circleId: activeCircle!.id, dates: week.dates },
+        body: {
+          circleId: activeCircle!.id,
+          dates: week.dates,
+          preferences: {
+            dietary_restrictions: dietaryString,
+            cuisine_preferences: cuisineString,
+            skill_level: skillLevel,
+            calorie_target: calorieTarget,
+            special_requests: preferences.specialRequests || undefined,
+          },
+        },
       })
       if (error) throw error
       if (data?._ai_usage) {
@@ -192,28 +242,111 @@ export function PlanPage() {
           await logAIUsage(user.id, 'meal_plan', data._ai_usage.model, data._ai_usage.tokens_in, data._ai_usage.tokens_out, data._ai_usage.cost_usd)
         }
       }
-      return data.plan as AIMealSuggestion[]
+      return {
+        plan: data.plan as AIMealSuggestion[],
+        notes: (data.notes as string) || '',
+        shoppingSuggestions: (data.shopping_suggestions as string[]) || [],
+      }
     },
-    onSuccess: (plan) => {
+    onSuccess: ({ plan, notes, shoppingSuggestions }) => {
       setAiPlan(plan)
+      setAiNotes(notes)
+      setAiShoppingSuggestions(shoppingSuggestions)
+      setNotesExpanded(false)
+      setCopiedToClipboard(false)
+      setShowPreferencesDialog(false)
       setShowAiReview(true)
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      setShowPreferencesDialog(false)
+      toast.error(err.message)
+    },
   })
 
   async function acceptAiPlan() {
     if (!activeCircle) return
+    setAcceptingPlan(true)
     try {
+      let newRecipesCreated = 0
       for (const item of aiPlan) {
-        if (item.recipe_id) {
-          await setMealPlan(activeCircle.id, item.date, item.meal_type as MealType, item.recipe_id)
+        let recipeId = item.recipe_id
+
+        // For AI-suggested new recipes (no existing recipe_id), create them first
+        if (!recipeId) {
+          const newRecipe = await createRecipe({
+            title: item.recipe_title,
+            instructions: item.instructions || '',
+            tags: item.tags || [],
+            servings: item.servings || undefined,
+            circle_id: activeCircle.id,
+            ingredients: (item.ingredients || []).map((ing, idx) => ({
+              name: ing.name,
+              quantity: ing.quantity ?? null,
+              unit: (ing.unit || '') as import('@/lib/constants').Unit,
+              sort_order: idx,
+              notes: null,
+              item_id: null,
+            })),
+          })
+          recipeId = newRecipe.id
+          newRecipesCreated++
         }
+
+        await setMealPlan(activeCircle.id, item.date, item.meal_type as MealType, recipeId)
       }
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
+      queryClient.invalidateQueries({ queryKey: ['recipes'] })
       setShowAiReview(false)
       setAiPlan([])
+      setAiNotes('')
+      setAiShoppingSuggestions([])
+
+      if (newRecipesCreated > 0) {
+        const message =
+          newRecipesCreated === 1
+            ? t('plan.createdNewRecipes').replace('{{count}}', '1')
+            : t('plan.createdNewRecipesPlural').replace('{{count}}', String(newRecipesCreated))
+        toast.success(message)
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.error'))
+    } finally {
+      setAcceptingPlan(false)
+    }
+  }
+
+  async function handleAddShoppingSuggestionsToList() {
+    if (!activeCircle || aiShoppingSuggestions.length === 0) return
+    try {
+      const list = await createShoppingList(`${weekLabel} AI Suggestions`, activeCircle.id)
+      // Add each suggestion as a plain text item directly via supabase
+      const { error: insertError } = await supabase.from('shopping_list_items').insert(
+        aiShoppingSuggestions.map((suggestion, i) => ({
+          list_id: list.id,
+          name: suggestion,
+          quantity: null,
+          unit: '',
+          checked: false,
+          sort_order: i,
+        }))
+      )
+      if (insertError) throw insertError
+      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
+      toast.success(t('plan.addedToList'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
+    }
+  }
+
+  async function handleCopyShoppingSuggestions() {
+    const text = aiShoppingSuggestions.join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedToClipboard(true)
+      setTimeout(() => setCopiedToClipboard(false), 2000)
+      toast.success(t('plan.copiedToClipboard'))
+    } catch {
+      toast.error(t('common.error'))
     }
   }
 
@@ -362,11 +495,11 @@ export function PlanPage() {
       <button
         onClick={() => {
           if (!ai.checkAIAccess()) return
-          generateAiPlan.mutate()
+          setShowPreferencesDialog(true)
         }}
         disabled={generateAiPlan.isPending}
         className={cn(
-          'w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all text-left',
+          'w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all text-start',
           'border-brand-300 dark:border-brand-700 bg-brand-500/5 hover:bg-brand-500/10',
           generateAiPlan.isPending && 'opacity-60'
         )}
@@ -383,7 +516,7 @@ export function PlanPage() {
             {generateAiPlan.isPending ? t('common.loading') : t('ai.mealPlanPlaceholder')}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {generateAiPlan.isPending ? t('plan.generatingMeals') : t('ai.mealPlanPlaceholderDesc')} {/* TODO: add i18n key for generatingMeals */}
+            {generateAiPlan.isPending ? t('plan.generatingMeals') : t('ai.mealPlanPlaceholderDesc')}
           </p>
         </div>
         {!ai.hasAI && (
@@ -393,36 +526,118 @@ export function PlanPage() {
         )}
       </button>
 
+      {/* Preferences dialog */}
+      <MealPlanPreferencesDialog
+        open={showPreferencesDialog}
+        onOpenChange={setShowPreferencesDialog}
+        loading={generateAiPlan.isPending}
+        onGenerate={(prefs) => generateAiPlan.mutate(prefs)}
+      />
+
       {/* AI Plan Review Dialog */}
       <Dialog.Root open={showAiReview} onOpenChange={setShowAiReview}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[80vh] overflow-y-auto">
+          <Dialog.Content className="fixed bottom-0 start-0 end-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto focus:outline-none">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
             <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-              {t('plan.aiPlanTitle')}            </Dialog.Title>
+              {t('plan.aiPlanTitle')}
+            </Dialog.Title>
             <p className="text-sm text-slate-500 mb-4">{t('plan.aiPlanReviewDesc')}</p>
+
+            {/* Collapsible notes section */}
+            {aiNotes && (
+              <div className="mb-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setNotesExpanded((v) => !v)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-start"
+                >
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-300 flex-1">
+                    {t('plan.aiNotes')}
+                  </span>
+                  {notesExpanded
+                    ? <ChevronUp className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    : <ChevronDown className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  }
+                </button>
+                {notesExpanded && (
+                  <p className="px-3 pb-3 text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                    {aiNotes}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Meal list */}
             <div className="space-y-2 mb-4">
               {aiPlan.map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-surface-dark-overlay">
-                  <div className="w-16 text-xs text-slate-400">
+                  <div className="w-16 text-xs text-slate-400 shrink-0">
                     <div>{item.date.split('-')[2]}</div>
                     <div className="capitalize">{item.meal_type}</div>
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 flex-1">{item.recipe_title}</p>
-                  {item.recipe_id && (
-                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">
-                      {t('plan.saved')}                    </span>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 flex-1 min-w-0 truncate">{item.recipe_title}</p>
+                  {item.recipe_id ? (
+                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full shrink-0">
+                      {t('plan.saved')}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full shrink-0">
+                      {t('plan.newRecipe')}
+                    </span>
                   )}
                 </div>
               ))}
             </div>
+
+            {/* Shopping suggestions */}
+            {aiShoppingSuggestions.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    {t('plan.aiShoppingSuggestions')}
+                  </p>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={handleCopyShoppingSuggestions}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-500 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay transition-colors min-h-[32px]"
+                    >
+                      {copiedToClipboard
+                        ? <Check className="h-3.5 w-3.5" />
+                        : <Clipboard className="h-3.5 w-3.5" />
+                      }
+                      {t('plan.copyToClipboard')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddShoppingSuggestionsToList}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-500 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay transition-colors min-h-[32px]"
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                      {t('plan.addToShoppingList')}
+                    </button>
+                  </div>
+                </div>
+                <ul className="space-y-1">
+                  {aiShoppingSuggestions.map((suggestion, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand-400 shrink-0" />
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setShowAiReview(false)}>
+              <Button variant="secondary" className="flex-1" onClick={() => setShowAiReview(false)} disabled={acceptingPlan}>
                 {t('common.cancel')}
               </Button>
-              <Button className="flex-1" onClick={acceptAiPlan}>
-                {t('plan.acceptPlan')}              </Button>
+              <Button className="flex-1" onClick={acceptAiPlan} loading={acceptingPlan}>
+                {t('plan.acceptPlan')}
+              </Button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

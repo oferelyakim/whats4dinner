@@ -202,6 +202,11 @@ function extractRecipeArea(html: string): string | null {
     /<div[^>]*class="[^"]*wprm-recipe-container[^"]*"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/i,
     /<div[^>]*class="[^"]*tasty-recipes[^"]*"[\s\S]*?<\/div>\s*<\/div>/i,
     /<div[^>]*class="[^"]*mv-create-card[^"]*"[\s\S]*?<\/div>\s*<\/div>/i,
+    // Hebrew WordPress recipe plugins
+    /<div[^>]*class="[^"]*wpurp-recipe[^"]*"[\s\S]*?<\/div>\s*<\/div>/i,
+    // Bishulim.co.il / Osem custom (cx- prefixed containers)
+    /<div[^>]*class="[^"]*cx-recipe-container[^"]*"[\s\S]*?<\/div>\s*<\/div>/i,
+    /<div[^>]*class="[^"]*cx-ingredients[^"]*"[\s\S]*?<\/div>\s*<\/div>/i,
     // Schema.org microdata
     /itemtype="[^"]*schema\.org\/Recipe"[\s\S]*?<\/(?:div|article|section)>/i,
     // Generic recipe containers
@@ -218,7 +223,81 @@ function extractRecipeArea(html: string): string | null {
     }
   }
 
+  // Hebrew heading-based extraction: find content between ingredient and instruction headings
+  const hebrewResult = extractHebrewHeadingArea(html)
+  if (hebrewResult && hebrewResult.length > 300) {
+    return hebrewResult
+  }
+
   return null
+}
+
+const HEBREW_INGREDIENT_HEADINGS = [
+  'חומרים', 'מרכיבים', 'מצרכים', 'רכיבים',
+  'החומרים', 'המרכיבים', 'המצרכים',
+  'רשימת חומרים', 'רשימת מרכיבים', 'רשימת מצרכים',
+]
+
+const HEBREW_INSTRUCTION_HEADINGS = [
+  'אופן ההכנה', 'אופן הכנה', 'הוראות הכנה', 'הוראות ההכנה',
+  'שלבי הכנה', 'שלבי ההכנה', 'דרך הכנה', 'הכנה',
+]
+
+function extractHebrewHeadingArea(html: string): string | null {
+  // Find heading tags (h1-h4) that contain Hebrew ingredient keywords
+  const headingRegex = /<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi
+  let match: RegExpExecArray | null
+  let ingredientHeadingIndex = -1
+  let instructionHeadingIndex = -1
+
+  // Collect all heading positions
+  const headings: Array<{ index: number; text: string }> = []
+  while ((match = headingRegex.exec(html)) !== null) {
+    const text = stripHtml(match[1])
+    headings.push({ index: match.index, text })
+  }
+
+  // Find first heading with ingredient keywords
+  for (const heading of headings) {
+    const normalizedText = heading.text.trim()
+    if (HEBREW_INGREDIENT_HEADINGS.some(keyword => normalizedText.includes(keyword))) {
+      ingredientHeadingIndex = heading.index
+      break
+    }
+  }
+
+  if (ingredientHeadingIndex === -1) return null
+
+  // Find the instruction heading that comes after the ingredient heading
+  for (const heading of headings) {
+    if (heading.index <= ingredientHeadingIndex) continue
+    const normalizedText = heading.text.trim()
+    if (HEBREW_INSTRUCTION_HEADINGS.some(keyword => normalizedText.includes(keyword))) {
+      instructionHeadingIndex = heading.index
+      break
+    }
+  }
+
+  // If we found both sections, extract from ingredient heading to end of instruction section
+  // Find the next heading after the instruction section to use as the end boundary
+  if (instructionHeadingIndex !== -1) {
+    let nextHeadingAfterInstructions = -1
+    for (const heading of headings) {
+      if (heading.index > instructionHeadingIndex) {
+        nextHeadingAfterInstructions = heading.index
+        break
+      }
+    }
+
+    const endIndex = nextHeadingAfterInstructions !== -1
+      ? Math.min(nextHeadingAfterInstructions, instructionHeadingIndex + 5000)
+      : instructionHeadingIndex + 5000
+
+    return html.substring(ingredientHeadingIndex, Math.min(endIndex, html.length))
+  }
+
+  // If only ingredient heading found, extract from it up to 4000 chars
+  return html.substring(ingredientHeadingIndex, Math.min(ingredientHeadingIndex + 4000, html.length))
 }
 
 // ─── AI Extraction (Claude API with Structured Output) ──────────────────────
@@ -265,15 +344,20 @@ Extract structured recipe data from the provided content (HTML or image).
 Rules:
 - Extract ALL ingredients with precise quantities and units
 - Preserve the original language — do not translate Hebrew to English or vice versa
-- Parse fraction quantities: 1/2→0.5, 1/3→0.333, 1/4→0.25, 3/4→0.75, ½→0.5, ⅓→0.333, ¼→0.25, ¾→0.75
+- Parse fraction quantities to decimal: 1/2→0.5, 1/4→0.25, 3/4→0.75, 1/3→0.333, 2/3→0.667, 1/8→0.125
 - Parse ranges: "2-3 cups" → use the lower number (2)
 - Parse compound fractions: "1 1/2 cups" → 1.5
 - Separate prep instructions from ingredient name: "1 onion, finely diced" → name: "onion"
+- Strip Hebrew prep suffixes from ingredient names: דק (finely), גס (coarsely), בקוביות (diced), ברצועות (sliced into strips), שטוף (washed) — e.g. "בצל קצוץ דק" → name: "בצל"
 - For ingredients with no quantity (e.g., "salt to taste", "מלח לפי הטעם"), set quantity to null, unit to ""
+- For garnish ingredients marked "לקישוט" (for garnish), set quantity to null and include "לקישוט" context in the name if helpful
 - Normalize units: tablespoon→tbsp, teaspoon→tsp, ounce→oz, pound→lb
-- Hebrew units: כוס→cup, כף→tbsp, כפית→tsp, גרם→g, קילו/ק"ג→kg, ליטר→l, מ"ל→ml
-- Hebrew fractions: חצי→0.5, שליש→0.333, רבע→0.25, "כוס וחצי"→quantity:1.5 unit:cup
+- Hebrew units: כוס→cup, כף→tbsp, כפית→tsp, גרם→g, קילו/ק"ג→kg, ליטר→l, מ"ל→ml, ענף/ענפים→sprig, עלה/עלי/עלים→leaf, שן/שיני→clove, פרוסה/פרוסות→slice
+- Hebrew fractions: חצי→0.5, שליש→0.333, רבע→0.25, שני שלישים→0.667, "כוס וחצי"→quantity:1.5 unit:cup
 - Hebrew imprecise: מעט/קורט/קמצוץ → quantity: null
+- Hebrew section headings for ingredients: חומרים, מרכיבים, מצרכים, רכיבים (and their definite forms: החומרים, המרכיבים, המצרכים)
+- Hebrew section headings for instructions: אופן ההכנה, אופן הכנה, הוראות הכנה, שלבי הכנה, דרך הכנה
+- Grouped ingredients (e.g. "לבצק:" / "למילוי:" sub-sections): flatten all sub-sections into a single ingredients list, extracting all ingredients regardless of which sub-section they appear in
 - Instructions: clear steps, one per line, no numbering prefix
 - If content is not a recipe, return title "Not a recipe" with empty ingredients array`
 
@@ -385,7 +469,7 @@ function parseHebrewIngredient(text: string): Ingredient | null {
   }
 
   // Pattern: "2 כוסות קמח" (2 cups flour)
-  const numUnitMatch = text.match(/^([\d./]+)\s+(כוס|כוסות|כף|כפות|כפית|כפיות|גרם|קילו|ק"ג|ליטר|מ"ל|חבילה|חבילות|פחית|פחיות|יחידה|יחידות|פרוסה|פרוסות|צרור|אגודה)\s+(.+)$/i)
+  const numUnitMatch = text.match(/^([\d./]+)\s+(כוס|כוסות|כף|כפות|כפית|כפיות|גרם|קילו|ק"ג|ליטר|מ"ל|חבילה|חבילות|פחית|פחיות|יחידה|יחידות|פרוסה|פרוסות|צרור|אגודה|ענף|ענפים|עלה|עלי|עלים|שן|נצר|נצרים)\s+(.+)$/i)
   if (numUnitMatch) {
     return {
       name: cleanIngredientName(numUnitMatch[3]),
@@ -405,7 +489,7 @@ function parseHebrewIngredient(text: string): Ingredient | null {
   }
 
   // Pattern: "כף שמן זית" (tablespoon olive oil — implied quantity 1)
-  const impliedOneMatch = text.match(/^(כוס|כף|כפית|חבילה|פחית|צרור|אגודה)\s+(.+)$/i)
+  const impliedOneMatch = text.match(/^(כוס|כף|כפית|חבילה|פחית|צרור|אגודה|ענף|עלה|שן|נצר)\s+(.+)$/i)
   if (impliedOneMatch) {
     return {
       name: cleanIngredientName(impliedOneMatch[2]),
@@ -479,8 +563,12 @@ function normalizeHebrewUnit(unit: string): string {
     'חבילה': 'pack', 'חבילות': 'pack',
     'פחית': 'can', 'פחיות': 'can',
     'יחידה': 'piece', 'יחידות': 'piece',
-    'פרוסה': 'piece', 'פרוסות': 'piece',
+    'פרוסה': 'slice', 'פרוסות': 'slice',
     'צרור': 'bunch', 'אגודה': 'bunch',
+    'ענף': 'sprig', 'ענפים': 'sprig',
+    'עלה': 'leaf', 'עלי': 'leaf', 'עלים': 'leaf',
+    'שן': 'clove', 'שיני': 'clove',
+    'נצר': 'sprig', 'נצרים': 'sprig',
   }
   return map[unit] ?? unit
 }
@@ -646,11 +734,16 @@ serve(async (req) => {
     // ── URL Import: try JSON-LD first, then AI ──
 
     // Step 1: Fetch the page
+    const isHebrewSite = /\.co\.il(\/|$)/.test(url) || /[\u0590-\u05FF]/.test(url)
+    const acceptLanguage = isHebrewSite
+      ? 'he-IL,he;q=0.9,en-US;q=0.5,en;q=0.3'
+      : 'en-US,en;q=0.5,he;q=0.3'
+
     const pageResponse = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5,he;q=0.3',
+        'Accept-Language': acceptLanguage,
       },
     })
 

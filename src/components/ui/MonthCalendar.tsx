@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/cn'
-import { useI18n } from '@/lib/i18n'
+import { useI18n, type Locale } from '@/lib/i18n'
 
 interface MonthCalendarProps {
   year: number
@@ -11,11 +11,12 @@ interface MonthCalendarProps {
   onSelectDate: (dateStr: string) => void
   onNavigate: (year: number, month: number) => void
   activityDots?: Map<string, number>
-  locale?: 'en' | 'he'
+  locale?: Locale
 }
 
 const DAY_LABELS_EN = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const DAY_LABELS_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
+const DAY_LABELS_ES = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 
 function formatDateStr(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -33,9 +34,10 @@ export function MonthCalendar({
   const { dir } = useI18n()
   const rtlMultiplier = dir() === 'rtl' ? -1 : 1
   const todayStr = new Date().toISOString().split('T')[0]
-  const dayLabels = locale === 'he' ? DAY_LABELS_HE : DAY_LABELS_EN
+  const dayLabels = locale === 'he' ? DAY_LABELS_HE : locale === 'es' ? DAY_LABELS_ES : DAY_LABELS_EN
 
-  const monthName = new Date(year, month).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
+  const localeMap: Record<Locale, string> = { en: 'en-US', he: 'he-IL', es: 'es-ES' }
+  const monthName = new Date(year, month).toLocaleDateString(localeMap[locale], {
     month: 'long',
     year: 'numeric',
   })

@@ -53,7 +53,7 @@ serve(async (req) => {
       )
     }
 
-    const prompt = `You are a family household management assistant for the app "OurTable".
+    const prompt = `You are a family household management assistant for the app "Replanish".
 Parse the user's natural language request and return a structured action.
 
 Supported actions:
@@ -105,27 +105,46 @@ Return ONLY valid JSON.`
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { action: 'unknown', params: {}, confirmation: 'Could not parse response' }
 
     // Execute the action if possible
-    if (parsed.action === 'add_to_list' && parsed.params.items?.length > 0 && circleId) {
-      // Find the user's most recent active list
-      const { data: lists } = await supabase
-        .from('shopping_lists')
-        .select('id')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
+    if (parsed.action === 'add_to_list' && parsed.params.items?.length > 0) {
+      // Resolve the circle to scope the list lookup to lists the user owns
+      let resolvedCircleId: string | null = circleId ?? null
 
-      if (lists && lists.length > 0) {
-        const listId = lists[0].id
-        for (const item of parsed.params.items) {
-          await supabase.from('shopping_list_items').insert({
-            list_id: listId,
-            name: item,
-            checked: false,
-            sort_order: 0,
-          })
+      if (!resolvedCircleId) {
+        // Fall back: find any circle the authenticated user belongs to
+        const { data: memberships } = await supabase
+          .from('circle_members')
+          .select('circle_id')
+          .eq('user_id', user.id)
+          .limit(1)
+        resolvedCircleId = memberships?.[0]?.circle_id ?? null
+      }
+
+      if (!resolvedCircleId) {
+        // No circle found — skip execution, return parsed response as-is
+        parsed.executed = false
+      } else {
+        // Find the most recent active list scoped to the resolved circle
+        const { data: lists } = await supabase
+          .from('shopping_lists')
+          .select('id')
+          .eq('circle_id', resolvedCircleId)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (lists && lists.length > 0) {
+          const listId = lists[0].id
+          for (const item of parsed.params.items) {
+            await supabase.from('shopping_list_items').insert({
+              list_id: listId,
+              name: item,
+              checked: false,
+              sort_order: 0,
+            })
+          }
+          parsed.executed = true
+          parsed.confirmation += ` (Added to your active list)`
         }
-        parsed.executed = true
-        parsed.confirmation += ` (Added to your active list)`
       }
     }
 
@@ -140,9 +159,10 @@ Return ONLY valid JSON.`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unexpected error'
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

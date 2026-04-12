@@ -186,12 +186,12 @@ export function MorePage() {
             </span>
           </div>
           <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5">
-            {([{ code: 'en', label: 'English' }, { code: 'he', label: 'עברית' }] as const).map((lang) => (
+            {([{ code: 'en', label: 'EN' }, { code: 'he', label: 'עב' }, { code: 'es', label: 'ES' }] as const).map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => setLocale(lang.code as Locale)}
                 className={cn(
-                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                  'px-3 py-2 rounded-md text-sm font-medium transition-colors',
                   locale === lang.code
                     ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-500'
