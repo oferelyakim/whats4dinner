@@ -19,7 +19,7 @@ export function AppShell() {
   const showBanner = !dismissed && ai.hasAI && (ai.isWarning || ai.isLimitReached)
 
   return (
-    <div className="min-h-screen flex flex-col max-w-lg mx-auto relative">
+    <div className="min-h-dvh flex flex-col max-w-lg mx-auto relative">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:dark:bg-surface-dark-base focus:text-slate-900 focus:dark:text-slate-100 focus:rounded focus:shadow-lg"

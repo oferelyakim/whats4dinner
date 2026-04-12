@@ -166,7 +166,7 @@ export function RecipeFormPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -257,7 +257,7 @@ export function RecipeFormPage() {
             {ingredients.map((ing) => (
               <Card key={ing.id} className="p-3">
                 <div className="flex items-start gap-2">
-                  <div className="p-2 shrink-0 cursor-grab touch-none" aria-label="Drag to reorder">
+                  <div className="p-2 min-h-[44px] min-w-[44px] shrink-0 cursor-grab touch-none flex items-center justify-center" aria-label="Drag to reorder">
                     <GripVertical className="h-5 w-5 text-slate-300 dark:text-slate-600" />
                   </div>
                   <div className="flex-1 space-y-2">
@@ -274,6 +274,7 @@ export function RecipeFormPage() {
                         placeholder="Qty"
                         value={ing.quantity}
                         onChange={(e) => updateIngredient(ing.id, 'quantity', e.target.value)}
+                        inputMode="decimal"
                         className="w-16 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
                       />
                       <label className="sr-only" htmlFor={`unit-${ing.id}`}>{t('recipe.unit')}</label>
@@ -281,7 +282,7 @@ export function RecipeFormPage() {
                         id={`unit-${ing.id}`}
                         value={ing.unit}
                         onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)}
-                        className="text-sm border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 bg-white dark:bg-surface-dark-elevated rounded focus:outline-none focus:border-brand-500"
+                        className="min-w-[4rem] text-sm border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 bg-white dark:bg-surface-dark-elevated rounded focus:outline-none focus:border-brand-500"
                       >
                         {UNITS.map((u) => (
                           <option key={u} value={u} className="bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-slate-100">
@@ -306,7 +307,8 @@ export function RecipeFormPage() {
                   </div>
                   <button
                     onClick={() => removeIngredient(ing.id)}
-                    className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors shrink-0"
+                    aria-label="Remove ingredient"
+                    className="h-10 w-10 rounded-lg flex items-center justify-center text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors shrink-0"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

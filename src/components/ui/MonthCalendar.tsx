@@ -74,7 +74,8 @@ export function MonthCalendar({
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={goPrev}
-          className="h-8 w-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+          aria-label="Previous month"
+          className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
         >
           <ChevronLeft className="h-4 w-4 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -83,7 +84,8 @@ export function MonthCalendar({
         </h3>
         <button
           onClick={goNext}
-          className="h-8 w-8 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+          aria-label="Next month"
+          className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
         >
           <ChevronRight className="h-4 w-4 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>

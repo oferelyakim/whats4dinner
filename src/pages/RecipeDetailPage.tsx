@@ -94,7 +94,7 @@ export function RecipeDetailPage() {
   if (error || !recipe) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
+        <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <p className="text-center text-slate-500">Recipe not found</p>
@@ -110,7 +110,7 @@ export function RecipeDetailPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => isKit ? navigate('/recipes?view=essentials') : navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -424,7 +424,7 @@ export function RecipeDetailPage() {
                             setSelectedIngredients(new Set(recipe.ingredients!.map((i) => i.id)))
                           }
                         }}
-                        className="text-xs text-brand-500 font-medium"
+                        className="min-h-[44px] px-2 inline-flex items-center text-xs text-brand-500 font-medium"
                       >
                         {selectedIngredients.size === recipe.ingredients.length ? 'Deselect all' : 'Select all'}
                       </button>

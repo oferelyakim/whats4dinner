@@ -26,6 +26,11 @@
   --color-info: #3b82f6;
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --z-nav: 50;
+  --z-fab: 55;
+  --z-fab-backdrop: 60;
+  --z-overlay: 70;
 }
 
 html {
@@ -38,13 +43,10 @@ body {
   @apply font-sans antialiased;
   @apply bg-surface-light text-slate-900;
   @apply dark:bg-surface-dark dark:text-slate-100;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-* {
-  -webkit-overflow-scrolling: touch;
-}
 
 /* Better focus-visible states */
 *:focus-visible {
@@ -77,6 +79,14 @@ body {
   display: none;
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .pb-safe {
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
@@ -97,7 +107,7 @@ select {
   max-height: 90vh;
   max-height: 90dvh;
   overflow-y: auto;
-  padding-bottom: 2rem;
+  padding-bottom: 0;
 }
 
 /* When a focused input is inside a dialog, scroll it into view */
@@ -168,4 +178,17 @@ select {
 .horizontal-scroll > * {
   scroll-snap-align: start;
   flex-shrink: 0;
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.min-h-dvh {
+  min-height: 100vh;
+  min-height: 100dvh;
 }

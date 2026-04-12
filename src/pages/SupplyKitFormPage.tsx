@@ -87,7 +87,7 @@ export function SupplyKitFormPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -183,7 +183,8 @@ export function SupplyKitFormPage() {
                   </div>
                   <button
                     onClick={() => removeItem(item.id)}
-                    className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors shrink-0"
+                    aria-label="Remove item"
+                    className="h-10 w-10 rounded-lg flex items-center justify-center text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors shrink-0"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

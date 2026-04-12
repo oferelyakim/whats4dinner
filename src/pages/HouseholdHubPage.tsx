@@ -135,7 +135,7 @@ export function HouseholdHubPage() {
           <button
             onClick={() => setActiveTab('chores')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all',
+              'flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all min-h-[44px]',
               activeTab === 'chores'
                 ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                 : 'text-slate-500'
@@ -147,7 +147,7 @@ export function HouseholdHubPage() {
           <button
             onClick={() => setActiveTab('activities')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all',
+              'flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all min-h-[44px]',
               activeTab === 'activities'
                 ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                 : 'text-slate-500'
@@ -166,7 +166,7 @@ export function HouseholdHubPage() {
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('chore.myChores')}</p>
             <button
               onClick={() => navigate('/household/chores')}
-              className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+              className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
             >
               {t('home.viewAll')}
               <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
@@ -236,7 +236,7 @@ export function HouseholdHubPage() {
             <p className="text-sm text-slate-500">{t('more.activitiesDesc')}</p>
             <button
               onClick={() => navigate('/household/activities')}
-              className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+              className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
             >
               {t('home.viewAll')}
               <ChevronRight className="h-3.5 w-3.5 rtl-flip" />

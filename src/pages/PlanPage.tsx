@@ -222,10 +222,24 @@ export function PlanPage() {
               ? '~800 calories per meal'
               : undefined
 
+      // Determine dates based on plan scope
+      let planDates: string[]
+      if (preferences.planScope === 'meal' || preferences.planScope === 'day') {
+        // Single meal or full day: use selected date or today
+        const today = new Date().toISOString().split('T')[0]
+        const targetDate = selectedDate || week.dates[0] || today
+        planDates = [targetDate]
+      } else {
+        // Full week
+        planDates = week.dates
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
         body: {
           circleId: activeCircle!.id,
-          dates: week.dates,
+          dates: planDates,
+          planScope: preferences.planScope,
+          mealType: preferences.planScope === 'meal' ? preferences.mealType : undefined,
           preferences: {
             dietary_restrictions: dietaryString,
             cuisine_preferences: cuisineString,
@@ -424,7 +438,8 @@ export function PlanPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          aria-label="Go back"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -437,7 +452,8 @@ export function PlanPage() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => setWeekOffset((w) => w - 1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          aria-label="Previous week"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
           <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -454,7 +470,8 @@ export function PlanPage() {
         </div>
         <button
           onClick={() => setWeekOffset((w) => w + 1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          aria-label="Next week"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
         >
           <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -462,28 +479,30 @@ export function PlanPage() {
 
       {/* Action buttons */}
       {plans.length > 0 && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="secondary"
-            className="flex-1"
+            className="flex-1 min-w-0"
             onClick={() => setShowAddToList(true)}
           >
-            <ShoppingCart className="h-4 w-4" />
-            {t('plan.addWeekToList')}
+            <ShoppingCart className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('plan.addWeekToList')}</span>
           </Button>
           <Button
             size="sm"
             variant="secondary"
+            className="flex-1 min-w-0"
             onClick={() => copyMutation.mutate()}
             disabled={copyMutation.isPending}
           >
-            <Copy className="h-4 w-4" />
-            {copyMutation.isPending ? t('common.loading') : t('plan.copyToNextWeek')}
+            <Copy className="h-4 w-4 shrink-0" />
+            <span className="truncate">{copyMutation.isPending ? t('common.loading') : t('plan.copyToNextWeek')}</span>
           </Button>
           <Button
             size="sm"
             variant="secondary"
+            aria-label="Export to calendar"
             onClick={() => exportMealPlanToCalendar(plans)}
           >
             <Download className="h-4 w-4" />

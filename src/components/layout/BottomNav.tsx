@@ -52,7 +52,7 @@ export function BottomNav() {
               transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors min-w-[56px]',
+                'relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors min-w-[56px]',
                 isActive
                   ? 'text-brand-500'
                   : 'text-slate-400 dark:text-slate-500'

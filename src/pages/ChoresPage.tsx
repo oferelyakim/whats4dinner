@@ -282,7 +282,7 @@ export function ChoresPage() {
     return (
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
+          <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
             <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
           </button>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('chore.chores')}</h2>
@@ -302,7 +302,7 @@ export function ChoresPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </button>
@@ -479,15 +479,17 @@ export function ChoresPage() {
                               )}
                               <button
                                 onClick={() => openEdit(chore)}
-                                className="text-slate-400 hover:text-slate-600 p-1"
+                                aria-label="Edit chore"
+                                className="text-slate-400 hover:text-slate-600 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center"
                               >
-                                <Pencil className="h-3.5 w-3.5" />
+                                <Pencil className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => deleteMutation.mutate(chore.id)}
-                                className="text-slate-400 hover:text-danger p-1"
+                                aria-label="Delete chore"
+                                className="text-slate-400 hover:text-danger p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
@@ -641,7 +643,7 @@ export function ChoresPage() {
                         key={day.value}
                         onClick={() => toggleDay(day.value)}
                         className={cn(
-                          'h-9 w-9 rounded-full text-xs font-medium transition-colors',
+                          'h-11 w-11 rounded-full text-xs font-medium transition-colors',
                           recurrenceDays.includes(day.value)
                             ? 'bg-brand-500 text-white'
                             : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400',

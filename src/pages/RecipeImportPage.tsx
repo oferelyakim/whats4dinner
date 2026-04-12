@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Link2, Loader2, Check, ChefHat, Camera, Sparkles } from 'lucide-react'
@@ -31,6 +31,8 @@ export function RecipeImportPage() {
   const [url, setUrl] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const [imported, setImported] = useState<{
     title: string
     description?: string
@@ -241,19 +243,54 @@ export function RecipeImportPage() {
                     src={imagePreview}
                     alt="Recipe"
                     className="w-full rounded-xl max-h-64 object-cover"
+                    onError={() => {
+                      // HEIC/HEIF or other unsupported format — still keep the file for upload
+                      setImagePreview(null)
+                    }}
                   />
                   <button
-                    onClick={() => { setImageFile(null); setImagePreview(null) }}
+                    onClick={() => {
+                      if (imagePreview) URL.revokeObjectURL(imagePreview)
+                      setImageFile(null)
+                      setImagePreview(null)
+                    }}
                     className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/50 text-white flex items-center justify-center"
                   >
                     &times;
                   </button>
                 </div>
+              ) : imageFile ? (
+                // File selected but preview failed (e.g. HEIC format)
+                <div className="flex flex-col items-center justify-center w-full h-48 rounded-xl border-2 border-dashed border-brand-500 bg-brand-50 dark:bg-brand-950/20">
+                  <Camera className="h-8 w-8 text-brand-500 mb-2" />
+                  <span className="text-sm text-brand-600 dark:text-brand-400 font-medium">{imageFile.name}</span>
+                  <span className="text-xs text-slate-400 mt-1">Preview not available, but the image will be processed</span>
+                  <button
+                    onClick={() => { setImageFile(null); setImagePreview(null) }}
+                    className="mt-2 text-xs text-red-500 underline"
+                  >
+                    Remove
+                  </button>
+                </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-48 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 cursor-pointer hover:border-brand-500 transition-colors">
-                  <Camera className="h-8 w-8 text-slate-400 mb-2" />
-                  <span className="text-sm text-slate-500">Take a photo, screenshot, or pick from gallery</span>
+                <div className="space-y-2">
+                  {/* Hidden file inputs */}
                   <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setImageFile(file)
+                        setImagePreview(URL.createObjectURL(file))
+                      }
+                    }}
+                  />
+                  <input
+                    ref={galleryInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
@@ -265,7 +302,20 @@ export function RecipeImportPage() {
                       }
                     }}
                   />
-                </label>
+                  <button
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 cursor-pointer hover:border-brand-500 active:scale-[0.98] transition-all"
+                  >
+                    <Camera className="h-8 w-8 text-slate-400 mb-2" />
+                    <span className="text-sm text-slate-500">Take a photo</span>
+                  </button>
+                  <button
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="flex items-center justify-center w-full h-12 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-500 hover:border-brand-500 active:scale-[0.98] transition-all"
+                  >
+                    Choose from gallery or files
+                  </button>
+                </div>
               )}
 
               {error && (

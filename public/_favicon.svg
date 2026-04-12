@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Replanish logo - 3 people in a circle -->
+  <!-- Teal arc (bottom-left) -->
+  <path d="M30 85 Q10 65 15 40 Q18 30 28 25" stroke="#2bbaa0" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Green-teal arc (top-left) -->
+  <path d="M28 25 Q38 15 50 12 Q58 10 65 15" stroke="#5ab88a" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Gold arc (top-right) -->
+  <path d="M65 15 Q75 20 80 30 Q85 42 82 55" stroke="#f5a623" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Blue arc (right) -->
+  <path d="M82 55 Q78 70 65 80 Q55 87 42 87" stroke="#4a90d9" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Green person (top-left) -->
+  <circle cx="28" cy="22" r="8" fill="#8bc34a"/>
+  <!-- Orange person (top-right) -->
+  <circle cx="75" cy="22" r="8" fill="#f5a623"/>
+  <!-- Coral person (bottom) -->
+  <circle cx="38" cy="85" r="8" fill="#ef7b6c"/>
+</svg>

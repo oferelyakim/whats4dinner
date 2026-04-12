@@ -43,16 +43,34 @@ export async function importRecipeFromImage(file: File): Promise<ParsedRecipe> {
   // Convert file to base64
   const base64 = await fileToBase64(file)
 
-  const { data, error } = await supabase.functions.invoke('scrape-recipe', {
-    body: { image_base64: base64 },
-  })
+  let data: Record<string, unknown> | null = null
+  let error: Error | null = null
 
-  if (error || !data?.title) {
-    throw new Error(error?.message || 'Could not extract recipe from image. Try a clearer photo or add manually.')
+  try {
+    const result = await supabase.functions.invoke('scrape-recipe', {
+      body: { image_base64: base64 },
+    })
+    data = result.data
+    error = result.error
+  } catch (e) {
+    throw new Error('Could not connect to recipe service. Please try again later.')
+  }
+
+  // Extract meaningful error message from Edge Function response
+  if (error) {
+    // Supabase wraps non-2xx responses — try to get the actual message
+    const msg = (data as Record<string, string> | null)?.error
+      || error.message
+      || 'Could not extract recipe from image. Try a clearer photo or add manually.'
+    throw new Error(msg)
+  }
+
+  if (!data?.title) {
+    throw new Error('Could not extract recipe from image. Try a clearer photo or add manually.')
   }
 
   // Log AI usage in background
-  logUsageFromResponse('recipe_import_photo', data._ai_usage)
+  logUsageFromResponse('recipe_import_photo', data._ai_usage as AIUsageMetadata | undefined)
 
   const { _ai_usage, ...recipe } = data
   return { ...recipe, source_url: '' } as ParsedRecipe
@@ -79,7 +97,7 @@ export async function importRecipeFromUrl(url: string): Promise<ParsedRecipe> {
     })
     if (!error && data && data.title) {
       // Log AI usage in background
-      logUsageFromResponse('recipe_import_url', data._ai_usage)
+      logUsageFromResponse('recipe_import_url', data._ai_usage as AIUsageMetadata | undefined)
 
       const { _ai_usage, ...recipe } = data
       return { ...recipe, source_url: url }

@@ -6,7 +6,12 @@ import { useI18n } from '@/lib/i18n'
 
 const PREFERENCES_STORAGE_KEY = 'meal-plan-preferences'
 
+export type PlanScope = 'meal' | 'day' | 'week'
+export type MealTypeOption = 'breakfast' | 'lunch' | 'dinner'
+
 export interface MealPlanPreferences {
+  planScope: PlanScope
+  mealType: MealTypeOption
   dietary: string[]
   cuisines: string[]
   cookingStyle: 'quick' | 'balanced' | 'gourmet' | ''
@@ -15,6 +20,8 @@ export interface MealPlanPreferences {
 }
 
 const DEFAULT_PREFERENCES: MealPlanPreferences = {
+  planScope: 'day',
+  mealType: 'dinner',
   dietary: [],
   cuisines: [],
   cookingStyle: '',
@@ -191,6 +198,46 @@ export function MealPlanPreferencesDialog({
           </p>
 
           <div className="space-y-5">
+            {/* Plan scope — what to plan */}
+            <section>
+              <SectionLabel>{t('plan.prefs.planScope')}</SectionLabel>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { value: 'meal' as const, label: t('plan.prefs.scopeMeal') },
+                  { value: 'day' as const, label: t('plan.prefs.scopeDay') },
+                  { value: 'week' as const, label: t('plan.prefs.scopeWeek') },
+                ] as const).map(({ value, label }) => (
+                  <Chip
+                    key={value}
+                    label={label}
+                    selected={prefs.planScope === value}
+                    onClick={() => setPrefs((prev) => ({ ...prev, planScope: value }))}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* Meal type — only shown for single meal scope */}
+            {prefs.planScope === 'meal' && (
+              <section>
+                <SectionLabel>{t('plan.prefs.mealType')}</SectionLabel>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: 'breakfast' as const, label: t('plan.breakfast') },
+                    { value: 'lunch' as const, label: t('plan.lunch') },
+                    { value: 'dinner' as const, label: t('plan.dinner') },
+                  ] as const).map(({ value, label }) => (
+                    <Chip
+                      key={value}
+                      label={label}
+                      selected={prefs.mealType === value}
+                      onClick={() => setPrefs((prev) => ({ ...prev, mealType: value }))}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Dietary restrictions */}
             <section>
               <SectionLabel>{t('plan.prefs.dietary')}</SectionLabel>

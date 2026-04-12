@@ -144,7 +144,7 @@ export function OnboardingPage() {
                 </Button>
                 <button
                   onClick={handleSkip}
-                  className="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  className="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                 >
                   {t('onboard.skip')}
                 </button>
@@ -263,14 +263,14 @@ export function OnboardingPage() {
               <div className="flex justify-between">
                 <button
                   onClick={() => goTo(0)}
-                  className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] inline-flex items-center"
                 >
                   <ArrowLeft className="h-3.5 w-3.5 rtl-flip" />
                   {t('onboard.back')}
                 </button>
                 <button
                   onClick={handleSkip}
-                  className="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                 >
                   {t('onboard.skip')}
                 </button>

@@ -283,7 +283,7 @@ export function HomePage() {
             <button
               type="submit"
               disabled={!nlpInput.trim() || nlpMutation.isPending}
-              className="h-8 w-8 rounded-lg bg-brand-500 text-white flex items-center justify-center shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
+              className="h-11 w-11 rounded-lg bg-brand-500 text-white flex items-center justify-center shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
             >
               {nlpMutation.isPending ? (
                 <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -410,7 +410,7 @@ export function HomePage() {
               {t('home.upcomingEvents')}            </h3>
             <button
               onClick={() => navigate('/events')}
-              className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+              className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
             >
               {t('home.viewAll')}
               <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
@@ -461,7 +461,7 @@ export function HomePage() {
           </h3>
           <button
             onClick={() => navigate('/lists')}
-            className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+            className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
           >
             {t('home.viewAll')}
             <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
@@ -510,7 +510,7 @@ export function HomePage() {
             </h3>
             <button
               onClick={() => navigate('/recipes')}
-              className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+              className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
             >
               {t('home.viewAll')}
               <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
@@ -545,7 +545,7 @@ export function HomePage() {
           </h3>
           <button
             onClick={() => navigate('/profile/circles')}
-            className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+            className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
           >
             {t('common.create')}
             <Plus className="h-3.5 w-3.5" />

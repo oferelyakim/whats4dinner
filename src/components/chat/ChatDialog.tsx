@@ -75,7 +75,7 @@ export function ChatDialog() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content
             className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl max-w-lg mx-auto flex flex-col"
-            style={{ maxHeight: '80vh' }}
+            style={{ maxHeight: '80dvh' }}
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
@@ -105,7 +105,7 @@ export function ChatDialog() {
                   <button
                     onClick={clearMessages}
                     aria-label={t('chat.clearChat')}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay dark:hover:text-slate-300 transition-colors"
+                    className="p-3 min-h-[44px] min-w-[44px] rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay dark:hover:text-slate-300 transition-colors flex items-center justify-center"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -113,7 +113,7 @@ export function ChatDialog() {
                 <Dialog.Close asChild>
                   <button
                     aria-label={t('common.close')}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay dark:hover:text-slate-300 transition-colors"
+                    className="p-3 min-h-[44px] min-w-[44px] rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay dark:hover:text-slate-300 transition-colors flex items-center justify-center"
                   >
                     <X className="h-4 w-4" />
                   </button>

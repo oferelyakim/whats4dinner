@@ -194,7 +194,7 @@ export function ShoppingListPage() {
   if (!data) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
+        <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <p className="text-center text-slate-500">List not found</p>
@@ -239,12 +239,12 @@ export function ShoppingListPage() {
   const checkedCount = checked.length
 
   return (
-    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
+    <div className={cn('px-4 sm:px-6 py-4 space-y-4 animate-page-enter', showAdd && 'pb-40')}>
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -429,6 +429,7 @@ export function ShoppingListPage() {
                 placeholder="Qty"
                 value={newItemQty}
                 onChange={(e) => setNewItemQty(e.target.value)}
+                inputMode="decimal"
                 className="w-14 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 text-center"
               />
             </div>
@@ -570,7 +571,7 @@ function SortableListItem({
       <button
         {...attributes}
         {...listeners}
-        className="shrink-0 touch-none cursor-grab active:cursor-grabbing p-1"
+        className="shrink-0 touch-none cursor-grab active:cursor-grabbing p-2"
       >
         <GripVertical className="h-4 w-4 text-slate-300 dark:text-slate-600" />
       </button>
@@ -623,7 +624,8 @@ function ListItemRow({
       </div>
       <button
         onClick={onRemove}
-        className="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-danger hover:bg-danger/10 active:text-danger active:bg-danger/10 transition-colors"
+        aria-label="Remove item"
+        className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-danger hover:bg-danger/10 active:text-danger active:bg-danger/10 transition-colors"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>

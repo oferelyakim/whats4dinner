@@ -44,7 +44,7 @@ export function Header({ title, onCircleSelect }: HeaderProps) {
             <button
               onClick={onCircleSelect}
               className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs',
+                'flex items-center gap-1.5 px-3 py-2 rounded-full text-xs',
                 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300',
                 'active:scale-95 transition-transform border border-brand-200/50 dark:border-brand-500/20'
               )}

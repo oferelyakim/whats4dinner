@@ -163,7 +163,7 @@ export function MorePage() {
                 key={themeOption}
                 onClick={() => setTheme(themeOption)}
                 className={cn(
-                  'px-4 py-2 rounded-md text-sm font-medium transition-colors capitalize',
+                  'px-4 py-3 rounded-md text-sm font-medium transition-colors capitalize min-h-[44px]',
                   theme === themeOption
                     ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-500'
@@ -191,7 +191,7 @@ export function MorePage() {
                 key={lang.code}
                 onClick={() => setLocale(lang.code as Locale)}
                 className={cn(
-                  'px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  'px-3 py-3 rounded-md text-sm font-medium transition-colors min-h-[44px]',
                   locale === lang.code
                     ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-500'

@@ -30,7 +30,7 @@ function getSeason(dateStr: string): string {
 
 const MEAL_PLAN_TOOL = {
   name: 'generate_meal_plan',
-  description: 'Generate a weekly meal plan for a family with full recipe details for new dishes',
+  description: 'Generate a meal plan (single meal, full day, or full week) for a family with full recipe details for new dishes',
   input_schema: {
     type: 'object',
     properties: {
@@ -186,10 +186,14 @@ serve(async (req) => {
     const {
       circleId,
       dates,
+      planScope,
+      mealType,
       preferences,
     }: {
       circleId: string
       dates: string[]
+      planScope?: 'meal' | 'day' | 'week'
+      mealType?: 'breakfast' | 'lunch' | 'dinner'
       preferences?: {
         dietary_restrictions?: string
         calorie_target?: string
@@ -230,16 +234,16 @@ serve(async (req) => {
     // Fetch recent meal plans to avoid repetition
     const { data: recentPlans } = await supabase
       .from('meal_plans')
-      .select('date, meal_type, recipe:recipes(title)')
+      .select('plan_date, meal_type, recipe:recipes(title)')
       .eq('circle_id', circleId)
-      .gte('date', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-      .order('date', { ascending: false })
+      .gte('plan_date', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+      .order('plan_date', { ascending: false })
       .limit(30)
 
     const recentMeals = (recentPlans || [])
       .map((p: Record<string, unknown>) => {
         const recipe = p.recipe as Record<string, unknown> | null
-        return `${p.date} ${p.meal_type}: ${recipe?.title || 'unknown'}`
+        return `${p.plan_date} ${p.meal_type}: ${recipe?.title || 'unknown'}`
       })
       .join('\n')
 
@@ -257,6 +261,17 @@ serve(async (req) => {
 - Number of people: ${preferences?.servings || 'not specified — assume 4'}
 - Special requests: ${preferences?.special_requests || 'none'}`
 
+    // Build scope-aware instructions
+    const scope = planScope || 'week'
+    let scopeInstruction: string
+    if (scope === 'meal') {
+      scopeInstruction = `Generate exactly ONE ${mealType || 'dinner'} suggestion for ${dates[0]}. Return a single meal in the meals array.`
+    } else if (scope === 'day') {
+      scopeInstruction = `Generate breakfast, lunch, and dinner for ${dates[0]}. Return exactly 3 meals in the meals array.`
+    } else {
+      scopeInstruction = `Generate breakfast, lunch, and dinner for each date. For new recipes (recipe_id: null), provide the complete ingredient list, instructions, tags, and servings.`
+    }
+
     const userMessage = `Plan meals for these dates: ${dates.join(', ')}
 Current season: ${season}
 
@@ -266,7 +281,7 @@ ${recipeList ? `Family's saved recipes (use recipe_id when suggesting these):\n$
 
 ${recentMeals ? `Recent meals from the past 2 weeks (avoid repeating):\n${recentMeals}` : ''}
 
-Generate breakfast, lunch, and dinner for each date. For new recipes (recipe_id: null), provide the complete ingredient list, instructions, tags, and servings.`
+${scopeInstruction}`
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

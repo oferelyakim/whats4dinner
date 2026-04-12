@@ -224,6 +224,11 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.prefs.specialRequests': { en: 'Special Requests', he: 'בקשות מיוחדות', es: 'Solicitudes especiales' },
   'plan.prefs.specialRequestsPlaceholder': { en: 'e.g., kid-friendly, high protein, budget meals', he: 'למשל: ידידותי לילדים, עשיר בחלבון, תקציבי', es: 'ej., apto para niños, alto en proteínas, económico' },
   'plan.prefs.generate': { en: 'Generate Plan', he: 'צור תכנון', es: 'Generar plan' },
+  'plan.prefs.planScope': { en: 'What to Plan', he: 'מה לתכנן', es: 'Qué planificar' },
+  'plan.prefs.scopeMeal': { en: 'Single Meal', he: 'ארוחה בודדת', es: 'Una comida' },
+  'plan.prefs.scopeDay': { en: 'Full Day', he: 'יום שלם', es: 'Día completo' },
+  'plan.prefs.scopeWeek': { en: 'Full Week', he: 'שבוע שלם', es: 'Semana completa' },
+  'plan.prefs.mealType': { en: 'Which Meal?', he: 'איזו ארוחה?', es: '¿Qué comida?' },
 
   // AI plan review — shopping suggestions & notes
   'plan.aiNotes': { en: 'Planning Tips', he: 'טיפים לתכנון', es: 'Consejos de planificación' },

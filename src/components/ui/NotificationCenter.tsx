@@ -79,7 +79,7 @@ export function NotificationCenter() {
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={t('reminder.upcoming')}
-        className="relative h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100/80 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+        className="relative h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100/80 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
       >
         <Bell className="h-4.5 w-4.5 text-slate-600 dark:text-slate-400" />
         {showBadge && (
@@ -109,6 +109,7 @@ export function NotificationCenter() {
               <button
                 onClick={() => setOpen(false)}
                 aria-label={t('common.close')}
+                className="p-2 min-h-[44px] min-w-[44px] rounded-lg hover:bg-slate-100 dark:hover:bg-surface-dark-overlay transition-colors flex items-center justify-center"
               >
                 <X className="h-4 w-4 text-slate-400" />
               </button>

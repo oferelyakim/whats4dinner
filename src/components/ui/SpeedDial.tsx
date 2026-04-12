@@ -27,7 +27,7 @@ export function SpeedDial({ items }: SpeedDialProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-40"
+            className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[60]"
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
@@ -35,7 +35,7 @@ export function SpeedDial({ items }: SpeedDialProps) {
       </AnimatePresence>
 
       {/* FAB container */}
-      <div className="fixed bottom-20 end-4 z-50 flex flex-col items-end gap-3">
+      <div className="fixed end-4 z-[65] flex flex-col items-end gap-3" style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}>
         {/* Speed dial items */}
         <AnimatePresence>
           {open &&

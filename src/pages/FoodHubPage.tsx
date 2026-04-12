@@ -89,7 +89,7 @@ export function FoodHubPage() {
             key={key}
             onClick={() => 'href' in rest && rest.href ? navigate(rest.href) : setActiveTab(key)}
             className={cn(
-              'flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
+              'flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0 min-h-[44px]',
               activeTab === key
                 ? 'bg-brand-500 text-white shadow-sm'
                 : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
@@ -136,7 +136,7 @@ export function FoodHubPage() {
               </h3>
               <button
                 onClick={() => navigate('/plan')}
-                className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+                className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
               >
                 {t('home.viewAll')}
                 <ChevronRight className="h-3.5 w-3.5 rtl-flip" />
@@ -199,7 +199,7 @@ export function FoodHubPage() {
                 </h3>
                 <button
                   onClick={() => navigate('/lists')}
-                  className="text-brand-500 text-sm font-medium flex items-center gap-0.5"
+                  className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
                 >
                   {t('home.viewAll')}
                   <ChevronRight className="h-3.5 w-3.5 rtl-flip" />

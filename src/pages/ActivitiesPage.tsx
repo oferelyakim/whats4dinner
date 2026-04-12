@@ -333,7 +333,7 @@ export function ActivitiesPage() {
     return (
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
+          <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
             <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
           </button>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('activity.activities')}</h2>
@@ -353,7 +353,7 @@ export function ActivitiesPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
         >
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
@@ -419,7 +419,8 @@ export function ActivitiesPage() {
                 d.setDate(d.getDate() - 7)
                 setCalendarDate(d.toISOString().split('T')[0])
               }}
-              className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+              aria-label="Previous week"
+              className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
             >
               <ChevronLeft className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
             </button>
@@ -434,7 +435,8 @@ export function ActivitiesPage() {
                 d.setDate(d.getDate() + 7)
                 setCalendarDate(d.toISOString().split('T')[0])
               }}
-              className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+              aria-label="Next week"
+              className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
             >
               <ChevronRight className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
             </button>
@@ -490,7 +492,8 @@ export function ActivitiesPage() {
               d.setDate(d.getDate() - 1)
               setCalendarDate(d.toISOString().split('T')[0])
             }}
-            className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+            aria-label="Previous day"
+            className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
           >
             <ChevronLeft className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
           </button>
@@ -507,7 +510,8 @@ export function ActivitiesPage() {
               d.setDate(d.getDate() + 1)
               setCalendarDate(d.toISOString().split('T')[0])
             }}
-            className="h-7 w-7 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
+            aria-label="Next day"
+            className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
           >
             <ChevronRight className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
           </button>
@@ -831,7 +835,7 @@ export function ActivitiesPage() {
                         key={day.value}
                         onClick={() => toggleDay(day.value)}
                         className={cn(
-                          'h-9 w-9 rounded-full text-xs font-medium transition-colors',
+                          'h-11 w-11 rounded-full text-xs font-medium transition-colors',
                           recurrenceDays.includes(day.value)
                             ? 'bg-brand-500 text-white'
                             : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400',
@@ -1016,7 +1020,9 @@ export function ActivitiesPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
+            </div>
+            <div className="sticky bottom-0 bg-white dark:bg-surface-dark-elevated pt-3 pb-4 -mx-6 px-6 border-t border-slate-200 dark:border-slate-700 mt-3">
+              <div className="flex gap-3">
                 <Button variant="secondary" className="flex-1" onClick={closeDialog}>
                   {t('common.cancel')}
                 </Button>

@@ -180,7 +180,7 @@ export function EventDetailPage() {
   if (isEventLoading) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <div className="space-y-3 animate-pulse">
@@ -195,7 +195,7 @@ export function EventDetailPage() {
   if (!event) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <p className="text-center text-slate-500">{t('event.notFound')}</p>
@@ -220,7 +220,7 @@ export function EventDetailPage() {
     <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0">
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0">
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
         </button>
         <div className="flex-1 min-w-0">
@@ -340,7 +340,7 @@ export function EventDetailPage() {
                     {isOrganizer && !isOrg && p.user_id && (
                       <button
                         onClick={() => makeOrganizerMutation.mutate(p.user_id!)}
-                        className="text-[10px] text-slate-400 hover:text-brand-500"
+                        className="text-xs text-slate-400 hover:text-brand-500 py-2 px-3 min-h-[44px] inline-flex items-center"
                       >
                         {t('event.makeHost')}
                       </button>
