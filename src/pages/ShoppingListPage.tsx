@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
+import { formatQuantity } from '@/lib/format'
 import { getShoppingList, addListItem, toggleListItem, removeListItem, shareListWithUser, deleteShoppingList } from '@/services/shoppingLists'
 import { getStores, getStoreRoutes } from '@/services/stores'
 import { getCircleMembers } from '@/services/circles'
@@ -606,7 +607,7 @@ function ListItemRow({
           )}
         >
           {item.quantity && (
-            <span className="font-semibold">{item.quantity} </span>
+            <span className="font-semibold">{formatQuantity(item.quantity)} </span>
           )}
           {item.unit && (
             <span className="text-slate-500">{item.unit} </span>

@@ -3,14 +3,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-300: #fdba74;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
+  --color-brand-50: #e6f7f4;
+  --color-brand-100: #ccefe9;
+  --color-brand-200: #99dfd3;
+  --color-brand-300: #66cfbd;
+  --color-brand-400: #40c4ac;
+  --color-brand-500: #2bbaa0;
+  --color-brand-600: #239e88;
+  --color-brand-700: #1a7a69;
 
   --color-surface-dark: #0f172a;
   --color-surface-dark-elevated: #1e293b;
@@ -49,7 +49,7 @@ body {
 /* Better focus-visible states */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.5);
+  box-shadow: 0 0 0 2px rgba(43, 186, 160, 0.5);
   border-radius: inherit;
 }
 

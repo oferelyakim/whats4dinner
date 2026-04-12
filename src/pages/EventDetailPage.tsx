@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
+import { formatQuantity } from '@/lib/format'
 import {
   getEvent, getEventParticipants, getEventItems, getEventOrganizers,
   addEventItem, claimItem, unclaimItem, updateItemStatus, deleteEventItem,
@@ -495,7 +496,7 @@ export function EventDetailPage() {
                       {mySupplies.map((item) => (
                         <div key={item.id} className="px-3 py-2.5 flex items-center gap-2">
                           <p className="text-sm text-slate-800 dark:text-slate-200 flex-1">
-                            {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
+                            {item.quantity && <span className="text-slate-400">x{formatQuantity(item.quantity)}</span>}
                             {item.name}
                           </p>
                           <span className={cn(
@@ -721,7 +722,7 @@ function ItemList({
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                          {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
+                          {item.quantity && <span className="text-slate-400">x{formatQuantity(item.quantity)}</span>}
                           {item.name}
                         </p>
                         {item.notes && <p className="text-[10px] text-slate-400">{item.notes}</p>}
@@ -853,7 +854,7 @@ function ItemRow({
             'text-sm',
             isDone ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'
           )}>
-            {item.quantity && <span className="text-slate-400">x{item.quantity} </span>}
+            {item.quantity && <span className="text-slate-400">x{formatQuantity(item.quantity)}</span>}
             {item.name}
           </p>
         </div>
