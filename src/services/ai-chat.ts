@@ -35,7 +35,12 @@ export async function sendChatMessage(
     body: { messages: trimmed, circleId, locale },
   })
 
-  if (error) throw new Error(error.message || 'Chat request failed')
+  if (error) {
+    const msg = typeof error === 'object' && error !== null
+      ? (error as Record<string, unknown>).message ?? JSON.stringify(error)
+      : String(error)
+    throw new Error(String(msg) || 'Chat request failed')
+  }
   return data as ChatResponse
 }
 

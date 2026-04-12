@@ -62,10 +62,12 @@ export function useChat() {
       setLoading(true)
 
       try {
-        const apiMessages = [...messages, userMsg].map((m) => ({
-          role: m.role,
-          content: m.content,
-        }))
+        const apiMessages = [...messages, userMsg]
+          .filter((m) => !m.isLoading && m.content.trim())
+          .map((m) => ({
+            role: m.role,
+            content: m.content,
+          }))
 
         const response = await sendChatMessage(
           apiMessages,
