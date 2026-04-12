@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChefHat, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { supabase, isSupabaseConfigured } from '@/services/supabase'
@@ -122,7 +122,7 @@ export function JoinCirclePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-surface-light dark:bg-surface-dark text-center">
         <div className="h-16 w-16 rounded-2xl bg-success/20 flex items-center justify-center mb-4">
-          <ChefHat className="h-9 w-9 text-success" />
+          <img src="/logo-icon.png" alt="Replanish" className="h-9 w-9" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
           Check your email

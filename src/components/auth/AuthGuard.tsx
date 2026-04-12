@@ -16,7 +16,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         id: 'dev-user',
         display_name: 'Ofer (Dev)',
         avatar_url: null,
-        email: 'dev@ourtable.app',
+        email: 'dev@replanish.app',
         preferences: { theme: 'dark' },
         has_onboarded: true,
         created_at: new Date().toISOString(),

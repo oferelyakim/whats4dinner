@@ -10,6 +10,7 @@ import { createRecipe } from '@/services/recipes'
 import { useAppStore } from '@/stores/appStore'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
+import { formatQuantity } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 
 interface ImportedIngredient {
@@ -349,7 +350,7 @@ export function RecipeImportPage() {
                       {ing.include && <Check className="h-3 w-3 text-white" />}
                     </div>
                     <span className={`text-sm flex-1 ${ing.include ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 line-through'}`}>
-                      {ing.quantity && <strong>{ing.quantity} </strong>}
+                      {ing.quantity && <strong>{formatQuantity(ing.quantity)} </strong>}
                       {ing.unit && <span>{ing.unit} </span>}
                       {ing.name}
                     </span>

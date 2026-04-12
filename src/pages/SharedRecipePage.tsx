@@ -1,10 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChefHat, Clock, Users, ExternalLink, BookOpen } from 'lucide-react'
+import { Clock, Users, ExternalLink, BookOpen } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { getSharedRecipe } from '@/services/recipes'
 import { useAuth } from '@/hooks/useAuth'
+import { formatQuantity } from '@/lib/format'
 
 export function SharedRecipePage() {
   const { code } = useParams<{ code: string }>()
@@ -44,8 +45,8 @@ export function SharedRecipePage() {
       <div className="max-w-lg mx-auto px-4 sm:px-6 py-6 space-y-5 animate-page-enter">
         {/* Header */}
         <div className="flex items-center gap-2 text-brand-500">
-          <ChefHat className="h-5 w-5" />
-          <span className="text-sm font-medium">OurTable</span>
+          <img src="/logo-icon.png" alt="Replanish" className="h-5 w-5" />
+          <span className="text-sm font-medium">Replanish</span>
         </div>
 
         {/* Recipe title */}
@@ -116,7 +117,7 @@ export function SharedRecipePage() {
                 <div key={ing.id} className="px-4 py-2.5 flex items-center gap-3">
                   <div className="h-1.5 w-1.5 rounded-full bg-brand-500 shrink-0" />
                   <span className="text-sm text-slate-700 dark:text-slate-300">
-                    {ing.quantity && <strong>{ing.quantity}</strong>}
+                    {ing.quantity && <strong>{formatQuantity(ing.quantity)}</strong>}
                     {ing.unit && ` ${ing.unit}`}
                     {' '}{ing.name}
                     {ing.notes && <span className="text-slate-400"> ({ing.notes})</span>}

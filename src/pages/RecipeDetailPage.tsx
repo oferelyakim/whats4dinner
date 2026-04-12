@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
+import { formatQuantity } from '@/lib/format'
 import { getRecipe, createRecipeShare, deleteRecipe, shareRecipeWithCircle } from '@/services/recipes'
 import { getMyCircles } from '@/services/circles'
 import type { Circle } from '@/types'
@@ -192,7 +193,7 @@ export function RecipeDetailPage() {
               <div key={ing.id} className="px-4 py-2.5 flex items-center gap-3">
                 <div className="h-1.5 w-1.5 rounded-full bg-brand-500 shrink-0" />
                 <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">
-                  {ing.quantity && <strong>{ing.quantity}</strong>}
+                  {ing.quantity && <strong>{formatQuantity(ing.quantity)}</strong>}
                   {ing.unit && ` ${ing.unit}`}
                   {' '}{ing.name}
                   {ing.notes && (
@@ -461,7 +462,7 @@ export function RecipeDetailPage() {
                               {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                             </div>
                             <span className="text-sm text-slate-700 dark:text-slate-300">
-                              {ing.quantity && <strong>{ing.quantity} </strong>}
+                              {ing.quantity && <strong>{formatQuantity(ing.quantity)} </strong>}
                               {ing.unit && `${ing.unit} `}
                               {ing.name}
                             </span>

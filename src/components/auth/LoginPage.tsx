@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChefHat, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
@@ -74,8 +74,8 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="h-16 w-16 rounded-2xl bg-brand-500 flex items-center justify-center mb-4 shadow-lg">
-            <ChefHat className="h-9 w-9 text-white" />
+          <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4 shadow-lg overflow-hidden">
+            <img src="/logo-icon.png" alt="Replanish" className="h-16 w-16" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             {t('app.name')}

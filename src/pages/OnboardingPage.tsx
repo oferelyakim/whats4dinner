@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { UtensilsCrossed, Users, ArrowRight, ArrowLeft, Check, Sparkles } from 'lucide-react'
+import { Users, ArrowRight, ArrowLeft, Check, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -123,9 +123,9 @@ export function OnboardingPage() {
               <motion.div
                 animate={{ y: [0, -8, 0] }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                className="mx-auto h-20 w-20 rounded-2xl bg-brand-500/10 flex items-center justify-center"
+                className="mx-auto h-20 w-20 rounded-2xl flex items-center justify-center overflow-hidden"
               >
-                <UtensilsCrossed className="h-10 w-10 text-brand-500" />
+                <img src="/logo-icon.png" alt="Replanish" className="h-20 w-20" />
               </motion.div>
 
               <div className="space-y-3">

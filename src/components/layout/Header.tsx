@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChefHat, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/cn'
 import { NotificationCenter } from '@/components/ui/NotificationCenter'
@@ -32,9 +32,9 @@ export function Header({ title, onCircleSelect }: HeaderProps) {
     >
       <div className="flex items-center justify-between h-12 px-4">
         <div className="flex items-center gap-2">
-          <ChefHat className="h-5 w-5 text-brand-500" />
+          <img src="/logo-icon.png" alt="Replanish" className="h-6 w-6" />
           <h1 className="text-base font-bold text-slate-900 dark:text-white">
-            {title ?? 'OurTable'}
+            {title ?? 'Replanish'}
           </h1>
         </div>
 

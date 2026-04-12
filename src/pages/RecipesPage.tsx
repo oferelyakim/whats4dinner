@@ -197,7 +197,7 @@ export function RecipesPage() {
             items={[
               { icon: Sparkles, label: t('recipe.importUrl'), onClick: () => { if (ai.checkAIAccess()) navigate('/recipes/import') }, color: '#3b82f6' },
               { icon: Camera, label: t('recipe.importPhoto'), onClick: () => { if (ai.checkAIAccess()) navigate('/recipes/import') }, color: '#8b5cf6' },
-              { icon: PenLine, label: t('recipe.writeManually'), onClick: () => navigate('/recipes/new'), color: '#f97316' },
+              { icon: PenLine, label: t('recipe.writeManually'), onClick: () => navigate('/recipes/new'), color: '#2bbaa0' },
             ]}
           />
           <AIUpgradeModal
