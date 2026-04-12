@@ -169,7 +169,7 @@ export interface ItemRequest {
 
 export type SubscriptionPlan = 'free' | 'ai_individual' | 'ai_family'
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired'
-export type AIActionType = 'recipe_import_url' | 'recipe_import_photo' | 'meal_plan' | 'nlp_action'
+export type AIActionType = 'recipe_import_url' | 'recipe_import_photo' | 'meal_plan' | 'nlp_action' | 'chat' | 'chat_recipe_import'
 
 export interface Subscription {
   id: string

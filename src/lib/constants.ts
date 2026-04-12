@@ -56,3 +56,7 @@ export type ListPermission = (typeof LIST_PERMISSIONS)[number]
 
 export const REQUEST_STATUS = ['pending', 'approved', 'rejected'] as const
 export type RequestStatus = (typeof REQUEST_STATUS)[number]
+
+// AI Chat
+export const FREE_RECIPE_IMPORT_CAP = 50
+export const CHAT_MAX_HISTORY = 20

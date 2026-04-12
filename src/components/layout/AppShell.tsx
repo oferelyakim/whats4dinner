@@ -1,16 +1,21 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { AlertTriangle, X } from 'lucide-react'
 import { Header } from './Header'
 import { BottomNav } from './BottomNav'
+import { CirclePickerSheet } from './CirclePickerSheet'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { useI18n } from '@/lib/i18n'
+
+const ChatFAB = lazy(() => import('@/components/chat/ChatFAB').then((m) => ({ default: m.ChatFAB })))
+const ChatDialog = lazy(() => import('@/components/chat/ChatDialog').then((m) => ({ default: m.ChatDialog })))
 
 export function AppShell() {
   const ai = useAIAccess()
   const { t } = useI18n()
   const [dismissed, setDismissed] = useState(false)
 
+  const [circlePickerOpen, setCirclePickerOpen] = useState(false)
   const showBanner = !dismissed && ai.hasAI && (ai.isWarning || ai.isLimitReached)
 
   return (
@@ -21,7 +26,8 @@ export function AppShell() {
       >
         {t('common.skipToContent')}
       </a>
-      <Header />
+      <Header onCircleSelect={() => setCirclePickerOpen(true)} />
+      <CirclePickerSheet open={circlePickerOpen} onOpenChange={setCirclePickerOpen} />
       {showBanner && (
         <div className={`flex items-center gap-2 px-4 py-2 text-xs font-medium ${
           ai.isLimitReached
@@ -41,6 +47,10 @@ export function AppShell() {
         <Outlet />
       </main>
       <BottomNav />
+      <Suspense>
+        <ChatFAB />
+        <ChatDialog />
+      </Suspense>
     </div>
   )
 }

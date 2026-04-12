@@ -23,7 +23,21 @@
       "Edit(/.claude/skills/shopping-list-sync/**)",
       "Edit(/.claude/skills/ai-features/**)",
       "Edit(/.claude/skills/event-planning/**)",
-      "Edit(/.claude/skills/component-patterns/**)"
+      "Edit(/.claude/skills/component-patterns/**)",
+      "Read(//c/Users/OferElyakim/.claude/**)",
+      "Edit(~/.claude/skills/ux-review/**)",
+      "Edit(/.claude/skills/feature-audit/**)",
+      "Edit(~/.claude/skills/deploy-check/**)",
+      "Edit(~/.claude/skills/perf-audit/**)",
+      "Edit(~/.claude/skills/i18n-audit/**)",
+      "Edit(~/.claude/skills/quick-fix/**)",
+      "Bash(grep -r \"AIActionType\\\\|ai_usage\" /c/Users/OferElyakim/oferProjects/whats4dinner/src/types*)",
+      "Bash(find /c/Users/OferElyakim/oferProjects/whats4dinner/src/components -name \"*.tsx\" -type f -exec grep -l \"framer-motion\\\\|Framer\\\\|motion\\\\.\" {} \\\\;)",
+      "Bash(find /c/Users/OferElyakim/oferProjects/whats4dinner/src -name \"*.tsx\" -exec grep -l \"Dialog.Root\\\\|Sheet\\\\|Drawer\" {} \\\\;)",
+      "Bash(git status:*)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\OferElyakim\\oferProjects\\whats4dinner\\.claude\\skills\\feature-audit"
     ]
   }
 }

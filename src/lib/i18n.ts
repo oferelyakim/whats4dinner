@@ -126,6 +126,8 @@ const translations: Record<string, Record<Locale, string>> = {
   'circle.deleteWarning': { en: 'All shared recipes, lists, and meal plans will be removed for all members. This cannot be undone.', he: 'כל המתכונים, הרשימות ותכניות הארוחות המשותפות יוסרו לכל החברים. לא ניתן לבטל פעולה זו.' },
   'circle.leaveConfirm': { en: 'Are you sure you want to leave', he: 'האם אתה בטוח שאתה רוצה לעזוב' },
   'circle.leaveWarning': { en: "You'll lose access to shared recipes, lists, and meal plans.", he: 'תאבד גישה למתכונים, רשימות ותכניות ארוחות משותפות.' },
+  'circle.switchCircle': { en: 'Switch Circle', he: 'החלף מעגל' },
+  'circle.manageCircles': { en: 'Manage Circles', he: 'נהל מעגלים' },
 
   // Events
   'event.events': { en: 'Events', he: 'אירועים' },
@@ -352,6 +354,27 @@ const translations: Record<string, Record<Locale, string>> = {
   'ai.usageWarningBanner': { en: "You've used 75% of your monthly AI credits", he: 'השתמשת ב-75% מנקודות ה-AI החודשיות שלך' },
   'ai.limitReachedBanner': { en: 'Monthly AI limit reached', he: 'הגעת למגבלת AI החודשית' },
   'ai.dismiss': { en: 'Dismiss', he: 'סגור' },
+
+  // Chat helper
+  'chat.title': { en: 'OurTable Helper', he: 'העוזר של OurTable' },
+  'chat.inputPlaceholder': { en: 'Ask me anything...', he: 'שאל אותי כל דבר...' },
+  'chat.typing': { en: 'Thinking...', he: 'חושב...' },
+  'chat.freeTier': { en: 'Free', he: 'חינם' },
+  'chat.clearChat': { en: 'Clear chat', he: 'נקה צ\'אט' },
+  'chat.freeWelcome': { en: 'I can help you use OurTable! Ask me anything about the app, or paste a recipe URL to import it.', he: 'אני יכול לעזור לך להשתמש ב-OurTable! שאל אותי כל דבר על האפליקציה, או הדבק קישור למתכון לייבוא.' },
+  'chat.paidWelcome': { en: 'I can help you plan meals, create activities, add recipes, and more. What would you like to do?', he: 'אני יכול לעזור לך לתכנן ארוחות, ליצור פעילויות, להוסיף מתכונים ועוד. מה תרצה לעשות?' },
+  'chat.importsRemainingLabel': { en: 'free recipe imports left this month', he: 'ייבואי מתכונים חינמיים נותרו החודש' },
+  'chat.importLimitReached': { en: "You've reached your free monthly recipe import limit.", he: 'הגעת למגבלת ייבוא המתכונים החינמית החודשית.' },
+  'chat.applyAction': { en: 'Apply', he: 'החל' },
+  'chat.cancelAction': { en: 'Cancel', he: 'ביטול' },
+  'chat.suggestHelp': { en: 'How do I use this app?', he: 'איך משתמשים באפליקציה?' },
+  'chat.suggestImportRecipe': { en: 'Import a recipe', he: 'ייבוא מתכון' },
+  'chat.suggestNavigation': { en: 'Where do I find...?', he: 'איפה אני מוצא...?' },
+  'chat.suggestPlanMeals': { en: 'Plan meals for the week', he: 'תכנן ארוחות לשבוע' },
+  'chat.suggestCreateActivity': { en: 'Create an activity', he: 'צור פעילות' },
+  'chat.recipeImported': { en: 'Recipe imported successfully!', he: 'המתכון יובא בהצלחה!' },
+  'chat.recipeImportFailed': { en: 'Failed to import recipe. Try again or check the URL.', he: 'ייבוא המתכון נכשל. נסה שוב או בדוק את הקישור.' },
+  'chat.errorGeneric': { en: 'Sorry, something went wrong. Please try again.', he: 'מצטער, משהו השתבש. נסה שוב.' },
 
   // Chores
   'chore.chores': { en: 'Chores', he: 'מטלות בית' },
