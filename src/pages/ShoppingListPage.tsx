@@ -412,7 +412,7 @@ export function ShoppingListPage() {
 
       {/* Quick Add bar (fixed at bottom above nav) */}
       {showAdd && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 pb-2">
+        <div className="fixed bottom-20 left-0 right-0 z-[56] px-4 pb-2">
           <Card variant="elevated" className="p-3 shadow-lg border-brand-500/30">
             <div className="flex gap-2 mb-2">
               <input
