@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/cn'
 import { useI18n } from '@/lib/i18n'
 import { Check, X, Loader2 } from 'lucide-react'
@@ -13,6 +15,84 @@ interface ChatMessageProps {
   }
   onActionApply?: () => void
   onActionDismiss?: () => void
+}
+
+// Custom component overrides for ReactMarkdown — sized and spaced to fit inside
+// a compact chat bubble rather than using browser-default heading sizes.
+const markdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
+  // Headings rendered as bold text with modest size increase, not giant browser h1/h2
+  h1: ({ children }) => (
+    <div className="font-bold text-base mt-2 mb-1 first:mt-0">{children}</div>
+  ),
+  h2: ({ children }) => (
+    <div className="font-semibold text-base mt-2 mb-1 first:mt-0">{children}</div>
+  ),
+  h3: ({ children }) => (
+    <div className="font-semibold text-sm mt-1.5 mb-0.5 first:mt-0">{children}</div>
+  ),
+  // Paragraphs: relaxed line-height, collapse margin on first child
+  p: ({ children }) => (
+    <p className="leading-relaxed mb-1.5 last:mb-0">{children}</p>
+  ),
+  // Bold / italic
+  strong: ({ children }) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  em: ({ children }) => (
+    <em className="italic">{children}</em>
+  ),
+  // Unordered list: tight bullet list
+  ul: ({ children }) => (
+    <ul className="list-disc list-outside ps-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ul>
+  ),
+  // Ordered list
+  ol: ({ children }) => (
+    <ol className="list-decimal list-outside ps-4 mb-1.5 last:mb-0 space-y-0.5">{children}</ol>
+  ),
+  li: ({ children }) => (
+    <li className="leading-relaxed">{children}</li>
+  ),
+  // Inline code: subtle pill background
+  code: ({ children, className }) => {
+    const isBlock = className?.startsWith('language-')
+    if (isBlock) {
+      return (
+        <code className="block font-mono text-xs bg-black/10 dark:bg-white/10 rounded-lg px-3 py-2 my-1.5 overflow-x-auto whitespace-pre">
+          {children}
+        </code>
+      )
+    }
+    return (
+      <code className="font-mono text-xs bg-black/10 dark:bg-white/10 rounded px-1 py-0.5">
+        {children}
+      </code>
+    )
+  },
+  // Code block wrapper — suppress extra margins
+  pre: ({ children }) => (
+    <pre className="my-1.5">{children}</pre>
+  ),
+  // Links: brand-colored, open in new tab
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-brand-500 underline underline-offset-2 hover:opacity-80 transition-opacity"
+    >
+      {children}
+    </a>
+  ),
+  // Horizontal rule
+  hr: () => (
+    <hr className="border-slate-300 dark:border-slate-600 my-2" />
+  ),
+  // Blockquote
+  blockquote: ({ children }) => (
+    <blockquote className="border-s-2 border-slate-300 dark:border-slate-600 ps-3 italic opacity-80 my-1.5">
+      {children}
+    </blockquote>
+  ),
 }
 
 export function ChatMessage({
@@ -44,13 +124,22 @@ export function ChatMessage({
     <div className={cn('flex', role === 'user' ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'rounded-2xl px-4 py-2.5 max-w-[85%] text-sm leading-relaxed whitespace-pre-wrap',
+          'rounded-2xl px-4 py-2.5 max-w-[85%] text-sm',
           role === 'user'
-            ? 'bg-brand-500 text-white rounded-br-md'
+            ? 'bg-brand-500 text-white rounded-br-md whitespace-pre-wrap leading-relaxed'
             : 'bg-slate-100 dark:bg-surface-dark-elevated text-slate-900 dark:text-slate-100 rounded-bl-md',
         )}
       >
-        {content}
+        {role === 'user' ? (
+          content
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {content}
+          </ReactMarkdown>
+        )}
 
         {action && (
           <div className="mt-3 pt-3 border-t border-slate-200/30 dark:border-slate-600/30">
