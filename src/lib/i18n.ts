@@ -55,6 +55,15 @@ const translations: Record<string, Record<Locale, string>> = {
   'home.mealsForTheWeek': { en: 'Meals for the week', he: 'ארוחות לשבוע', es: 'Comidas de la semana' },
   'home.createFirstList': { en: 'Create your first shopping list', he: 'צור את רשימת הקניות הראשונה שלך', es: 'Crea tu primera lista de compras' },
   'home.manageCircles': { en: 'Manage your family & friend groups', he: 'נהל את קבוצות המשפחה והחברים שלך', es: 'Administra tus grupos familiares y de amigos' },
+  'home.todaysActivities': { en: "TODAY'S ACTIVITIES", he: 'פעילויות היום', es: 'ACTIVIDADES DE HOY' },
+  'home.shoppingLists': { en: 'SHOPPING LIST', he: 'רשימת קניות', es: 'LISTA DE COMPRAS' },
+  'home.thisWeeksMeals': { en: "THIS WEEK'S MEALS", he: 'ארוחות השבוע', es: 'COMIDAS DE ESTA SEMANA' },
+  'home.quickActions': { en: 'QUICK ACTIONS', he: 'פעולות מהירות', es: 'ACCIONES RÁPIDAS' },
+  'home.recipe.createManually': { en: 'Create manually', he: 'יצירה ידנית', es: 'Crear manualmente' },
+  'home.recipe.importUrl': { en: 'Import from URL', he: 'ייבוא מקישור', es: 'Importar desde URL' },
+  'home.recipe.scanPhoto': { en: 'Scan from photo', he: 'סריקה מתמונה', es: 'Escanear desde foto' },
+  'home.addRecipe': { en: 'Add Recipe', he: 'הוסף מתכון', es: 'Agregar receta' },
+  'home.noActivities': { en: 'No activities today', he: 'אין פעילויות היום', es: 'Sin actividades hoy' },
 
   // Quick actions
   'action.newList': { en: 'New List', he: 'רשימה חדשה', es: 'Nueva lista' },
@@ -304,6 +313,7 @@ const translations: Record<string, Record<Locale, string>> = {
   'common.today': { en: 'Today', he: 'היום', es: 'Hoy' },
   'common.notFound': { en: 'Not found', he: 'לא נמצא', es: 'No encontrado' },
   'common.somethingWentWrong': { en: 'Something went wrong', he: 'משהו השתבש', es: 'Algo salió mal' },
+  'common.more': { en: 'more', he: 'עוד', es: 'más' },
 
   // Activities
   'activity.activities': { en: 'Activities', he: 'פעילויות', es: 'Actividades' },
