@@ -207,7 +207,7 @@ export function RecipesPage() {
           />
         </>
       ) : (
-        <div className="fixed bottom-20 end-4 z-50">
+        <div className="fixed end-4 z-[56]" style={{ bottom: 'calc(9rem + env(safe-area-inset-bottom))' }}>
           <button
             onClick={() => navigate('/recipes/new-kit')}
             className="h-14 w-14 rounded-full bg-brand-500 text-white shadow-lg shadow-brand-500/30 flex items-center justify-center active:scale-90 transition-transform"
