@@ -9,6 +9,11 @@ import { useI18n } from '@/lib/i18n'
 import { sendChatMessage, getFreeRecipeImportCount, logChatUsage } from '@/services/ai-chat'
 import { importRecipeFromUrl } from '@/services/recipeImport'
 import { FREE_RECIPE_IMPORT_CAP } from '@/lib/constants'
+import { createActivity } from '@/services/activities'
+import { createRecipe } from '@/services/recipes'
+import { supabase } from '@/services/supabase'
+import { getCircleMembers } from '@/services/circles'
+import type { GeneratedPlan } from '@/components/chat/ChatPlanReview'
 
 export function useChat() {
   const { session } = useAuth()
@@ -38,6 +43,149 @@ export function useChat() {
   })
 
   const freeImportsRemaining = FREE_RECIPE_IMPORT_CAP - freeImportCount
+
+  const applyAction = useCallback(
+    async (action: { type: string; params: Record<string, unknown> }): Promise<GeneratedPlan | undefined> => {
+      if (!userId || !activeCircle?.id) return undefined
+
+      if (action.type === 'create_activity') {
+        const members = await getCircleMembers(activeCircle.id)
+        const assignedName = action.params.assigned_to as string | undefined
+
+        // Map day_of_week string to number
+        const dayMap: Record<string, number> = {
+          sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+          thursday: 4, friday: 5, saturday: 6,
+        }
+        const dayName = ((action.params.day_of_week as string) || '').toLowerCase()
+        const dayNum = dayMap[dayName]
+
+        // Calculate next occurrence of the given day
+        const today = new Date()
+        let startDate = new Date(today)
+        if (dayNum !== undefined) {
+          const daysUntil = (dayNum - today.getDay() + 7) % 7
+          startDate.setDate(today.getDate() + (daysUntil === 0 ? 7 : daysUntil))
+        }
+
+        // Try to match assigned name to a circle member for display_name
+        let resolvedAssignedName = assignedName
+        if (assignedName) {
+          const matched = members.find((m) => {
+            const displayName = (m.profile?.display_name || '').toLowerCase()
+            return (
+              displayName.includes(assignedName.toLowerCase()) ||
+              assignedName.toLowerCase().includes(displayName.split(' ')[0])
+            )
+          })
+          if (matched?.profile?.display_name) {
+            resolvedAssignedName = matched.profile.display_name
+          }
+        }
+
+        await createActivity({
+          circle_id: activeCircle.id,
+          name: action.params.name as string,
+          recurrence_type: (action.params.recurrence as string) || 'weekly',
+          recurrence_days: dayNum !== undefined ? [dayNum] : [],
+          start_date: startDate.toISOString().split('T')[0],
+          start_time: (action.params.start_time as string | undefined) ?? undefined,
+          end_time: (action.params.end_time as string | undefined) ?? undefined,
+          end_date: (action.params.end_date as string | undefined) ?? undefined,
+          assigned_name: resolvedAssignedName ?? undefined,
+        })
+
+        queryClient.invalidateQueries({ queryKey: ['activities'] })
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `✅ Done! I've added "${action.params.name as string}" to the schedule.`,
+          timestamp: Date.now(),
+        })
+        return undefined
+      }
+
+      if (action.type === 'plan_meals') {
+        const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+          body: {
+            circleId: activeCircle.id,
+            dates: action.params.dates,
+            planScope: 'custom',
+            preferences: {
+              special_requests: (action.params.preferences as string) || '',
+            },
+          },
+        })
+        if (!error && data?.plan) {
+          return data as GeneratedPlan
+        }
+        return undefined
+      }
+
+      if (action.type === 'add_to_shopping_list') {
+        const items = action.params.items as string[]
+        const { data: lists } = await supabase
+          .from('shopping_lists')
+          .select('id')
+          .eq('circle_id', activeCircle.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (lists?.[0]) {
+          for (const item of items) {
+            await supabase.from('shopping_list_items').insert({
+              list_id: lists[0].id,
+              name: item,
+              checked: false,
+              sort_order: 0,
+            })
+          }
+          queryClient.invalidateQueries({ queryKey: ['shopping-list-items'] })
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `✅ Added ${items.length} item${items.length > 1 ? 's' : ''} to your shopping list.`,
+            timestamp: Date.now(),
+          })
+        }
+        return undefined
+      }
+
+      if (action.type === 'create_recipe') {
+        const p = action.params
+        const recipe = await createRecipe({
+          circle_id: activeCircle.id,
+          title: p.title as string,
+          description: (p.description as string) || undefined,
+          tags: (p.tags as string[]) || [],
+          instructions: (p.instructions as string) || undefined,
+          servings: (p.servings as number) || undefined,
+          prep_time_min: (p.prep_time_minutes as number) || undefined,
+          cook_time_min: (p.cook_time_minutes as number) || undefined,
+          ingredients: ((p.ingredients as Array<{ name: string; quantity?: number; unit?: string }>) || []).map((ing, idx) => ({
+            name: ing.name,
+            quantity: ing.quantity ?? null,
+            unit: (ing.unit || '') as import('@/lib/constants').Unit,
+            sort_order: idx,
+            notes: null,
+            item_id: null,
+          })),
+        })
+        queryClient.invalidateQueries({ queryKey: ['recipes'] })
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `✅ Recipe "${recipe.title}" has been saved to your recipes!`,
+          timestamp: Date.now(),
+        })
+        return undefined
+      }
+
+      return undefined
+    },
+    [userId, activeCircle?.id, addMessage, queryClient],
+  )
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -148,6 +296,8 @@ export function useChat() {
     closeChat,
     toggleChat,
     sendMessage,
+    applyAction,
+    addMessage,
     clearMessages,
     showUpgradeModal: ai.showUpgradeModal,
     setShowUpgradeModal: ai.setShowUpgradeModal,

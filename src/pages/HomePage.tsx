@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   ShoppingCart, CalendarDays, ChefHat, PlusCircle,
-  Sparkles, Send, Camera, PenLine,
+  Sparkles, Camera, PenLine,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -12,9 +12,6 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
-import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
-import { supabase } from '@/services/supabase'
-import { logAIUsage } from '@/services/ai-usage'
 import { getShoppingLists, getShoppingList } from '@/services/shoppingLists'
 import { getActivities, activityOccursOnDate, formatTimeRange, type Activity } from '@/services/activities'
 import { getMealPlans, getWeekDates } from '@/services/mealPlans'
@@ -56,32 +53,10 @@ export function HomePage() {
   const { profile, activeCircle } = useAppStore()
   const { t, locale } = useI18n()
   const ai = useAIAccess()
-  const [nlpInput, setNlpInput] = useState('')
-  const [nlpResult, setNlpResult] = useState<{ action: string; confirmation: string } | null>(null)
   const [recipePickerOpen, setRecipePickerOpen] = useState(false)
 
   const dateLocale = locale === 'he' ? 'he-IL' : 'en-US'
   const today = new Date().toISOString().split('T')[0]
-
-  const nlpMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const { data, error } = await supabase.functions.invoke('nlp-action', {
-        body: { text, circleId: activeCircle?.id },
-      })
-      if (error) throw error
-      if (data?._ai_usage) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          await logAIUsage(user.id, 'nlp_action', data._ai_usage.model, data._ai_usage.tokens_in, data._ai_usage.tokens_out, data._ai_usage.cost_usd)
-        }
-      }
-      return data as { action: string; confirmation: string; params: Record<string, unknown> }
-    },
-    onSuccess: (data) => {
-      setNlpResult(data)
-      setNlpInput('')
-    },
-  })
 
   // Shopping lists — metadata only
   const { data: lists = [], isLoading: listsLoading } = useQuery({
@@ -368,64 +343,6 @@ export function HomePage() {
           </button>
         </div>
       </motion.section>
-
-      {/* 6. AI NLP Input */}
-      <motion.div variants={fadeUp}>
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated overflow-hidden">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!nlpInput.trim() || nlpMutation.isPending) return
-              if (!ai.checkAIAccess()) return
-              nlpMutation.mutate(nlpInput.trim())
-            }}
-            className="flex items-center gap-2 p-2"
-          >
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-brand-500 flex items-center justify-center shrink-0">
-              <Sparkles className="h-3.5 w-3.5 text-white" />
-            </div>
-            <input
-              type="text"
-              value={nlpInput}
-              onChange={(e) => setNlpInput(e.target.value)}
-              placeholder={t('ai.nlpPlaceholder')}
-              className="flex-1 text-sm bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none"
-              disabled={nlpMutation.isPending}
-            />
-            <button
-              type="submit"
-              disabled={!nlpInput.trim() || nlpMutation.isPending}
-              className="h-11 w-11 rounded-lg bg-brand-500 text-white flex items-center justify-center shrink-0 disabled:opacity-40 active:scale-90 transition-transform"
-            >
-              {nlpMutation.isPending ? (
-                <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Send className="h-3.5 w-3.5" />
-              )}
-            </button>
-          </form>
-          {nlpResult && (
-            <div className="px-3 pb-3">
-              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-surface-dark-overlay">
-                <Sparkles className="h-3.5 w-3.5 text-brand-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-600 dark:text-slate-300">{nlpResult.confirmation}</p>
-              </div>
-            </div>
-          )}
-          {!ai.hasAI && !nlpInput && (
-            <div className="px-3 pb-2">
-              <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-medium">
-                AI
-              </span>
-            </div>
-          )}
-        </div>
-        <AIUpgradeModal
-          open={ai.showUpgradeModal}
-          onOpenChange={ai.setShowUpgradeModal}
-          isLimitReached={ai.isLimitReached}
-        />
-      </motion.div>
 
       {/* Recipe Picker Bottom Sheet */}
       <Dialog.Root open={recipePickerOpen} onOpenChange={setRecipePickerOpen}>

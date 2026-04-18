@@ -100,27 +100,49 @@ const FREE_SYSTEM_PROMPT_HE = `אתה העוזר של Replanish, עוזר ידי
 
 תמיד היה מועיל, תמציתי וידידותי. ענה בשפה שבה המשתמש כותב (עברית או אנגלית).`
 
-const PAID_SYSTEM_PROMPT = `You are Replanish Helper, a powerful AI assistant for the Replanish family management app.
+const PAID_SYSTEM_PROMPT = `You are Replanish Helper, a warm and friendly AI assistant for the Replanish family app. You can help users manage meals, activities, chores, shopping, events, and recipes.
 
-You can help users with app questions AND perform actions on their behalf.
+## How to interact
+- Be warm, concise, and conversational — like a helpful friend
+- Ask for what you need directly and naturally: "Let's plan dinner! Which date is it for, and any dietary restrictions to keep in mind?"
+- NEVER say "Once you provide...", "After you share...", "When you give me..." — always make it feel like a back-and-forth conversation
+- Combine related questions into one message (max 2-3 questions at once)
+- When you have enough info, use the appropriate tool — don't ask for more than you need
+- Keep messages short and to the point
 
-When the user asks you to do something, use the appropriate tool. If the user just asks a question about the app, answer it directly without using tools.
+## Tools you can use
+- **create_activity**: Schedule recurring activities (soccer, piano, etc.)
+- **plan_meals**: Generate a meal plan for specific dates
+- **create_recipe**: Create a new recipe
+- **add_to_shopping_list**: Add items to the shopping list
+- **import_recipe_url**: Import a recipe from a URL
 
-Always be helpful, concise, and friendly. Respond in the same language the user writes in (English or Hebrew).`
+## Conversation examples
+User: "Add soccer every Tuesday at 5pm until June"
+→ Use create_activity immediately (you have all the info needed)
+
+User: "Plan meals for next week"
+→ Ask: "Let's plan next week! How many people are eating (adults/kids), and any dietary needs I should know about?"
+
+User: "I want to plan a dinner party"
+→ Ask: "Fun! When's the dinner party, and roughly how many guests? Any dietary restrictions to plan around?"
+
+Always respond in the user's language (English or Hebrew).`
 
 const PAID_TOOLS = [
   {
     name: 'create_activity',
-    description: 'Create a recurring activity (e.g., soccer practice, piano lessons). The frontend will handle the actual creation.',
+    description: 'Create a recurring activity (e.g., soccer practice, piano lessons). Execute immediately when you have enough information.',
     input_schema: {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Activity name' },
-        day_of_week: { type: 'string', description: 'Day of week (monday, tuesday, etc.)' },
+        day_of_week: { type: 'string', description: 'Day of week (monday, tuesday, etc.) or comma-separated for multiple days' },
         start_time: { type: 'string', description: 'Start time in HH:MM format' },
         end_time: { type: 'string', description: 'End time in HH:MM format (optional)' },
-        recurrence: { type: 'string', enum: ['weekly', 'biweekly', 'daily', 'monthly'], description: 'How often it repeats' },
-        assigned_to: { type: 'string', description: 'Who this activity is for (optional)' },
+        recurrence: { type: 'string', enum: ['weekly', 'biweekly', 'daily', 'monthly', 'once'], description: 'How often it repeats' },
+        end_date: { type: 'string', description: "End date in YYYY-MM-DD format (e.g., for 'until June 2026')" },
+        assigned_to: { type: 'string', description: 'Name of the person this activity is for (optional)' },
       },
       required: ['name', 'day_of_week', 'recurrence'],
     },
@@ -287,10 +309,23 @@ serve(async (req) => {
       if (block.type === 'text') {
         reply += block.text
       } else if (block.type === 'tool_use') {
+        let confirmation = `Action: ${block.name}`
+        if (block.name === 'create_activity') {
+          confirmation = `Create activity: ${block.input.name} on ${block.input.day_of_week}`
+        } else if (block.name === 'plan_meals') {
+          confirmation = 'Generating meal plan...'
+        } else if (block.name === 'create_recipe') {
+          confirmation = `Create recipe: ${block.input.title}`
+        } else if (block.name === 'add_to_shopping_list') {
+          const itemList = Array.isArray(block.input.items) ? (block.input.items as string[]).join(', ') : ''
+          confirmation = `Add ${itemList} to your shopping list`
+        } else if (block.name === 'import_recipe_url') {
+          confirmation = 'Import recipe from URL'
+        }
         action = {
           type: block.name,
           params: block.input,
-          confirmation: `Action: ${block.name}`,
+          confirmation,
         }
       }
     }

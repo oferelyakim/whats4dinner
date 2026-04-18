@@ -70,7 +70,21 @@ Return JSON with:
 }
 
 For "add_to_list": params = { "items": ["item1", "item2"] }
-For "add_activity": params = { "name": "...", "day": "...", "time": "..." }
+For "add_activity": params = {
+  "name": "activity name",
+  "day_of_week": "tuesday",
+  "start_time": "17:00",
+  "end_time": null,
+  "recurrence": "weekly",
+  "end_date": "2026-06-30",
+  "assigned_to": "Daniel"
+}
+Notes for add_activity:
+- day_of_week: lowercase full day name (e.g., "tuesday")
+- start_time / end_time: 24h HH:MM format, null if not mentioned
+- recurrence: weekly/biweekly/daily/monthly/once
+- end_date: YYYY-MM-DD format, null if not specified. Parse "until June" as last day of June in the current or next year. "until June 2026" → "2026-06-30"
+- assigned_to: person name string, null if not specified
 For "add_chore": params = { "name": "...", "frequency": "daily|weekly|once" }
 For "search_recipe": params = { "query": "..." }
 
@@ -144,6 +158,86 @@ Return ONLY valid JSON.`
           }
           parsed.executed = true
           parsed.confirmation += ` (Added to your active list)`
+        }
+      }
+    }
+
+    if (parsed.action === 'add_activity' && parsed.params.name) {
+      // Try to match assigned_to with a circle member
+      let assignedUserId: string | null = null
+      let assignedName: string | null = parsed.params.assigned_to || null
+
+      if (circleId && assignedName) {
+        const { data: members } = await supabase
+          .from('circle_members')
+          .select('user_id, profiles(display_name, full_name)')
+          .eq('circle_id', circleId)
+
+        if (members) {
+          for (const member of members) {
+            const profile = member.profiles as { display_name?: string; full_name?: string } | null
+            const memberName = (profile?.display_name || profile?.full_name || '').toLowerCase()
+            if (memberName && assignedName.toLowerCase().includes(memberName.split(' ')[0])) {
+              assignedUserId = member.user_id
+              assignedName = profile?.display_name || profile?.full_name || assignedName
+              break
+            }
+          }
+        }
+      }
+
+      // Map day name to recurrence_days number
+      const dayMap: Record<string, number> = {
+        sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+        thursday: 4, friday: 5, saturday: 6,
+      }
+      const dayName = (parsed.params.day_of_week || parsed.params.day || '').toLowerCase()
+      const dayNumber = dayMap[dayName] ?? null
+      const recurrenceDays = dayNumber !== null ? [dayNumber] : []
+
+      // Calculate start_date: next occurrence of the day
+      const today = new Date()
+      let startDate = new Date(today)
+      if (dayNumber !== null) {
+        const daysUntil = (dayNumber - today.getDay() + 7) % 7
+        startDate.setDate(today.getDate() + (daysUntil === 0 ? 7 : daysUntil))
+      }
+
+      const circleIdToUse: string | null = circleId || (
+        await supabase
+          .from('circle_members')
+          .select('circle_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .then((r) => r.data?.[0]?.circle_id ?? null)
+      )
+
+      if (circleIdToUse) {
+        const activityData: Record<string, unknown> = {
+          circle_id: circleIdToUse,
+          name: parsed.params.name,
+          recurrence_type: parsed.params.recurrence || 'weekly',
+          recurrence_days: recurrenceDays,
+          start_date: startDate.toISOString().split('T')[0],
+          start_time: parsed.params.start_time || null,
+          end_time: parsed.params.end_time || null,
+          end_date: parsed.params.end_date || null,
+          created_by: user.id,
+        }
+
+        if (assignedUserId) {
+          activityData.assigned_to = assignedUserId
+          activityData.assigned_name = assignedName
+        } else if (assignedName) {
+          activityData.assigned_name = assignedName
+        }
+
+        const { error: activityError } = await supabase.from('activities').insert(activityData)
+        if (!activityError) {
+          parsed.executed = true
+          const dayDisplay = dayName ? dayName.charAt(0).toUpperCase() + dayName.slice(1) : ''
+          parsed.confirmation = `Added "${parsed.params.name}"${dayDisplay ? ` every ${dayDisplay}` : ''}${parsed.params.start_time ? ` at ${parsed.params.start_time}` : ''}${parsed.params.end_date ? ` until ${parsed.params.end_date}` : ''}`
+          if (assignedName) parsed.confirmation += ` for ${assignedName}`
         }
       }
     }

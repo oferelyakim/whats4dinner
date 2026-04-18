@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download, Sparkles, ArrowLeft, ChevronDown, ChevronUp, Clipboard, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download, ArrowLeft, ChevronDown, ChevronUp, Clipboard, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -595,41 +595,6 @@ export function PlanPage() {
           </Button>
         </div>
       )}
-
-      {/* AI Meal Planning */}
-      <button
-        onClick={() => {
-          if (!ai.checkAIAccess()) return
-          setShowIntakeDialog(true)
-        }}
-        disabled={generateAiPlanFromIntake.isPending || generateAiPlan.isPending}
-        className={cn(
-          'w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all text-start',
-          'border-brand-300 dark:border-brand-700 bg-brand-500/5 hover:bg-brand-500/10',
-          (generateAiPlanFromIntake.isPending || generateAiPlan.isPending) && 'opacity-60'
-        )}
-      >
-        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
-          {generateAiPlanFromIntake.isPending || generateAiPlan.isPending ? (
-            <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Sparkles className="h-5 w-5 text-white" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            {generateAiPlanFromIntake.isPending || generateAiPlan.isPending ? t('common.loading') : t('ai.mealPlanPlaceholder')}
-          </p>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {generateAiPlanFromIntake.isPending || generateAiPlan.isPending ? t('plan.generatingMeals') : t('ai.mealPlanPlaceholderDesc')}
-          </p>
-        </div>
-        {!ai.hasAI && (
-          <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-medium shrink-0">
-            AI
-          </span>
-        )}
-      </button>
 
       {/* New intake dialog (primary AI path) */}
       <MealPlanIntakeDialog

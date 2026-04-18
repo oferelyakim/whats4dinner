@@ -1,15 +1,24 @@
 import { useRef, useEffect, useState, type FormEvent } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X, Send, Sparkles, Trash2 } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
 import { useChat } from '@/hooks/useChat'
 import { useI18n } from '@/lib/i18n'
 import { ChatMessage } from './ChatMessage'
 import { ChatWelcome } from './ChatWelcome'
+import { ChatPlanReview } from './ChatPlanReview'
+import type { GeneratedPlan, MealPlanItem } from './ChatPlanReview'
 import { cn } from '@/lib/cn'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
+import { useAppStore } from '@/stores/appStore'
+import { useQueryClient } from '@tanstack/react-query'
+import { createRecipe } from '@/services/recipes'
+import { setMealPlan } from '@/services/mealPlans'
 
 export function ChatDialog() {
   const { t } = useI18n()
+  const { activeCircle } = useAppStore()
+  const queryClient = useQueryClient()
   const {
     messages,
     isOpen,
@@ -19,12 +28,17 @@ export function ChatDialog() {
     freeImportCap,
     closeChat,
     sendMessage,
+    applyAction,
+    addMessage,
     clearMessages,
     showUpgradeModal,
     setShowUpgradeModal,
   } = useChat()
 
   const [input, setInput] = useState('')
+  const [pendingPlan, setPendingPlan] = useState<GeneratedPlan | null>(null)
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
+  const [isAcceptingPlan, setIsAcceptingPlan] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -49,23 +63,74 @@ export function ChatDialog() {
     sendMessage(text)
   }
 
-  const handleActionApply = (messageId: string) => {
+  const handleActionApply = async (messageId: string) => {
     const msg = messages.find((m) => m.id === messageId)
     if (!msg?.action) return
 
-    // Actions are already handled in useChat hook for recipe imports.
-    // For paid-tier actions (create_activity, plan_meals, etc.),
-    // navigate to the appropriate page with pre-filled data.
-    // This is handled by the action type in the message.
-    const { type, params } = msg.action
-    if (type === 'create_activity' && params) {
-      // Navigate to create activity — for now, just confirm
-      // Future: router.push('/household/activities/new', { state: params })
+    const { type } = msg.action
+
+    if (type === 'plan_meals') {
+      setIsGeneratingPlan(true)
+      try {
+        const result = await applyAction(msg.action)
+        if (result) {
+          setPendingPlan(result)
+        }
+      } finally {
+        setIsGeneratingPlan(false)
+      }
+    } else {
+      await applyAction(msg.action)
     }
   }
 
   const handleActionDismiss = (_messageId: string) => {
     // Dismissing just leaves the message as-is without acting
+  }
+
+  const handleAcceptPlan = async (selectedItems: MealPlanItem[]) => {
+    if (!activeCircle) return
+    setIsAcceptingPlan(true)
+    try {
+      for (const item of selectedItems) {
+        let recipeId = item.recipe_id ?? undefined
+        if (!recipeId && item.ingredients) {
+          const recipe = await createRecipe({
+            circle_id: activeCircle.id,
+            title: item.recipe_title,
+            ingredients: item.ingredients.map((ing, idx) => ({
+              name: ing.name,
+              quantity: ing.quantity ?? null,
+              unit: (ing.unit || '') as import('@/lib/constants').Unit,
+              sort_order: idx,
+              notes: null,
+              item_id: null,
+            })),
+            tags: item.tags || [],
+          })
+          recipeId = recipe.id
+        }
+        await setMealPlan(activeCircle.id, item.date, item.meal_type, recipeId)
+      }
+      queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
+      queryClient.invalidateQueries({ queryKey: ['recipes'] })
+      setPendingPlan(null)
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `✅ Your meal plan has been saved! Check the Plan tab to see it.`,
+        timestamp: Date.now(),
+      })
+    } catch (err) {
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `Sorry, there was an error saving the plan: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        timestamp: Date.now(),
+      })
+    } finally {
+      setIsAcceptingPlan(false)
+    }
   }
 
   return (
@@ -186,6 +251,40 @@ export function ChatDialog() {
         open={showUpgradeModal}
         onOpenChange={setShowUpgradeModal}
       />
+
+      {/* Generating plan overlay */}
+      {isGeneratingPlan && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-surface-dark-elevated rounded-2xl p-6 flex flex-col items-center gap-3 shadow-xl mx-4">
+            <div className="h-8 w-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              {t('plan.generatingMeals')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Plan review sheet */}
+      <AnimatePresence>
+        {pendingPlan && (
+          <>
+            <div
+              className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-sm"
+              onClick={() => setPendingPlan(null)}
+            />
+            <ChatPlanReview
+              plan={pendingPlan}
+              isAccepting={isAcceptingPlan}
+              onAccept={handleAcceptPlan}
+              onRequestChanges={(request) => {
+                setPendingPlan(null)
+                sendMessage(request)
+              }}
+              onDismiss={() => setPendingPlan(null)}
+            />
+          </>
+        )}
+      </AnimatePresence>
     </>
   )
 }

@@ -314,6 +314,8 @@ const translations: Record<string, Record<Locale, string>> = {
   'common.notFound': { en: 'Not found', he: 'לא נמצא', es: 'No encontrado' },
   'common.somethingWentWrong': { en: 'Something went wrong', he: 'משהו השתבש', es: 'Algo salió mal' },
   'common.more': { en: 'more', he: 'עוד', es: 'más' },
+  'common.send': { en: 'Send', he: 'שלח', es: 'Enviar' },
+  'common.saving': { en: 'Saving...', he: 'שומר...', es: 'Guardando...' },
 
   // Activities
   'activity.activities': { en: 'Activities', he: 'פעילויות', es: 'Actividades' },
@@ -453,6 +455,17 @@ const translations: Record<string, Record<Locale, string>> = {
   'chat.recipeImported': { en: 'Recipe imported successfully!', he: 'המתכון יובא בהצלחה!', es: '¡Receta importada con éxito!' },
   'chat.recipeImportFailed': { en: 'Failed to import recipe. Try again or check the URL.', he: 'ייבוא המתכון נכשל. נסה שוב או בדוק את הקישור.', es: 'Error al importar receta. Intenta de nuevo o verifica la URL.' },
   'chat.errorGeneric': { en: 'Sorry, something went wrong. Please try again.', he: 'מצטער, משהו השתבש. נסה שוב.', es: 'Lo siento, algo salió mal. Intenta de nuevo.' },
+
+  // Chat plan review
+  'chat.planReview.title': { en: 'Your Meal Plan', he: 'תפריט הארוחות שלך', es: 'Tu plan de comidas' },
+  'chat.planReview.subtitle': { en: 'Review and customize before saving', he: 'בדוק והתאם לפני שמירה', es: 'Revisa y personaliza antes de guardar' },
+  'chat.planReview.fromRecipes': { en: 'From your recipes', he: 'מהמתכונים שלך', es: 'De tus recetas' },
+  'chat.planReview.newRecipe': { en: 'New recipe', he: 'מתכון חדש', es: 'Receta nueva' },
+  'chat.planReview.minutesAbbr': { en: 'min', he: 'דק׳', es: 'min' },
+  'chat.planReview.shoppingNeeded': { en: 'Shopping needed', he: 'צריך לקנות', es: 'Compras necesarias' },
+  'chat.planReview.requestChanges': { en: 'Request Changes', he: 'בקש שינויים', es: 'Pedir cambios' },
+  'chat.planReview.savePlan': { en: 'Save Plan', he: 'שמור תכנית', es: 'Guardar plan' },
+  'chat.planReview.changesPlaceholder': { en: 'What would you like to change?', he: 'מה תרצה לשנות?', es: '¿Qué te gustaría cambiar?' },
 
   // Chores
   'chore.chores': { en: 'Chores', he: 'מטלות בית', es: 'Tareas del hogar' },
