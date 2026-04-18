@@ -169,7 +169,7 @@ export interface ItemRequest {
 
 export type SubscriptionPlan = 'free' | 'ai_individual' | 'ai_family'
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired'
-export type AIActionType = 'recipe_import_url' | 'recipe_import_photo' | 'meal_plan' | 'nlp_action' | 'chat' | 'chat_recipe_import'
+export type AIActionType = 'recipe_import_url' | 'recipe_import_photo' | 'meal_plan' | 'meal_plan_edit' | 'nlp_action' | 'chat' | 'chat_recipe_import' | 'event_plan' | 'event_plan_refine'
 
 export interface Subscription {
   id: string
@@ -193,4 +193,7 @@ export interface AIUsage {
   tokens_out: number
   period_start: string
   created_at: string
+  session_id?: string
+  feature_context?: string
+  scope?: string
 }

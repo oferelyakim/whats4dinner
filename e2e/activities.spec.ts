@@ -35,6 +35,7 @@ async function mockAuth(page: Page) {
         display_name: 'Test User',
         avatar_url: null,
         email: 'test@example.com',
+        has_onboarded: true,
         preferences: { theme: 'dark' },
         created_at: '2025-01-01T00:00:00Z',
         updated_at: '2025-01-01T00:00:00Z',
@@ -87,23 +88,21 @@ async function setActiveCircle(page: Page) {
       version: 0,
     }
     localStorage.setItem('w4d-app', JSON.stringify(state))
+    // Supabase JS v2 flat format (v1 'currentSession' wrapper is ignored by v2)
     localStorage.setItem(
       'sb-zgebzhvbszhqvaryfiwk-auth-token',
       JSON.stringify({
-        currentSession: {
-          access_token: 'fake-access-token',
-          token_type: 'bearer',
-          expires_in: 3600,
-          refresh_token: 'fake-refresh-token',
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          user: {
-            id: 'test-user-id',
-            email: 'test@example.com',
-            role: 'authenticated',
-            aud: 'authenticated',
-          },
+        access_token: 'fake-access-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'fake-refresh-token',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: {
+          id: 'test-user-id',
+          email: 'test@example.com',
+          role: 'authenticated',
+          aud: 'authenticated',
         },
-        expiresAt: Math.floor(Date.now() / 1000) + 3600,
       }),
     )
   })
@@ -116,9 +115,8 @@ async function setActiveCircle(page: Page) {
 test.describe('Activities Page - Unauthenticated', () => {
   test('shows login page when not authenticated', async ({ page }) => {
     await page.goto('/more/activities')
-    await expect(
-      page.getByText('Sign In').or(page.getByText('Continue with Google')),
-    ).toBeVisible({ timeout: 10000 })
+    // Use unique 'Continue with Google' text — avoids strict-mode multi-match from 'Sign In'
+    await expect(page.getByText('Continue with Google')).toBeVisible({ timeout: 10000 })
   })
 
   test('login page shows Google sign-in option', async ({ page }) => {
@@ -137,18 +135,16 @@ test.describe('Activities Page - No Active Circle', () => {
     await page.addInitScript(() => {
       const state = { state: { theme: 'dark', activeCircle: null }, version: 0 }
       localStorage.setItem('w4d-app', JSON.stringify(state))
+      // Supabase JS v2 flat format
       localStorage.setItem(
         'sb-zgebzhvbszhqvaryfiwk-auth-token',
         JSON.stringify({
-          currentSession: {
-            access_token: 'fake-access-token',
-            token_type: 'bearer',
-            expires_in: 3600,
-            refresh_token: 'fake-refresh-token',
-            expires_at: Math.floor(Date.now() / 1000) + 3600,
-            user: { id: 'test-user-id', email: 'test@example.com', role: 'authenticated', aud: 'authenticated' },
-          },
-          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          access_token: 'fake-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+          refresh_token: 'fake-refresh-token',
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user: { id: 'test-user-id', email: 'test@example.com', role: 'authenticated', aud: 'authenticated' },
         }),
       )
     })
@@ -183,16 +179,19 @@ test.describe('Activities Page - With Active Circle', () => {
     await expect(page.getByRole('button', { name: /add/i })).toBeVisible()
   })
 
-  test('shows subtitle description text', async ({ page }) => {
+  test('shows calendar view toggle (Month/Week/Day)', async ({ page }) => {
     await page.goto('/more/activities')
-    await expect(page.getByText(/Schedule recurring activities/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Activities').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: 'Month', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Week', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Day', exact: true })).toBeVisible()
   })
 
   test('displays weekly mini calendar with 7 day buttons', async ({ page }) => {
     await page.goto('/more/activities')
     await expect(page.getByText('Activities').first()).toBeVisible({ timeout: 10000 })
-    // The week calendar should have 7 day buttons with day letters
-    // These are narrow day labels (S, M, T, W, T, F, S) plus date numbers
+    // Default view is month — switch to week view first
+    await page.getByRole('button', { name: 'Week', exact: true }).click()
     const dayButtons = page.locator('.flex.gap-1.justify-between button')
     await expect(dayButtons).toHaveCount(7)
   })
@@ -212,13 +211,13 @@ test.describe('Activities Page - With Active Circle', () => {
     await page.goto('/more/activities')
     await expect(page.getByRole('button', { name: /add/i })).toBeVisible({ timeout: 10000 })
     await page.getByRole('button', { name: /add/i }).click()
-    await expect(page.getByText('New Activity')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'New Activity' })).toBeVisible()
   })
 
   test('clicking empty state New Activity button opens dialog', async ({ page }) => {
     await page.goto('/more/activities')
     await page.getByRole('button', { name: /new activity/i }).click({ timeout: 10000 })
-    await expect(page.getByText('New Activity')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'New Activity' })).toBeVisible()
   })
 
   test('create dialog has activity name input', async ({ page }) => {
@@ -267,8 +266,8 @@ test.describe('Activities Page - With Active Circle', () => {
     const dialog = page.locator('[role="dialog"]')
     const sportsButton = dialog.getByText(/⚽.*Sports/)
     await sportsButton.click()
-    // Should have active style
-    await expect(sportsButton.locator('..')).toHaveClass(/bg-brand-500/)
+    // The button itself gets bg-brand-500 when selected
+    await expect(sportsButton).toHaveClass(/bg-brand-500/)
   })
 
   test('create dialog has location input', async ({ page }) => {
@@ -327,9 +326,10 @@ test.describe('Activities Page - With Active Circle', () => {
     const dialog = page.locator('[role="dialog"]')
     const tuButton = dialog.getByText('Tu', { exact: true })
     await tuButton.click()
-    await expect(tuButton.locator('..')).toHaveClass(/bg-brand-500/)
+    // The button itself gets bg-brand-500 when selected
+    await expect(tuButton).toHaveClass(/bg-brand-500/)
     await tuButton.click()
-    await expect(tuButton.locator('..')).not.toHaveClass(/bg-brand-500/)
+    await expect(tuButton).not.toHaveClass(/bg-brand-500/)
   })
 
   test('create dialog has start and end date fields', async ({ page }) => {
@@ -385,14 +385,14 @@ test.describe('Activities Page - With Active Circle', () => {
     // Participant name input
     await expect(page.getByPlaceholder('Name')).toBeVisible()
     // Role dropdown
-    const roleSelect = page.locator('[role="dialog"]').locator('select')
+    const roleSelect = page.locator('[role="dialog"]').locator('select').last()
     await expect(roleSelect).toBeVisible()
   })
 
   test('participants section has role options', async ({ page }) => {
     await page.goto('/more/activities')
     await page.getByRole('button', { name: /add/i }).click({ timeout: 10000 })
-    const roleSelect = page.locator('[role="dialog"]').locator('select')
+    const roleSelect = page.locator('[role="dialog"]').locator('select').last()
     // Check option values
     await expect(roleSelect.locator('option[value="participant"]')).toHaveCount(1)
     await expect(roleSelect.locator('option[value="escort"]')).toHaveCount(1)
@@ -501,7 +501,7 @@ test.describe('Activities Page - With Active Circle', () => {
     await page.getByPlaceholder('Name').fill('Emma')
 
     // Select role
-    await dialog.locator('select').selectOption('driver')
+    await dialog.locator('select').last().selectOption('driver')
 
     // Click the small add button next to the participant input
     // It's the Plus button in the participants section
@@ -511,7 +511,8 @@ test.describe('Activities Page - With Active Circle', () => {
 
     // Participant should appear in the list
     await expect(dialog.getByText('Emma')).toBeVisible()
-    await expect(dialog.getByText('Driver')).toBeVisible()
+    // .first() — 'Driver' also appears as a <option> in the role select
+    await expect(dialog.getByText('Driver').first()).toBeVisible()
   })
 
   test('can add a bring item to the form', async ({ page }) => {
@@ -562,7 +563,17 @@ test.describe('Activities Page - With Existing Activities', () => {
       route.fulfill({ status: 400, body: JSON.stringify({ error: 'invalid_grant' }) }),
     )
     await page.route(`${SUPABASE_URL}/auth/v1/session`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'fake-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+          refresh_token: 'fake-refresh-token',
+          user: { id: 'test-user-id', email: 'test@example.com', role: 'authenticated' },
+        }),
+      }),
     )
     await page.route(`${SUPABASE_URL}/rest/v1/profiles*`, (route) =>
       route.fulfill({
@@ -573,6 +584,7 @@ test.describe('Activities Page - With Existing Activities', () => {
           display_name: 'Test User',
           avatar_url: null,
           email: 'test@example.com',
+          has_onboarded: true,
           preferences: { theme: 'dark' },
           created_at: '2025-01-01T00:00:00Z',
           updated_at: '2025-01-01T00:00:00Z',
@@ -705,8 +717,8 @@ test.describe('Activities Page - With Existing Activities', () => {
     await expect(page.getByText('Soccer Practice')).toBeVisible({ timeout: 10000 })
     await page.getByText('Soccer Practice').click()
     await expect(page.getByText('What to Bring')).toBeVisible()
-    await expect(page.getByText('Cleats')).toBeVisible()
-    await expect(page.getByText('Water bottle')).toBeVisible()
+    await expect(page.getByText('Cleats', { exact: true })).toBeVisible()
+    await expect(page.getByText('Water bottle', { exact: true })).toBeVisible()
   })
 
   test('expanded card shows end date', async ({ page }) => {

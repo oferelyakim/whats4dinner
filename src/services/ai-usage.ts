@@ -57,6 +57,11 @@ export async function logAIUsage(
   tokensIn: number,
   tokensOut: number,
   costUsd: number,
+  extra?: {
+    session_id?: string
+    feature_context?: string
+    scope?: string
+  }
 ): Promise<void> {
   const sub = await getUserSubscription(userId)
   const periodStart = sub?.current_period_start ?? new Date().toISOString()
@@ -69,6 +74,9 @@ export async function logAIUsage(
     tokens_in: tokensIn,
     tokens_out: tokensOut,
     period_start: periodStart,
+    ...(extra?.session_id && { session_id: extra.session_id }),
+    ...(extra?.feature_context && { feature_context: extra.feature_context }),
+    ...(extra?.scope && { scope: extra.scope }),
   })
 }
 

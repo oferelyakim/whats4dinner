@@ -231,8 +231,9 @@ function PlanCard({
 
 /** Usage meter progress bar for Profile/Settings */
 export function UsageMeter({
-  usageDollars,
-  limitDollars,
+  // usageDollars and limitDollars retained in props for backward-compat but not displayed
+  usageDollars: _usageDollars,
+  limitDollars: _limitDollars,
   percentUsed,
   isWarning,
   isLimitReached,
@@ -259,7 +260,7 @@ export function UsageMeter({
           'font-medium',
           isLimitReached ? 'text-red-500' : isWarning ? 'text-orange-500' : 'text-slate-600 dark:text-slate-400'
         )}>
-          ${usageDollars.toFixed(2)} / ${limitDollars.toFixed(2)}
+          {Math.round(percentUsed)}%
         </span>
       </div>
       <div className="h-2 rounded-full bg-slate-100 dark:bg-surface-dark-overlay overflow-hidden">

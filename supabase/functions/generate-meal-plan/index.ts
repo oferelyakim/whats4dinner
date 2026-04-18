@@ -40,7 +40,7 @@ const MEAL_PLAN_TOOL = {
           type: 'object',
           properties: {
             date: { type: 'string', description: 'YYYY-MM-DD' },
-            meal_type: { type: 'string', enum: ['breakfast', 'lunch', 'dinner'] },
+            meal_type: { type: 'string', enum: ['breakfast', 'brunch', 'lunch', 'dinner', 'snack', 'snack_bar', 'tapas'] },
             recipe_title: { type: 'string' },
             recipe_id: {
               type: ['string', 'null'],
@@ -100,12 +100,13 @@ const MEAL_PLAN_TOOL = {
 
 // ─── System Prompt ───────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are an expert family meal planner for OurTable, a household coordination app used primarily in Israel.
+const SYSTEM_PROMPT = `You are an expert family meal planner for OurTable, a household coordination app.
 
 Your goal is to create practical, varied, and delicious weekly meal plans that families will actually cook — not aspirational plans they will abandon.
 
 ## Cuisine & Cultural Context
-- Default to Israeli/Mediterranean cuisine: shakshuka, hummus dishes, schnitzel, couscous, falafel, sabich, roast chicken with lemon and garlic, burekas, lentil soup, jachnun on weekends, etc.
+- Default to the user's cultural context. If no location/preference is given, use Mediterranean/Middle-Eastern as a versatile default.
+- Use the event location and user locale to infer cultural context rather than assuming. A user in Israel planning Christmas should get Christmas guidance; a user in Texas hosting Passover should get Passover guidance.
 - Incorporate seasonal vegetables and flavours naturally.
 - Respect any stated cuisine preferences — if a family prefers Asian or Italian, pivot accordingly.
 - Include dishes from a variety of origins (Ashkenazi, Mizrahi, Arab-Israeli, global) for variety.
@@ -189,11 +190,13 @@ serve(async (req) => {
       planScope,
       mealType,
       preferences,
+      session_id,
+      feature_context,
     }: {
       circleId: string
       dates: string[]
-      planScope?: 'meal' | 'day' | 'week'
-      mealType?: 'breakfast' | 'lunch' | 'dinner'
+      planScope?: 'meal' | 'day' | 'week' | 'custom'
+      mealType?: 'breakfast' | 'brunch' | 'lunch' | 'dinner' | 'snack' | 'snack_bar' | 'tapas'
       preferences?: {
         dietary_restrictions?: string
         calorie_target?: string
@@ -202,8 +205,12 @@ serve(async (req) => {
         weekday_time_budget_min?: number
         weekend_time_budget_min?: number
         servings?: number
+        headcount_adults?: number
+        headcount_kids?: number
         special_requests?: string
       }
+      session_id?: string
+      feature_context?: string
     } = await req.json()
 
     if (!circleId || !dates || !Array.isArray(dates)) {
@@ -254,11 +261,11 @@ serve(async (req) => {
     const prefsBlock = `User preferences:
 - Dietary restrictions: ${preferences?.dietary_restrictions || 'none specified'}
 - Calorie target: ${preferences?.calorie_target || 'not specified'}
-- Cuisine preferences: ${preferences?.cuisine_preferences || 'Israeli/Mediterranean default'}
+- Cuisine preferences: ${preferences?.cuisine_preferences || 'Mediterranean/Middle-Eastern default'}
 - Cooking skill level: ${preferences?.skill_level || 'intermediate'}
 - Time budget weekdays: ${preferences?.weekday_time_budget_min ? `under ${preferences.weekday_time_budget_min} min` : 'under 45 min'}
 - Time budget weekends: ${preferences?.weekend_time_budget_min ? `under ${preferences.weekend_time_budget_min} min` : 'flexible'}
-- Number of people: ${preferences?.servings || 'not specified — assume 4'}
+- Headcount: ${preferences?.headcount_adults != null ? `${preferences.headcount_adults} adults${preferences?.headcount_kids ? `, ${preferences.headcount_kids} kids` : ''}` : preferences?.servings ? `${preferences.servings} people` : 'not specified — assume 4'}
 - Special requests: ${preferences?.special_requests || 'none'}`
 
     // Build scope-aware instructions
@@ -288,7 +295,7 @@ ${scopeInstruction}`
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': '2024-06-01',
       },
       body: JSON.stringify({
         model: MODEL,
@@ -301,14 +308,17 @@ ${scopeInstruction}`
     })
 
     if (!response.ok) {
-      const err = await response.text()
-      throw new Error(`Claude API error: ${err}`)
+      const errBody = await response.text()
+      let errMsg: string
+      try { errMsg = JSON.stringify(JSON.parse(errBody)) } catch { errMsg = errBody }
+      throw new Error(`Claude API error ${response.status}: ${errMsg}`)
     }
 
     const result = await response.json()
 
     // Extract structured output from tool_use
     const toolUse = result.content?.find((block: { type: string }) => block.type === 'tool_use')
+    if (!toolUse) throw new Error('Claude did not call generate_meal_plan tool')
     const mealPlan = toolUse?.input?.meals || []
     const shoppingSuggestions = toolUse?.input?.shopping_suggestions || []
     const notes = toolUse?.input?.notes || ''
@@ -328,6 +338,8 @@ ${scopeInstruction}`
           tokens_in: tokensIn,
           tokens_out: tokensOut,
           cost_usd: Math.round(cost * 1_000_000) / 1_000_000,
+          session_id: session_id,
+          feature_context: feature_context,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

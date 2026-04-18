@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, Trash2,
-  UtensilsCrossed, Package, ListTodo, Users, Crown, X, Download, Edit3,
+  UtensilsCrossed, Package, ListTodo, Users, Crown, X, Download, Edit3, Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -21,6 +21,13 @@ import {
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { exportEventToCalendar } from '@/lib/calendar'
+import { EventAIPlanDialog } from '@/components/ui/EventAIPlanDialog'
+import type { EventAIPlanRequest } from '@/components/ui/EventAIPlanDialog'
+import { useAIAccess } from '@/hooks/useAIAccess'
+import { useToast } from '@/components/ui/Toast'
+import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
+import { supabase } from '@/services/supabase'
+import { logAIUsage } from '@/services/ai-usage'
 
 // TABS moved inside component for i18n
 
@@ -57,10 +64,15 @@ export function EventDetailPage() {
     { id: 'tasks', label: t('event.tasks'), icon: ListTodo },
   ]
 
+  const ai = useAIAccess()
+  const toast = useToast()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showAddItem, setShowAddItem] = useState(false)
   const [showDeleteEvent, setShowDeleteEvent] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showAIPlanDialog, setShowAIPlanDialog] = useState(false)
+  const [showAIUpgrade, setShowAIUpgrade] = useState(false)
+  const [isAIPlanLoading, setIsAIPlanLoading] = useState(false)
 
   // Add item form
   const [addType, setAddType] = useState<'dish' | 'supply' | 'task'>('dish')
@@ -176,6 +188,50 @@ export function EventDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event-items', id] }),
   })
 
+  async function handleAIPlanSubmit(request: EventAIPlanRequest) {
+    setIsAIPlanLoading(true)
+    try {
+      const sessionId = localStorage.getItem('replanish_session_id') ?? crypto.randomUUID()
+      const { data, error } = await supabase.functions.invoke('plan-event', {
+        body: {
+          eventId: id,
+          description: request.description,
+          headcountAdults: request.headcountAdults,
+          headcountKids: request.headcountKids,
+          budget: request.budget,
+          helpNeeded: request.helpNeeded,
+          keyRequirements: request.keyRequirements,
+          session_id: sessionId,
+          feature_context: 'event_detail',
+        },
+      })
+      if (error) throw error
+      if (data?._ai_usage) {
+        const { data: authData } = await supabase.auth.getUser()
+        if (authData.user) {
+          await logAIUsage(
+            authData.user.id,
+            'meal_plan',
+            data._ai_usage.model,
+            data._ai_usage.tokens_in,
+            data._ai_usage.tokens_out,
+            data._ai_usage.cost_usd,
+            {
+              session_id: sessionId,
+              feature_context: 'event_detail',
+            }
+          )
+        }
+      }
+      setShowAIPlanDialog(false)
+      toast.success(t('event.aiPlanSuccess'))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.somethingWentWrong'))
+      setShowAIPlanDialog(false)
+    } finally {
+      setIsAIPlanLoading(false)
+    }
+  }
 
   if (isEventLoading) {
     return (
@@ -358,6 +414,30 @@ export function EventDetailPage() {
               className="w-full text-center text-xs text-brand-500 font-medium py-2"
             >
               You have items assigned - tap "Mine" tab to see them
+            </button>
+          )}
+
+          {/* AI Plan Event — organizer + AI access only */}
+          {isOrganizer && ai.hasAI && (
+            <button
+              onClick={() => setShowAIPlanDialog(true)}
+              disabled={isAIPlanLoading}
+              className={cn(
+                'w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all text-start',
+                'border-brand-300 dark:border-brand-700 bg-brand-500/5 hover:bg-brand-500/10',
+                isAIPlanLoading && 'opacity-60'
+              )}
+            >
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
+                {isAIPlanLoading ? (
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 text-white" />
+                )}
+              </div>
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                {isAIPlanLoading ? t('event.aiGenerating') : t('event.aiPlan')}
+              </span>
             </button>
           )}
 
@@ -661,6 +741,21 @@ export function EventDetailPage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {/* AI Plan Event dialog */}
+      <EventAIPlanDialog
+        open={showAIPlanDialog}
+        onOpenChange={setShowAIPlanDialog}
+        eventTitle={event.name}
+        onSubmit={handleAIPlanSubmit}
+        isLoading={isAIPlanLoading}
+      />
+
+      {/* AI Upgrade modal — shown when user lacks AI access */}
+      <AIUpgradeModal
+        open={showAIUpgrade}
+        onOpenChange={setShowAIUpgrade}
+      />
     </div>
   )
 }

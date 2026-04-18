@@ -37,6 +37,7 @@ async function mockAuth(page: Page) {
         display_name: 'Test User',
         avatar_url: null,
         email: 'test@example.com',
+        has_onboarded: true,
         preferences: { theme: 'dark' },
         created_at: '2025-01-01T00:00:00Z',
         updated_at: '2025-01-01T00:00:00Z',
@@ -95,24 +96,21 @@ async function setActiveCircle(page: Page) {
       version: 0,
     }
     localStorage.setItem('w4d-app', JSON.stringify(state))
-    // Also set supabase auth token so it appears "logged in"
+    // Supabase JS v2 flat format (v1 'currentSession' wrapper is ignored by v2)
     localStorage.setItem(
       'sb-zgebzhvbszhqvaryfiwk-auth-token',
       JSON.stringify({
-        currentSession: {
-          access_token: 'fake-access-token',
-          token_type: 'bearer',
-          expires_in: 3600,
-          refresh_token: 'fake-refresh-token',
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          user: {
-            id: 'test-user-id',
-            email: 'test@example.com',
-            role: 'authenticated',
-            aud: 'authenticated',
-          },
+        access_token: 'fake-access-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'fake-refresh-token',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: {
+          id: 'test-user-id',
+          email: 'test@example.com',
+          role: 'authenticated',
+          aud: 'authenticated',
         },
-        expiresAt: Math.floor(Date.now() / 1000) + 3600,
       }),
     )
   })
@@ -125,18 +123,14 @@ async function setActiveCircle(page: Page) {
 test.describe('Chores Page - Unauthenticated', () => {
   test('shows login page when not authenticated', async ({ page }) => {
     await page.goto('/more/chores')
-    // Should redirect to login / show login UI
-    await expect(
-      page.getByText('Sign In').or(page.getByText('Continue with Google')),
-    ).toBeVisible({ timeout: 10000 })
+    // 'Continue with Google' is unique on the login page — avoids strict-mode multi-match from 'Sign In'
+    await expect(page.getByText('Continue with Google')).toBeVisible({ timeout: 10000 })
   })
 
   test('login page has email and password fields', async ({ page }) => {
     await page.goto('/more/chores')
-    await expect(page.getByText('Sign In').or(page.getByText('Continue with Google'))).toBeVisible({
-      timeout: 10000,
-    })
-    // Look for email/password inputs or Google button
+    await expect(page.getByText('Continue with Google')).toBeVisible({ timeout: 10000 })
+    // Verify Google sign-in is present
     const hasGoogle = await page.getByText('Continue with Google').isVisible().catch(() => false)
     expect(hasGoogle).toBeTruthy()
   })
@@ -156,15 +150,12 @@ test.describe('Chores Page - No Active Circle', () => {
       localStorage.setItem(
         'sb-zgebzhvbszhqvaryfiwk-auth-token',
         JSON.stringify({
-          currentSession: {
-            access_token: 'fake-access-token',
-            token_type: 'bearer',
-            expires_in: 3600,
-            refresh_token: 'fake-refresh-token',
-            expires_at: Math.floor(Date.now() / 1000) + 3600,
-            user: { id: 'test-user-id', email: 'test@example.com', role: 'authenticated', aud: 'authenticated' },
-          },
-          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          access_token: 'fake-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+          refresh_token: 'fake-refresh-token',
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user: { id: 'test-user-id', email: 'test@example.com', role: 'authenticated', aud: 'authenticated' },
         }),
       )
     })
@@ -173,7 +164,7 @@ test.describe('Chores Page - No Active Circle', () => {
   test('shows empty state prompting to select a circle', async ({ page }) => {
     await page.goto('/more/chores')
     // Should show the "Chores" heading and "select circle" empty state
-    await expect(page.getByRole('heading', { name: 'Chores' }).or(page.getByText('Chores'))).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Chores', exact: true })).toBeVisible({
       timeout: 10000,
     })
   })
@@ -217,14 +208,14 @@ test.describe('Chores Page - With Active Circle', () => {
     await page.goto('/more/chores')
     await expect(page.getByRole('button', { name: /add/i })).toBeVisible({ timeout: 10000 })
     await page.getByRole('button', { name: /add/i }).click()
-    // Dialog title should appear
-    await expect(page.getByText('New Chore')).toBeVisible()
+    // Dialog title should appear — use heading role to avoid matching the button too
+    await expect(page.getByRole('heading', { name: 'New Chore' })).toBeVisible()
   })
 
   test('clicking empty state New Chore button opens dialog', async ({ page }) => {
     await page.goto('/more/chores')
     await page.getByRole('button', { name: /new chore/i }).click({ timeout: 10000 })
-    await expect(page.getByText('New Chore')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'New Chore' })).toBeVisible()
   })
 
   test('create dialog has chore name input', async ({ page }) => {
@@ -252,8 +243,8 @@ test.describe('Chores Page - With Active Circle', () => {
     // Click on the dog emoji
     const dogButton = page.locator('[role="dialog"]').getByText('🐕')
     await dogButton.click()
-    // The selected icon should have a ring-2 class (visual highlight)
-    await expect(dogButton.locator('..')).toHaveClass(/ring-2/)
+    // The selected icon button itself gets ring-2 class (not its parent wrapper)
+    await expect(dogButton).toHaveClass(/ring-2/)
   })
 
   test('create dialog has assigned-to autocomplete', async ({ page }) => {
@@ -285,13 +276,13 @@ test.describe('Chores Page - With Active Circle', () => {
     await dialog.getByText('Weekly', { exact: true }).click()
     // Day selector should appear
     await expect(dialog.getByText('On which days')).toBeVisible()
-    await expect(dialog.getByText('Su')).toBeVisible()
-    await expect(dialog.getByText('Mo')).toBeVisible()
-    await expect(dialog.getByText('Tu')).toBeVisible()
-    await expect(dialog.getByText('We')).toBeVisible()
-    await expect(dialog.getByText('Th')).toBeVisible()
-    await expect(dialog.getByText('Fr')).toBeVisible()
-    await expect(dialog.getByText('Sa')).toBeVisible()
+    await expect(dialog.getByText('Su', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Mo', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Tu', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('We', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Th', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Fr', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('Sa', { exact: true })).toBeVisible()
   })
 
   test('day selector is hidden for Daily frequency', async ({ page }) => {
@@ -318,14 +309,14 @@ test.describe('Chores Page - With Active Circle', () => {
     const dialog = page.locator('[role="dialog"]')
 
     await dialog.getByText('Weekly', { exact: true }).click()
-    const moButton = dialog.getByText('Mo')
+    const moButton = dialog.getByText('Mo', { exact: true })
     await moButton.click()
-    // Should be selected (bg-brand-500)
-    await expect(moButton.locator('..')).toHaveClass(/bg-brand-500/)
+    // The button itself gets bg-brand-500 when selected
+    await expect(moButton).toHaveClass(/bg-brand-500/)
 
     // Click again to deselect
     await moButton.click()
-    await expect(moButton.locator('..')).not.toHaveClass(/bg-brand-500/)
+    await expect(moButton).not.toHaveClass(/bg-brand-500/)
   })
 
   test('create dialog has due time and points fields', async ({ page }) => {
@@ -398,9 +389,9 @@ test.describe('Chores Page - With Active Circle', () => {
     await dialog.getByText('Weekly', { exact: true }).click()
 
     // Select days
-    await dialog.getByText('Mo').click()
-    await dialog.getByText('We').click()
-    await dialog.getByText('Fr').click()
+    await dialog.getByText('Mo', { exact: true }).click()
+    await dialog.getByText('We', { exact: true }).click()
+    await dialog.getByText('Fr', { exact: true }).click()
 
     // Fill time
     await dialog.locator('input[type="time"]').fill('08:00')
@@ -427,7 +418,17 @@ test.describe('Chores Page - With Existing Chores', () => {
       route.fulfill({ status: 400, body: JSON.stringify({ error: 'invalid_grant' }) }),
     )
     await page.route(`${SUPABASE_URL}/auth/v1/session`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'fake-access-token',
+          token_type: 'bearer',
+          expires_in: 3600,
+          refresh_token: 'fake-refresh-token',
+          user: { id: 'test-user-id', email: 'test@example.com', role: 'authenticated' },
+        }),
+      }),
     )
     await page.route(`${SUPABASE_URL}/rest/v1/profiles*`, (route) =>
       route.fulfill({
@@ -438,6 +439,7 @@ test.describe('Chores Page - With Existing Chores', () => {
           display_name: 'Test User',
           avatar_url: null,
           email: 'test@example.com',
+          has_onboarded: true,
           preferences: { theme: 'dark' },
           created_at: '2025-01-01T00:00:00Z',
           updated_at: '2025-01-01T00:00:00Z',
@@ -559,21 +561,25 @@ test.describe('Chores Page - With Existing Chores', () => {
     await page.goto('/more/chores')
     await expect(page.getByText('Take out trash')).toBeVisible({ timeout: 10000 })
     const summaryButton = page.getByText('Weekly Summary')
-    await expect(summaryButton).toBeVisible()
+    await expect(summaryButton).toBeVisible({ timeout: 5000 })
     await summaryButton.click()
-    // After expanding, should show completion info
-    await expect(page.getByText(/this week/i)).toBeVisible()
+    // Allow Framer Motion height animation to complete
+    await page.waitForTimeout(400)
+    await expect(page.getByText(/this week/i).first()).toBeVisible({ timeout: 5000 })
   })
 
   test('weekly summary can be collapsed after expanding', async ({ page }) => {
     await page.goto('/more/chores')
     await expect(page.getByText('Take out trash')).toBeVisible({ timeout: 10000 })
     const summaryButton = page.getByText('Weekly Summary')
+    await expect(summaryButton).toBeVisible({ timeout: 5000 })
     // Expand
     await summaryButton.click()
-    await expect(page.getByText(/this week/i)).toBeVisible()
+    await page.waitForTimeout(400)
+    await expect(page.getByText(/this week/i).first()).toBeVisible({ timeout: 5000 })
     // Collapse
     await summaryButton.click()
+    await page.waitForTimeout(400)
     await expect(page.getByText(/No completions this week/i)).not.toBeVisible()
   })
 })

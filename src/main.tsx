@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 
+// Generate/persist a session ID for AI usage tracking
+if (!localStorage.getItem('replanish_session_id')) {
+  localStorage.setItem('replanish_session_id', crypto.randomUUID())
+}
+
 // Fix mobile keyboard pushing content behind fixed elements
 // Scrolls focused input into view when virtual keyboard opens
 if ('visualViewport' in window && window.visualViewport) {

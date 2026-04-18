@@ -8,6 +8,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { MealPlanPreferencesDialog } from '@/components/ui/MealPlanPreferencesDialog'
 import type { MealPlanPreferences } from '@/components/ui/MealPlanPreferencesDialog'
+import { MealPlanIntakeDialog } from '@/components/ui/MealPlanIntakeDialog'
+import type { MealPlanIntakeValues } from '@/components/ui/MealPlanIntakeDialog'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
@@ -84,6 +86,7 @@ export function PlanPage() {
   const [aiShoppingSuggestions, setAiShoppingSuggestions] = useState<string[]>([])
   const [showAiReview, setShowAiReview] = useState(false)
   const [showPreferencesDialog, setShowPreferencesDialog] = useState(false)
+  const [showIntakeDialog, setShowIntakeDialog] = useState(false)
   const [notesExpanded, setNotesExpanded] = useState(false)
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
   const [acceptingPlan, setAcceptingPlan] = useState(false)
@@ -253,7 +256,19 @@ export function PlanPage() {
       if (data?._ai_usage) {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
-          await logAIUsage(user.id, 'meal_plan', data._ai_usage.model, data._ai_usage.tokens_in, data._ai_usage.tokens_out, data._ai_usage.cost_usd)
+          await logAIUsage(
+            user.id,
+            'meal_plan',
+            data._ai_usage.model,
+            data._ai_usage.tokens_in,
+            data._ai_usage.tokens_out,
+            data._ai_usage.cost_usd,
+            {
+              session_id: localStorage.getItem('replanish_session_id') ?? undefined,
+              feature_context: 'plan_page',
+              scope: preferences.planScope ?? 'week',
+            }
+          )
         }
       }
       return {
@@ -273,6 +288,77 @@ export function PlanPage() {
     },
     onError: (err: Error) => {
       setShowPreferencesDialog(false)
+      toast.error(err.message)
+    },
+  })
+
+  // New intake-based generation — passes richer fields to the edge function
+  const generateAiPlanFromIntake = useMutation({
+    mutationFn: async (intake: MealPlanIntakeValues) => {
+      const sessionId = localStorage.getItem('replanish_session_id') ?? crypto.randomUUID()
+
+      let planDates: string[]
+      if (intake.scope === 'meal' || intake.scope === 'day') {
+        const today = new Date().toISOString().split('T')[0]
+        planDates = [selectedDate || week.dates[0] || today]
+      } else {
+        planDates = week.dates
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+        body: {
+          circleId: activeCircle!.id,
+          dates: planDates,
+          planScope: intake.scope,
+          mealType: intake.scope === 'meal' ? (intake.mealTypes[0] ?? 'dinner') : undefined,
+          session_id: sessionId,
+          feature_context: 'plan_page',
+          preferences: {
+            dietary_restrictions: intake.dietaryNotes || undefined,
+            headcount_adults: intake.headcountAdults,
+            headcount_kids: intake.headcountKids,
+            skill_level: intake.skillLevel,
+            calorie_target: intake.caloriesPerMeal || undefined,
+            prefer_source: intake.preferSource,
+          },
+        },
+      })
+      if (error) throw error
+      if (data?._ai_usage) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await logAIUsage(
+            user.id,
+            'meal_plan',
+            data._ai_usage.model,
+            data._ai_usage.tokens_in,
+            data._ai_usage.tokens_out,
+            data._ai_usage.cost_usd,
+            {
+              session_id: sessionId,
+              feature_context: 'plan_page',
+              scope: intake.scope,
+            }
+          )
+        }
+      }
+      return {
+        plan: data.plan as AIMealSuggestion[],
+        notes: (data.notes as string) || '',
+        shoppingSuggestions: (data.shopping_suggestions as string[]) || [],
+      }
+    },
+    onSuccess: ({ plan, notes, shoppingSuggestions }) => {
+      setAiPlan(plan)
+      setAiNotes(notes)
+      setAiShoppingSuggestions(shoppingSuggestions)
+      setNotesExpanded(false)
+      setCopiedToClipboard(false)
+      setShowIntakeDialog(false)
+      setShowAiReview(true)
+    },
+    onError: (err: Error) => {
+      setShowIntakeDialog(false)
       toast.error(err.message)
     },
   })
@@ -514,17 +600,17 @@ export function PlanPage() {
       <button
         onClick={() => {
           if (!ai.checkAIAccess()) return
-          setShowPreferencesDialog(true)
+          setShowIntakeDialog(true)
         }}
-        disabled={generateAiPlan.isPending}
+        disabled={generateAiPlanFromIntake.isPending || generateAiPlan.isPending}
         className={cn(
           'w-full flex items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all text-start',
           'border-brand-300 dark:border-brand-700 bg-brand-500/5 hover:bg-brand-500/10',
-          generateAiPlan.isPending && 'opacity-60'
+          (generateAiPlanFromIntake.isPending || generateAiPlan.isPending) && 'opacity-60'
         )}
       >
         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
-          {generateAiPlan.isPending ? (
+          {generateAiPlanFromIntake.isPending || generateAiPlan.isPending ? (
             <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <Sparkles className="h-5 w-5 text-white" />
@@ -532,10 +618,10 @@ export function PlanPage() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            {generateAiPlan.isPending ? t('common.loading') : t('ai.mealPlanPlaceholder')}
+            {generateAiPlanFromIntake.isPending || generateAiPlan.isPending ? t('common.loading') : t('ai.mealPlanPlaceholder')}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {generateAiPlan.isPending ? t('plan.generatingMeals') : t('ai.mealPlanPlaceholderDesc')}
+            {generateAiPlanFromIntake.isPending || generateAiPlan.isPending ? t('plan.generatingMeals') : t('ai.mealPlanPlaceholderDesc')}
           </p>
         </div>
         {!ai.hasAI && (
@@ -545,7 +631,15 @@ export function PlanPage() {
         )}
       </button>
 
-      {/* Preferences dialog */}
+      {/* New intake dialog (primary AI path) */}
+      <MealPlanIntakeDialog
+        open={showIntakeDialog}
+        onOpenChange={setShowIntakeDialog}
+        isLoading={generateAiPlanFromIntake.isPending}
+        onSubmit={(intake) => generateAiPlanFromIntake.mutate(intake)}
+      />
+
+      {/* Legacy preferences dialog — kept for backward-compat */}
       <MealPlanPreferencesDialog
         open={showPreferencesDialog}
         onOpenChange={setShowPreferencesDialog}
