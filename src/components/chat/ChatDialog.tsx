@@ -77,7 +77,7 @@ export function ChatDialog() {
         }
 
         const planData = msg.action.params.planData as GeneratedPlan | undefined
-        if (planData?.plan?.length > 0) {
+        if (planData && planData.plan && planData.plan.length > 0) {
           shownPlanMessageIds.current.add(msg.id)
           setPendingPlan(planData)
           updateMessage(msg.id, { action: undefined })
