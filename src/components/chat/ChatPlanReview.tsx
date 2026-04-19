@@ -1,6 +1,18 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronDown, ChevronUp, Clock, ShoppingBag, ExternalLink, Trash2, ShoppingCart } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  ExternalLink,
+  ShoppingCart,
+  Trash2,
+  CalendarCheck,
+  CheckCircle2,
+  Globe,
+  Sparkles,
+} from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useI18n } from '@/lib/i18n'
 
@@ -9,25 +21,36 @@ export interface MealPlanItem {
   meal_type: string
   recipe_title: string
   recipe_id?: string | null
-  ingredients?: Array<{ name: string; quantity?: number; unit?: string }>
+  description?: string
+  source_preference?: 'web' | 'generate'
+  // Populated after Phase 2
+  ingredients?: Array<{ name: string; quantity?: number | null; unit?: string }>
   instructions?: string[]
-  servings?: number
-  estimated_time_min?: number
+  servings?: number | null
+  estimated_time_min?: number | null
   tags?: string[]
+  from_web?: boolean
+  source_url?: string
+  thumbnail?: string
+  // Internal UI state
+  _status?: 'loading' | 'ready' | 'error'
 }
 
 export interface GeneratedPlan {
   plan: MealPlanItem[]
   shopping_suggestions?: string[]
   notes?: string
+  _stage?: 'selecting' | 'fetching' | 'ready'
 }
+
+type PlanItemWithKey = MealPlanItem & { _key: number }
 
 interface ChatPlanReviewProps {
   plan: GeneratedPlan
   isAccepting: boolean
+  onApprove: (selectedItems: MealPlanItem[]) => void
   onAccept: (selectedItems: MealPlanItem[]) => void
   onRequestChanges: (request: string) => void
-  onRequestReplacements: (accepted: MealPlanItem[], rejected: Array<{ item: MealPlanItem; comment: string }>) => void
   onDismiss: () => void
   onNavigateToRecipe?: (recipeId: string) => void
   onAddToShoppingList?: (items: MealPlanItem[]) => void
@@ -49,35 +72,37 @@ function formatPlanDate(dateStr: string, locale: string): string {
   })
 }
 
-type PlanItemWithKey = MealPlanItem & { _key: number }
-
 export function ChatPlanReview({
   plan,
   isAccepting,
+  onApprove,
   onAccept,
   onRequestChanges,
-  onRequestReplacements,
   onDismiss,
   onNavigateToRecipe,
   onAddToShoppingList,
 }: ChatPlanReviewProps) {
   const { t, locale } = useI18n()
+  const stage = plan._stage ?? 'selecting'
 
-  const [planItems, setPlanItems] = useState<PlanItemWithKey[]>(
-    () => plan.plan.map((item, i) => ({ ...item, _key: i }))
-  )
+  const keyedItems: PlanItemWithKey[] = plan.plan.map((item, i) => ({
+    ...item,
+    _key: i,
+  }))
+
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(
     () => new Set(plan.plan.map((_, i) => i))
   )
   const [itemComments, setItemComments] = useState<Record<number, string>>({})
-  const [shoppingExpanded, setShoppingExpanded] = useState(false)
+  const [confirmRemoveKey, setConfirmRemoveKey] = useState<number | null>(null)
+  const [removedKeys, setRemovedKeys] = useState<Set<number>>(new Set())
+  const [expandedKeys, setExpandedKeys] = useState<Set<number>>(new Set())
   const [showStartOverInput, setShowStartOverInput] = useState(false)
   const [startOverRequest, setStartOverRequest] = useState('')
-  const [confirmRemoveKey, setConfirmRemoveKey] = useState<number | null>(null)
 
-  const uncheckedKeys = planItems
-    .map((item) => item._key)
-    .filter((key) => !selectedKeys.has(key))
+  const visibleItems = keyedItems.filter((item) => !removedKeys.has(item._key))
+  const uncheckedItems = visibleItems.filter((item) => !selectedKeys.has(item._key))
+  const selectedItems = visibleItems.filter((item) => selectedKeys.has(item._key))
 
   const toggleItem = (key: number) => {
     setSelectedKeys((prev) => {
@@ -96,38 +121,66 @@ export function ChatPlanReview({
     })
   }
 
-  const handleRemoveDish = (key: number) => {
-    setPlanItems((prev) => prev.filter((item) => item._key !== key))
+  const toggleExpand = (key: number) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const handleRemove = (key: number) => {
+    setRemovedKeys((prev) => {
+      const next = new Set(prev)
+      next.add(key)
+      return next
+    })
     setSelectedKeys((prev) => {
       const next = new Set(prev)
       next.delete(key)
       return next
     })
-    setItemComments((prev) => {
-      const next = { ...prev }
-      delete next[key]
-      return next
-    })
     setConfirmRemoveKey(null)
   }
 
+  const stripKey = (item: PlanItemWithKey): MealPlanItem => {
+    const { _key: _unused, ...rest } = item
+    void _unused
+    return rest
+  }
+
+  const handleApprove = () => {
+    onApprove(selectedItems.map(stripKey))
+  }
+
   const handleAccept = () => {
-    const selectedItems = planItems.filter((item) => selectedKeys.has(item._key))
-    onAccept(selectedItems)
+    const readyItems = keyedItems.filter(
+      (item) => item._status === 'ready' && !removedKeys.has(item._key),
+    )
+    onAccept(readyItems.map(stripKey))
   }
 
-  const handleSaveWithoutReplacements = () => {
-    const selectedItems = planItems.filter((item) => selectedKeys.has(item._key))
-    onAccept(selectedItems)
+  const handleAddToShopping = () => {
+    if (!onAddToShoppingList) return
+    const readyItems = keyedItems.filter(
+      (item) => item._status === 'ready' && !removedKeys.has(item._key),
+    )
+    onAddToShoppingList(readyItems.map(stripKey))
   }
 
-  const handleGetReplacements = () => {
-    const accepted = planItems.filter((item) => selectedKeys.has(item._key))
-    const rejected = uncheckedKeys.map((key) => {
-      const item = planItems.find((p) => p._key === key)!
-      return { item, comment: itemComments[key] || '' }
-    })
-    onRequestReplacements(accepted, rejected)
+  const handleRequestReplacements = () => {
+    const feedback = uncheckedItems
+      .map((item) => {
+        const comment = itemComments[item._key]
+        return `replace "${item.recipe_title}" (${item.meal_type} on ${item.date})${comment ? `: ${comment}` : ''}`
+      })
+      .join('; ')
+    onRequestChanges(
+      feedback
+        ? `Please suggest replacements: ${feedback}. Keep all other dishes the same.`
+        : 'Please suggest alternative dishes.',
+    )
   }
 
   const handleStartOver = () => {
@@ -136,18 +189,29 @@ export function ChatPlanReview({
     }
   }
 
-  // Group items by date
-  const itemsByDate = planItems.reduce<Record<string, PlanItemWithKey[]>>((acc, item) => {
+  const itemsByDate = visibleItems.reduce<Record<string, PlanItemWithKey[]>>((acc, item) => {
     if (!acc[item.date]) acc[item.date] = []
     acc[item.date].push(item)
     return acc
   }, {})
-
   const sortedDates = Object.keys(itemsByDate).sort()
 
-  const hasUnchecked = uncheckedKeys.length > 0
-  const allUnchecked = selectedKeys.size === 0
-  const selectedItems = planItems.filter((item) => selectedKeys.has(item._key))
+  const readyCount = keyedItems.filter((item) => item._status === 'ready').length
+  const totalFetchCount = keyedItems.filter((item) => item._status != null).length
+
+  const headerTitle =
+    stage === 'fetching'
+      ? 'Fetching Recipes...'
+      : stage === 'ready'
+        ? 'Your Meal Plan'
+        : t('chat.planReview.title')
+
+  const headerSubtitle =
+    stage === 'fetching'
+      ? `${readyCount} of ${totalFetchCount} ready`
+      : stage === 'ready'
+        ? 'Tap any dish to see ingredients'
+        : 'Review and approve your dishes'
 
   return (
     <motion.div
@@ -157,21 +221,27 @@ export function ChatPlanReview({
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className="fixed bottom-0 start-0 end-0 z-[60] bg-white dark:bg-surface-dark-elevated rounded-t-3xl max-w-lg mx-auto max-h-[90dvh] flex flex-col shadow-2xl"
     >
-      {/* Drag handle */}
       <div className="flex justify-center pt-3 pb-1 shrink-0">
         <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
       </div>
 
-      {/* Header */}
       <div className="px-5 pb-3 shrink-0">
         <div className="flex items-start justify-between gap-2">
-          <div>
+          <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
-              {t('chat.planReview.title')}
+              {headerTitle}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              {t('chat.planReview.subtitle')}
-            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{headerSubtitle}</p>
+            {stage === 'fetching' && totalFetchCount > 0 && (
+              <div className="mt-2 h-1 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <motion.div
+                  className="h-full bg-brand-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(readyCount / totalFetchCount) * 100}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+            )}
           </div>
           <button
             onClick={onDismiss}
@@ -183,9 +253,7 @@ export function ChatPlanReview({
         </div>
       </div>
 
-      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-4">
-        {/* Meal items grouped by date */}
         {sortedDates.map((date) => (
           <div key={date}>
             <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">
@@ -193,295 +261,164 @@ export function ChatPlanReview({
             </p>
             <div className="space-y-2">
               {itemsByDate[date].map((item) => {
-                const isSelected = selectedKeys.has(item._key)
+                if (stage === 'selecting') {
+                  return (
+                    <SelectingCard
+                      key={item._key}
+                      item={item}
+                      isSelected={selectedKeys.has(item._key)}
+                      comment={itemComments[item._key] ?? ''}
+                      onToggle={() => toggleItem(item._key)}
+                      onRemove={() => setConfirmRemoveKey(item._key)}
+                      onCommentChange={(c) =>
+                        setItemComments((p) => ({ ...p, [item._key]: c }))
+                      }
+                      onNavigateToRecipe={onNavigateToRecipe}
+                    />
+                  )
+                }
+                if (stage === 'fetching') {
+                  return <FetchingCard key={item._key} item={item} />
+                }
                 return (
-                  <div key={item._key}>
-                    <button
-                      onClick={() => toggleItem(item._key)}
-                      className={cn(
-                        'w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-start active:scale-[0.98]',
-                        isSelected
-                          ? 'border-brand-300 dark:border-brand-700 bg-brand-500/5 dark:bg-brand-500/10'
-                          : 'border-orange-200 dark:border-orange-800/50 bg-orange-50/50 dark:bg-orange-900/10 opacity-70'
-                      )}
-                    >
-                      {/* Meal icon */}
-                      <span className="text-lg shrink-0 leading-none">
-                        {MEAL_ICONS[item.meal_type] ?? '🍽️'}
-                      </span>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <p className={cn(
-                          'text-sm font-semibold truncate',
-                          isSelected
-                            ? 'text-slate-800 dark:text-slate-200'
-                            : 'text-slate-500 dark:text-slate-400 line-through'
-                        )}>
-                          {item.recipe_title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {item.recipe_id ? (
-                            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
-                              {t('chat.planReview.fromRecipes')}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-1.5 py-0.5 rounded-full font-medium">
-                              {t('chat.planReview.newRecipe')}
-                            </span>
-                          )}
-                          {item.estimated_time_min && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                              <Clock className="h-2.5 w-2.5" />
-                              {item.estimated_time_min}{t('chat.planReview.minutesAbbr')}
-                            </span>
-                          )}
-                          {!isSelected && (
-                            <span className="text-[10px] text-orange-500 dark:text-orange-400 font-medium">
-                              {t('chat.planReview.itemReplacementHint')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Recipe navigation link */}
-                      {item.recipe_id && onNavigateToRecipe && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onNavigateToRecipe(item.recipe_id!)
-                          }}
-                          className="shrink-0 p-1 rounded-md text-slate-400 hover:text-brand-500 transition-colors"
-                          title={t('chat.planReview.viewRecipe')}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-
-                      {/* Checkmark */}
-                      <div
-                        className={cn(
-                          'h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors',
-                          isSelected
-                            ? 'border-brand-500 bg-brand-500'
-                            : 'border-slate-300 dark:border-slate-600'
-                        )}
-                      >
-                        {isSelected && <Check className="h-3 w-3 text-white" />}
-                      </div>
-
-                      {/* Remove button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setConfirmRemoveKey(item._key)
-                        }}
-                        className="shrink-0 p-1 rounded-md text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
-                        title={t('chat.planReview.removeDish')}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </button>
-
-                    {/* Per-item comment input when unchecked */}
-                    <AnimatePresence>
-                      {!isSelected && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.18 }}
-                          className="overflow-hidden"
-                        >
-                          <input
-                            type="text"
-                            value={itemComments[item._key] || ''}
-                            onChange={(e) =>
-                              setItemComments((prev) => ({ ...prev, [item._key]: e.target.value }))
-                            }
-                            placeholder={t('chat.planReview.replacementPlaceholder')}
-                            className="mt-1.5 w-full h-9 px-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-orange-400/30"
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <ReadyCard
+                    key={item._key}
+                    item={item}
+                    isExpanded={expandedKeys.has(item._key)}
+                    onToggle={() => toggleExpand(item._key)}
+                    onNavigateToRecipe={onNavigateToRecipe}
+                  />
                 )
               })}
             </div>
           </div>
         ))}
 
-        {/* Shopping suggestions */}
-        {plan.shopping_suggestions && plan.shopping_suggestions.length > 0 && (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShoppingExpanded((v) => !v)}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-start bg-slate-50 dark:bg-surface-dark-overlay"
-            >
-              <ShoppingBag className="h-4 w-4 text-slate-400 shrink-0" />
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-1">
-                {t('chat.planReview.shoppingNeeded')} ({plan.shopping_suggestions.length})
-              </span>
-              {shoppingExpanded
-                ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
-                : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
-              }
-            </button>
-            <AnimatePresence>
-              {shoppingExpanded && (
-                <motion.ul
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  {plan.shopping_suggestions.map((suggestion, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center gap-2 px-3 py-1.5 border-t border-slate-100 dark:border-slate-700/50 text-sm text-slate-600 dark:text-slate-400"
-                    >
-                      <span className="h-1 w-1 rounded-full bg-brand-400 shrink-0" />
-                      {suggestion}
-                    </li>
-                  ))}
-                </motion.ul>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {/* Notes */}
-        {plan.notes && (
+        {plan.notes && stage !== 'fetching' && (
           <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 px-3 py-2.5">
-            <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-              {plan.notes}
-            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{plan.notes}</p>
           </div>
         )}
 
-        {/* Start over input */}
-        <AnimatePresence>
-          {showStartOverInput && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={startOverRequest}
-                  onChange={(e) => setStartOverRequest(e.target.value)}
-                  placeholder={t('chat.planReview.changesPlaceholder')}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && startOverRequest.trim()) {
-                      handleStartOver()
-                    }
-                  }}
-                  className="flex-1 h-10 px-3 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-brand-500/30"
-                />
-                <button
-                  onClick={handleStartOver}
-                  disabled={!startOverRequest.trim()}
-                  className="h-10 px-4 rounded-xl bg-brand-500 text-white text-sm font-medium disabled:opacity-40 active:scale-95 transition-transform"
-                >
-                  {t('common.send')}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {stage === 'selecting' && (
+          <AnimatePresence>
+            {showStartOverInput && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={startOverRequest}
+                    onChange={(e) => setStartOverRequest(e.target.value)}
+                    placeholder={t('chat.planReview.changesPlaceholder')}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && startOverRequest.trim()) {
+                        handleStartOver()
+                      }
+                    }}
+                    className="flex-1 h-10 px-3 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-brand-500/30"
+                  />
+                  <button
+                    onClick={handleStartOver}
+                    disabled={!startOverRequest.trim()}
+                    className="h-10 px-4 rounded-xl bg-brand-500 text-white text-sm font-medium disabled:opacity-40 active:scale-95 transition-transform"
+                  >
+                    {t('common.send')}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
       </div>
 
-      {/* Footer */}
       <div
         className="px-5 pt-3 pb-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col gap-2 shrink-0"
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
-        {/* Add to Shopping List */}
-        {onAddToShoppingList && selectedItems.length > 0 && (
-          <button
-            onClick={() => onAddToShoppingList(selectedItems)}
-            className="w-full h-10 rounded-xl border border-brand-300 dark:border-brand-700 text-sm font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            {t('chat.planReview.addToShoppingList')}
-          </button>
-        )}
-
-        {/* Save without replacements link — only when items are unchecked and not all */}
-        {hasUnchecked && !allUnchecked && (
-          <button
-            onClick={handleSaveWithoutReplacements}
-            disabled={isAccepting}
-            className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-center py-0.5 transition-colors disabled:opacity-40"
-          >
-            {t('chat.planReview.saveWithoutReplacements')}
-          </button>
-        )}
-
-        <div className="flex gap-3">
-          {/* Left: Start Over */}
-          <button
-            onClick={() => setShowStartOverInput((v) => !v)}
-            disabled={isAccepting}
-            className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-surface-dark-elevated hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors disabled:opacity-40 active:scale-[0.98]"
-          >
-            {t('chat.planReview.requestChanges')}
-          </button>
-
-          {/* Right: Get Replacements or Save Plan */}
-          {hasUnchecked ? (
+        {stage === 'selecting' && (
+          <div className="flex gap-3">
             <button
-              onClick={handleGetReplacements}
-              disabled={isAccepting || allUnchecked}
-              className="flex-1 h-11 rounded-xl bg-orange-500 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
+              onClick={() => setShowStartOverInput((v) => !v)}
+              className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-surface-dark-elevated hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors active:scale-[0.98]"
             >
-              {t('chat.planReview.getReplacements')} ({uncheckedKeys.length})
+              {t('chat.planReview.requestChanges')}
             </button>
-          ) : (
+            {uncheckedItems.length > 0 ? (
+              <button
+                onClick={handleRequestReplacements}
+                className="flex-1 h-11 rounded-xl bg-orange-500 text-white text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              >
+                Replace ({uncheckedItems.length})
+              </button>
+            ) : (
+              <button
+                onClick={handleApprove}
+                disabled={selectedItems.length === 0}
+                className="flex-1 h-11 rounded-xl bg-brand-500 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
+              >
+                Get Recipes ({selectedItems.length}) →
+              </button>
+            )}
+          </div>
+        )}
+
+        {stage === 'fetching' && (
+          <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400 py-2">
+            <div className="h-4 w-4 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+            Fetching {Math.max(0, totalFetchCount - readyCount)} more recipe
+            {totalFetchCount - readyCount !== 1 ? 's' : ''}...
+          </div>
+        )}
+
+        {stage === 'ready' && (
+          <>
+            {onAddToShoppingList && (
+              <button
+                onClick={handleAddToShopping}
+                disabled={readyCount === 0}
+                className="w-full h-11 rounded-xl border border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                Add to Shopping List
+              </button>
+            )}
             <button
               onClick={handleAccept}
-              disabled={isAccepting || selectedKeys.size === 0}
-              className="flex-1 h-11 rounded-xl bg-brand-500 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
+              disabled={isAccepting || readyCount === 0}
+              className="w-full h-11 rounded-xl bg-brand-500 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
             >
               {isAccepting ? (
                 <>
                   <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {t('common.saving')}
+                  Saving...
                 </>
               ) : (
-                t('chat.planReview.savePlan')
+                <>
+                  <CalendarCheck className="h-4 w-4" />
+                  Save to Calendar ({readyCount})
+                </>
               )}
             </button>
-          )}
-        </div>
-
-        {/* When all unchecked, show "Try New Plan" to trigger start over */}
-        {allUnchecked && !showStartOverInput && (
-          <p className="text-xs text-center text-slate-400 dark:text-slate-500">
-            Uncheck all and tap <span className="font-medium">{t('chat.planReview.requestChanges')}</span> to generate a new plan
-          </p>
+          </>
         )}
       </div>
 
-      {/* Remove dish confirmation */}
       {confirmRemoveKey !== null && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center p-4">
-          <div className="bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-2xl w-full max-w-sm space-y-3">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setConfirmRemoveKey(null)}
+          />
+          <div className="relative bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-2xl w-full max-w-sm space-y-3">
             <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-              {t('chat.planReview.confirmRemove').replace(
-                '{title}',
-                planItems.find((i) => i._key === confirmRemoveKey)?.recipe_title ?? ''
-              )}
+              Remove &quot;{keyedItems.find((i) => i._key === confirmRemoveKey)?.recipe_title}&quot; from the plan?
             </p>
             <div className="flex gap-3">
               <button
@@ -491,15 +428,336 @@ export function ChatPlanReview({
                 {t('common.cancel')}
               </button>
               <button
-                onClick={() => handleRemoveDish(confirmRemoveKey)}
+                onClick={() => handleRemove(confirmRemoveKey)}
                 className="flex-1 h-10 rounded-xl bg-red-500 text-white text-sm font-medium"
               >
-                {t('common.remove')}
+                Remove
               </button>
             </div>
           </div>
         </div>
       )}
     </motion.div>
+  )
+}
+
+interface SelectingCardProps {
+  item: PlanItemWithKey
+  isSelected: boolean
+  comment: string
+  onToggle: () => void
+  onRemove: () => void
+  onCommentChange: (c: string) => void
+  onNavigateToRecipe?: (recipeId: string) => void
+}
+
+function SelectingCard({
+  item,
+  isSelected,
+  comment,
+  onToggle,
+  onRemove,
+  onCommentChange,
+  onNavigateToRecipe,
+}: SelectingCardProps) {
+  return (
+    <div className="space-y-1.5">
+      <div
+        className={cn(
+          'w-full flex items-center gap-2 p-3 rounded-2xl border transition-all',
+          isSelected
+            ? 'border-brand-300 dark:border-brand-700 bg-brand-50/30 dark:bg-brand-900/10'
+            : 'border-orange-200 dark:border-orange-800/50 bg-orange-50/30 dark:bg-orange-900/10 opacity-60',
+        )}
+      >
+        <span className="text-xl shrink-0 leading-none">{MEAL_ICONS[item.meal_type] ?? '🍽️'}</span>
+        <div className="flex-1 min-w-0">
+          <p
+            className={cn(
+              'text-sm font-semibold',
+              isSelected
+                ? 'text-slate-800 dark:text-slate-200'
+                : 'text-slate-500 dark:text-slate-400 line-through',
+            )}
+          >
+            {item.recipe_title}
+          </p>
+          {item.description && isSelected && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+              {item.description}
+            </p>
+          )}
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {item.source_preference === 'web' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-0.5">
+                <Globe className="h-2.5 w-2.5" />
+                web
+              </span>
+            )}
+            {item.source_preference === 'generate' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 font-medium flex items-center gap-0.5">
+                <Sparkles className="h-2.5 w-2.5" />
+                AI
+              </span>
+            )}
+            {item.estimated_time_min && (
+              <span className="flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                <Clock className="h-2.5 w-2.5" />
+                {item.estimated_time_min}m
+              </span>
+            )}
+            {(item.tags || []).slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+        {item.recipe_id && onNavigateToRecipe && (
+          <button
+            type="button"
+            onClick={() => onNavigateToRecipe(item.recipe_id!)}
+            className="shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-brand-500 transition-colors"
+            aria-label="View recipe"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+          aria-label="Remove from plan"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={cn(
+            'shrink-0 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors',
+            isSelected ? 'border-brand-500 bg-brand-500' : 'border-slate-300 dark:border-slate-600',
+          )}
+          aria-label={isSelected ? 'Exclude' : 'Include'}
+        >
+          {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
+        </button>
+      </div>
+      <AnimatePresence>
+        {!isSelected && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => onCommentChange(e.target.value)}
+              placeholder="What to replace it with (optional)..."
+              className="w-full h-9 px-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-orange-400/30"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+interface FetchingCardProps {
+  item: PlanItemWithKey
+}
+
+function FetchingCard({ item }: FetchingCardProps) {
+  const status = item._status ?? 'loading'
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 p-3 rounded-2xl border transition-all',
+        status === 'ready'
+          ? 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-900/10'
+          : status === 'error'
+            ? 'border-red-200 dark:border-red-800/50 bg-red-50/30 dark:bg-red-900/10'
+            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-dark-overlay',
+      )}
+    >
+      <span className="text-xl shrink-0 leading-none">{MEAL_ICONS[item.meal_type] ?? '🍽️'}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+          {item.recipe_title}
+        </p>
+        {status === 'loading' && (
+          <div className="flex items-center gap-1 mt-1">
+            <div
+              className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce"
+              style={{ animationDelay: '0ms' }}
+            />
+            <div
+              className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce"
+              style={{ animationDelay: '150ms' }}
+            />
+            <div
+              className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce"
+              style={{ animationDelay: '300ms' }}
+            />
+            <span className="text-xs text-slate-400 dark:text-slate-500 ms-1">
+              Fetching recipe...
+            </span>
+          </div>
+        )}
+        {status === 'ready' && (
+          <div className="flex items-center gap-2 mt-1">
+            {item.from_web ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                <Globe className="h-2.5 w-2.5" />
+                Web recipe
+              </span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center gap-0.5">
+                <Sparkles className="h-2.5 w-2.5" />
+                AI recipe
+              </span>
+            )}
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              {item.ingredients?.length || 0} ingredients
+            </span>
+          </div>
+        )}
+        {status === 'error' && (
+          <span className="text-[10px] text-red-500 dark:text-red-400">Failed to fetch recipe</span>
+        )}
+      </div>
+      {status === 'ready' && <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />}
+      {status === 'loading' && (
+        <div className="h-5 w-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin shrink-0" />
+      )}
+      {status === 'error' && <span className="text-[10px] text-red-500 shrink-0">✕</span>}
+    </div>
+  )
+}
+
+interface ReadyCardProps {
+  item: PlanItemWithKey
+  isExpanded: boolean
+  onToggle: () => void
+  onNavigateToRecipe?: (recipeId: string) => void
+}
+
+function ReadyCard({ item, isExpanded, onToggle, onNavigateToRecipe }: ReadyCardProps) {
+  const isError = item._status === 'error'
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border overflow-hidden',
+        isError
+          ? 'border-red-200 dark:border-red-800/50 bg-red-50/30 dark:bg-red-900/10'
+          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated',
+      )}
+    >
+      <button
+        onClick={onToggle}
+        disabled={isError}
+        className="w-full flex items-center gap-3 p-3 text-start disabled:cursor-not-allowed"
+      >
+        <span className="text-xl shrink-0 leading-none">{MEAL_ICONS[item.meal_type] ?? '🍽️'}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+            {item.recipe_title}
+          </p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {!isError && (
+              <>
+                {item.from_web ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                    <Globe className="h-2.5 w-2.5" />
+                    Web
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center gap-0.5">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    AI
+                  </span>
+                )}
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                  {item.ingredients?.length || 0} ingredients
+                </span>
+                {item.estimated_time_min && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                    <Clock className="h-2.5 w-2.5" />
+                    {item.estimated_time_min}m
+                  </span>
+                )}
+              </>
+            )}
+            {isError && (
+              <span className="text-[10px] text-red-500 dark:text-red-400">
+                Recipe failed — will save name only
+              </span>
+            )}
+          </div>
+        </div>
+        {item.recipe_id && onNavigateToRecipe && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onNavigateToRecipe(item.recipe_id!)
+            }}
+            className="shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-brand-500 transition-colors"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {!isError &&
+          (isExpanded ? (
+            <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+          ))}
+      </button>
+      <AnimatePresence>
+        {isExpanded && !isError && item.ingredients && (
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: 'auto' }}
+            exit={{ height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-3 border-t border-slate-100 dark:border-slate-700/50">
+              <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-2 mb-1.5">
+                Ingredients
+              </p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {item.ingredients.map((ing, i) => (
+                  <p key={i} className="text-xs text-slate-600 dark:text-slate-400">
+                    {ing.quantity != null
+                      ? `${ing.quantity}${ing.unit ? ' ' + ing.unit : ''} `
+                      : ''}
+                    {ing.name}
+                  </p>
+                ))}
+              </div>
+              {item.source_url && (
+                <a
+                  href={item.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[10px] text-brand-500 hover:text-brand-600 mt-2"
+                >
+                  <Globe className="h-2.5 w-2.5" />
+                  View source
+                </a>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }

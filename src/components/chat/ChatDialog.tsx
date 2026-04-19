@@ -42,7 +42,6 @@ export function ChatDialog() {
 
   const [input, setInput] = useState('')
   const [pendingPlan, setPendingPlan] = useState<GeneratedPlan | null>(null)
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
   const [isAcceptingPlan, setIsAcceptingPlan] = useState(false)
   const [shoppingItems, setShoppingItems] = useState<MealPlanItem[] | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -99,70 +98,64 @@ export function ChatDialog() {
     sendMessage(text)
   }
 
-  const handleRequestReplacements = async (
-    accepted: MealPlanItem[],
-    rejected: Array<{ item: MealPlanItem; comment: string }>
-  ) => {
-    if (!activeCircle) return
-    setIsGeneratingPlan(true)
-    setPendingPlan(null)
+  // Phase 2: fetch full recipes in parallel via get-recipe edge function
+  const handleApproveAndFetchRecipes = useCallback(async (selectedItems: MealPlanItem[]) => {
+    // Move to fetching stage — all items start in loading state
+    const loadingItems: MealPlanItem[] = selectedItems.map((item) => ({
+      ...item,
+      _status: 'loading',
+    }))
+    setPendingPlan((prev) =>
+      prev ? { ...prev, plan: loadingItems, _stage: 'fetching' } : null
+    )
 
-    try {
-      const dates = [...new Set(rejected.map((r) => r.item.date))]
-      const replacementContext = rejected
-        .map((r) =>
-          `Replace ${r.item.meal_type} on ${r.item.date} (was: "${r.item.recipe_title}")${r.comment ? `: ${r.comment}` : ''}`
-        )
-        .join('; ')
+    // Mutable array for progressive updates
+    const results: MealPlanItem[] = [...loadingItems]
 
-      const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
-        body: {
-          circleId: activeCircle.id,
-          dates,
-          planScope: 'custom',
-          preferences: {
-            special_requests: replacementContext,
-          },
-        },
-      })
+    await Promise.allSettled(
+      selectedItems.map((item, i) =>
+        supabase.functions
+          .invoke('get-recipe', {
+            body: {
+              dish_name: item.recipe_title,
+              tags: item.tags || [],
+              source_preference: item.source_preference || 'web',
+              preferences: item.description || '',
+            },
+          })
+          .then(({ data, error }) => {
+            if (data && !error) {
+              results[i] = {
+                ...item,
+                ingredients: data.ingredients,
+                instructions: data.instructions,
+                servings: data.servings ?? item.servings,
+                estimated_time_min: data.estimated_time_min ?? item.estimated_time_min,
+                tags: data.tags?.length ? data.tags : item.tags || [],
+                from_web: data.from_web,
+                source_url: data.source_url,
+                thumbnail: data.thumbnail,
+                _status: 'ready',
+              }
+            } else {
+              results[i] = { ...item, _status: 'error' }
+            }
+            setPendingPlan((prev) =>
+              prev ? { ...prev, plan: [...results] } : null
+            )
+          })
+          .catch(() => {
+            results[i] = { ...item, _status: 'error' }
+            setPendingPlan((prev) =>
+              prev ? { ...prev, plan: [...results] } : null
+            )
+          })
+      )
+    )
 
-      if (!error && data?.plan) {
-        const rejectedSlots = new Set(rejected.map((r) => `${r.item.date}|${r.item.meal_type}`))
-        const relevantReplacements = (data.plan as MealPlanItem[]).filter((item) =>
-          rejectedSlots.has(`${item.date}|${item.meal_type}`)
-        )
-
-        const mealOrder = ['breakfast', 'brunch', 'lunch', 'snack', 'dinner']
-        const mergedPlan: GeneratedPlan = {
-          plan: [...accepted, ...relevantReplacements].sort((a, b) => {
-            if (a.date < b.date) return -1
-            if (a.date > b.date) return 1
-            return mealOrder.indexOf(a.meal_type) - mealOrder.indexOf(b.meal_type)
-          }),
-          shopping_suggestions: data.shopping_suggestions,
-          notes: data.notes,
-        }
-
-        setPendingPlan(mergedPlan)
-      } else {
-        addMessage({
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: "Sorry, I couldn't find replacements. Please try again.",
-          timestamp: Date.now(),
-        })
-      }
-    } catch (err) {
-      addMessage({
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `Sorry, something went wrong: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        timestamp: Date.now(),
-      })
-    } finally {
-      setIsGeneratingPlan(false)
-    }
-  }
+    // Mark the whole plan as ready
+    setPendingPlan((prev) => (prev ? { ...prev, _stage: 'ready' } : null))
+  }, [])
 
   const handleActionApply = useCallback(async (messageId: string) => {
     const msg = messages.find((m) => m.id === messageId)
@@ -231,11 +224,13 @@ export function ChatDialog() {
     try {
       for (const item of selectedItems) {
         let recipeId = item.recipe_id ?? undefined
-        if (!recipeId && item.ingredients) {
+        if (!recipeId) {
           const recipe = await createRecipe({
             circle_id: activeCircle.id,
             title: item.recipe_title,
-            ingredients: item.ingredients.map((ing, idx) => ({
+            description: item.description,
+            source_url: item.source_url,
+            ingredients: (item.ingredients || []).map((ing, idx) => ({
               name: ing.name,
               quantity: ing.quantity ?? null,
               unit: (ing.unit || '') as import('@/lib/constants').Unit,
@@ -392,18 +387,6 @@ export function ChatDialog() {
         onOpenChange={setShowUpgradeModal}
       />
 
-      {/* Generating plan overlay */}
-      {isGeneratingPlan && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-surface-dark-elevated rounded-2xl p-6 flex flex-col items-center gap-3 shadow-xl mx-4">
-            <div className="h-8 w-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              {t('plan.generatingMeals')}
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Plan review sheet */}
       <AnimatePresence>
         {pendingPlan && (
@@ -415,12 +398,12 @@ export function ChatDialog() {
             <ChatPlanReview
               plan={pendingPlan}
               isAccepting={isAcceptingPlan}
+              onApprove={handleApproveAndFetchRecipes}
               onAccept={handleAcceptPlan}
               onRequestChanges={(request) => {
                 setPendingPlan(null)
                 sendMessage(request)
               }}
-              onRequestReplacements={handleRequestReplacements}
               onDismiss={() => setPendingPlan(null)}
               onNavigateToRecipe={handleNavigateToRecipe}
               onAddToShoppingList={(items) => setShoppingItems(items)}

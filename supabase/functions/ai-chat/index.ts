@@ -16,45 +16,33 @@ const OUTPUT_COST_PER_1M = 5.00
 
 const INLINE_MEAL_PLAN_TOOL = {
   name: 'generate_plan',
-  description: 'Generate a structured meal plan with full recipe details',
+  description: 'Generate a curated dish list — names and brief summaries only, no full recipes',
   input_schema: {
     type: 'object',
     properties: {
       meals: {
         type: 'array',
+        description: 'List of dish suggestions. Each dish is ONE entry — generate multiple entries per meal_type when meal_structure requires it.',
         items: {
           type: 'object',
           properties: {
             date: { type: 'string', description: 'YYYY-MM-DD' },
             meal_type: { type: 'string', enum: ['breakfast', 'lunch', 'dinner', 'snack'] },
-            recipe_title: { type: 'string' },
-            recipe_id: { type: ['string', 'null'], description: 'null for new recipes' },
-            ingredients: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  quantity: { type: ['number', 'null'] },
-                  unit: { type: 'string', description: 'empty string if count' },
-                },
-                required: ['name'],
-              },
-            },
+            recipe_title: { type: 'string', description: 'Clear, searchable dish name in English' },
+            description: { type: 'string', description: 'One sentence: what the dish is and why it fits' },
+            tags: { type: 'array', items: { type: 'string' }, description: 'e.g. vegetarian, gluten-free, quick, side-dish, main' },
             estimated_time_min: { type: ['integer', 'null'] },
-            tags: { type: 'array', items: { type: 'string' } },
             servings: { type: ['integer', 'null'] },
-            instructions: {
-              type: 'array',
-              items: { type: 'string' },
-              description: 'Step-by-step cooking instructions',
+            source_preference: {
+              type: 'string',
+              enum: ['web', 'generate'],
+              description: 'web = well-known dish findable on recipe sites; generate = custom/unique dish needing AI creation',
             },
           },
-          required: ['date', 'meal_type', 'recipe_title', 'ingredients', 'tags'],
+          required: ['date', 'meal_type', 'recipe_title', 'tags'],
         },
       },
-      shopping_suggestions: { type: 'array', items: { type: 'string' } },
-      notes: { type: 'string' },
+      notes: { type: 'string', description: 'Overall notes or serving suggestions for the plan' },
     },
     required: ['meals'],
   },
@@ -422,11 +410,15 @@ serve(async (req) => {
                 ? `IMPORTANT: Each ${scope === 'all' ? 'dinner' : scope} meal must include: ${mealStructure}. Generate a SEPARATE meal entry for EACH dish (e.g., "2 main dishes + 1 side" = 3 separate entries sharing the same date and meal_type).`
                 : 'Default per meal: 1 main dish + 1 vegetarian side + 1 carb. Each dish is a separate meal entry with the same date and meal_type.'
 
-              const planPrompt = `Generate a meal plan for: ${planDates.join(', ')}.
+              const planPrompt = `Suggest a meal plan for: ${planDates.join(', ')}.
 Plan: ${mealScope}.
 ${mealCompositionNote}
 ${prefs ? `Preferences: ${prefs}` : 'Default: Mediterranean/Middle-Eastern family cooking.'}
-For every dish: full ingredient list with quantities, estimated_time_min, servings, and step-by-step instructions.`
+
+IMPORTANT: Generate dish NAMES and brief descriptions ONLY — no ingredients, no instructions.
+Use clear English dish names (searchable on recipe websites like "Shakshuka", "Grilled Salmon", "Roasted Potatoes").
+For classic dishes, set source_preference: "web". For custom/fusion, set source_preference: "generate".
+Be creative and varied. Aim for practical family meals.`
 
               const planResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -437,8 +429,8 @@ For every dish: full ingredient list with quantities, estimated_time_min, servin
                 },
                 body: JSON.stringify({
                   model: MODEL,
-                  max_tokens: 8192,
-                  system: 'You are an expert family meal planner. Create practical, varied meal plans with full recipe details including step-by-step instructions. Default to Mediterranean/Middle-Eastern cuisine unless otherwise specified.',
+                  max_tokens: 2048,
+                  system: 'You are an expert family meal planner. Suggest practical, varied dish names with brief descriptions. Default to Mediterranean/Middle-Eastern cuisine unless otherwise specified.',
                   tools: [INLINE_MEAL_PLAN_TOOL],
                   tool_choice: { type: 'tool', name: 'generate_plan' },
                   messages: [{ role: 'user', content: planPrompt }],
