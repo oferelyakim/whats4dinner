@@ -13,6 +13,10 @@ interface AppState {
   fontSize: FontSize
   setFontSize: (size: FontSize) => void
 
+  // Keep screen on while viewing a recipe
+  keepScreenOn: boolean
+  setKeepScreenOn: (enabled: boolean) => void
+
   // Auth
   profile: Profile | null
   setProfile: (profile: Profile | null) => void
@@ -47,6 +51,9 @@ export const useAppStore = create<AppState>()(
         applyFontSize(fontSize)
       },
 
+      keepScreenOn: false,
+      setKeepScreenOn: (keepScreenOn) => set({ keepScreenOn }),
+
       profile: null,
       setProfile: (profile) => set({ profile }),
 
@@ -66,6 +73,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         theme: state.theme,
         fontSize: state.fontSize,
+        keepScreenOn: state.keepScreenOn,
         activeCircle: state.activeCircle,
         calendarView: state.calendarView,
         calendarDate: state.calendarDate,

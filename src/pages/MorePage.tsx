@@ -8,6 +8,7 @@ import {
   User,
   Sparkles,
   Type,
+  MonitorSmartphone,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -22,7 +23,7 @@ import { useToast } from '@/components/ui/Toast'
 
 export function MorePage() {
   const navigate = useNavigate()
-  const { theme, setTheme, fontSize, setFontSize, profile } = useAppStore()
+  const { theme, setTheme, fontSize, setFontSize, keepScreenOn, setKeepScreenOn, profile } = useAppStore()
   const { session, signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
   const ai = useAIAccess()
@@ -200,6 +201,43 @@ export function MorePage() {
                   'px-3 py-3 rounded-md font-medium transition-colors min-h-[44px]',
                   opt.size,
                   fontSize === opt.code
+                    ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Keep screen on */}
+      <Card className="px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <MonitorSmartphone className="h-5 w-5 text-slate-500 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                {t('more.keepScreenOn')}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {t('more.keepScreenOnHint')}
+              </div>
+            </div>
+          </div>
+          <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5 shrink-0">
+            {([
+              { value: false, label: t('common.off') },
+              { value: true, label: t('common.on') },
+            ]).map((opt) => (
+              <button
+                key={String(opt.value)}
+                onClick={() => setKeepScreenOn(opt.value)}
+                aria-pressed={keepScreenOn === opt.value}
+                className={cn(
+                  'px-3 py-3 rounded-md text-sm font-medium transition-colors min-h-[44px]',
+                  keepScreenOn === opt.value
                     ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-500'
                 )}

@@ -7,6 +7,7 @@ import { getSharedRecipe } from '@/services/recipes'
 import { useAuth } from '@/hooks/useAuth'
 import { formatQuantity } from '@/lib/format'
 import { useWakeLock } from '@/hooks/useWakeLock'
+import { useAppStore } from '@/stores/appStore'
 
 export function SharedRecipePage() {
   const { code } = useParams<{ code: string }>()
@@ -19,7 +20,8 @@ export function SharedRecipePage() {
     enabled: !!code,
   })
 
-  useWakeLock(!!recipe)
+  const keepScreenOn = useAppStore((s) => s.keepScreenOn)
+  useWakeLock(!!recipe && keepScreenOn)
 
   if (isLoading) {
     return (

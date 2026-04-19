@@ -15,6 +15,7 @@ import { getShoppingLists, createShoppingList, addRecipeToList } from '@/service
 import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/components/ui/Toast'
 import { useWakeLock } from '@/hooks/useWakeLock'
+import { useAppStore } from '@/stores/appStore'
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -38,7 +39,8 @@ export function RecipeDetailPage() {
     enabled: !!id,
   })
 
-  useWakeLock(!!recipe)
+  const keepScreenOn = useAppStore((s) => s.keepScreenOn)
+  useWakeLock(!!recipe && keepScreenOn)
 
   const { data: lists = [] } = useQuery({
     queryKey: ['shopping-lists'],

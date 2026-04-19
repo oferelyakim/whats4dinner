@@ -343,6 +343,10 @@ const translations: Record<string, Record<Locale, string>> = {
   'more.fontSizeSmall': { en: 'Small', he: 'קטן', es: 'Pequeño' },
   'more.fontSizeMedium': { en: 'Medium', he: 'בינוני', es: 'Mediano' },
   'more.fontSizeLarge': { en: 'Large', he: 'גדול', es: 'Grande' },
+  'more.keepScreenOn': { en: 'Keep screen on while cooking', he: 'השאר מסך דולק בזמן בישול', es: 'Mantener pantalla encendida al cocinar' },
+  'more.keepScreenOnHint': { en: 'Prevents screen sleep while a recipe is open', he: 'מונע כיבוי מסך כאשר מתכון פתוח', es: 'Evita que la pantalla se apague con una receta abierta' },
+  'common.on': { en: 'On', he: 'דולק', es: 'Sí' },
+  'common.off': { en: 'Off', he: 'כבוי', es: 'No' },
 
   // Profile
   'profile.displayName': { en: 'Display Name', he: 'שם תצוגה', es: 'Nombre para mostrar' },
