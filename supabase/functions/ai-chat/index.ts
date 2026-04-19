@@ -50,7 +50,7 @@ const INLINE_MEAL_PLAN_TOOL = {
               description: 'Step-by-step cooking instructions',
             },
           },
-          required: ['date', 'meal_type', 'recipe_title', 'ingredients', 'tags', 'instructions'],
+          required: ['date', 'meal_type', 'recipe_title', 'ingredients', 'tags'],
         },
       },
       shopping_suggestions: { type: 'array', items: { type: 'string' } },
@@ -229,6 +229,11 @@ const PAID_TOOLS = [
           type: 'string',
           description: 'Describes what dishes make up a meal (e.g. "2 main dishes, 1 vegetarian, 2 sides, 1 potato dish" or "1 salad, 1 protein"). Default: 1 main, 1 veggie side, 1 carb per meal.',
         },
+        scope: {
+          type: 'string',
+          enum: ['dinner', 'lunch', 'breakfast', 'all'],
+          description: 'Which meal(s) to plan. Use "dinner" when user says "tonight", "dinner tonight", or plans dinner specifically. Use "all" when planning a full day or week. Default: "all".',
+        },
       },
       required: ['dates'],
     },
@@ -401,19 +406,27 @@ serve(async (req) => {
           if (ANTHROPIC_API_KEY && planDates.length > 0) {
             try {
               const mealStructure = ((block.input as Record<string, unknown>).meal_structure as string) || ''
-              const mealScope = planDates.length > 3
-                ? 'dinner only for each date (keep the plan concise)'
-                : 'breakfast, lunch, and dinner for each date'
-              const mealCompositionNote = mealStructure
-                ? `IMPORTANT: Each meal must include: ${mealStructure}. Generate separate meal entries for each dish (e.g., if 2 main dishes + 1 side, generate 3 separate meal entries for that date+meal_type).`
-                : 'Default per meal: 1 main dish, 1 vegetarian side, 1 carb/starch. Generate each as a separate meal entry.'
+              const scope = ((block.input as Record<string, unknown>).scope as string) || 'all'
 
-              const planPrompt = `Generate a meal plan for these dates: ${planDates.join(', ')}.
-Plan ${mealScope}.
+              // Determine which meals to plan based on scope and number of dates
+              let mealScope: string
+              if (scope === 'dinner' || scope === 'lunch' || scope === 'breakfast') {
+                mealScope = `${scope} only for each date`
+              } else if (planDates.length > 3) {
+                mealScope = 'dinner only for each date (keep the plan concise)'
+              } else {
+                mealScope = 'breakfast, lunch, and dinner for each date'
+              }
+
+              const mealCompositionNote = mealStructure
+                ? `IMPORTANT: Each ${scope === 'all' ? 'dinner' : scope} meal must include: ${mealStructure}. Generate a SEPARATE meal entry for EACH dish (e.g., "2 main dishes + 1 side" = 3 separate entries sharing the same date and meal_type).`
+                : 'Default per meal: 1 main dish + 1 vegetarian side + 1 carb. Each dish is a separate meal entry with the same date and meal_type.'
+
+              const planPrompt = `Generate a meal plan for: ${planDates.join(', ')}.
+Plan: ${mealScope}.
 ${mealCompositionNote}
-${prefs ? `User preferences/constraints: ${prefs}` : 'Use Mediterranean/Middle-Eastern family cooking as default.'}
-For every dish, provide: full ingredient list with quantities, estimated_time_min, servings, and step-by-step instructions.
-Keep recipes practical and realistic.`
+${prefs ? `Preferences: ${prefs}` : 'Default: Mediterranean/Middle-Eastern family cooking.'}
+For every dish: full ingredient list with quantities, estimated_time_min, servings, and step-by-step instructions.`
 
               const planResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -424,8 +437,8 @@ Keep recipes practical and realistic.`
                 },
                 body: JSON.stringify({
                   model: MODEL,
-                  max_tokens: 4096,
-                  system: 'You are an expert family meal planner. Create practical, varied meal plans with full recipe details. Default to Mediterranean/Middle-Eastern cuisine unless otherwise specified.',
+                  max_tokens: 8192,
+                  system: 'You are an expert family meal planner. Create practical, varied meal plans with full recipe details including step-by-step instructions. Default to Mediterranean/Middle-Eastern cuisine unless otherwise specified.',
                   tools: [INLINE_MEAL_PLAN_TOOL],
                   tool_choice: { type: 'tool', name: 'generate_plan' },
                   messages: [{ role: 'user', content: planPrompt }],
@@ -454,7 +467,9 @@ Keep recipes practical and realistic.`
             confirmation = "Here's your meal plan! Review and customize before saving."
             actionParams = { ...(block.input as Record<string, unknown>), planData: embeddedPlan }
           } else {
-            confirmation = 'Generating meal plan...'
+            // Inline generation failed — set an error flag so the frontend shows a retry message
+            confirmation = 'Meal plan generation failed. Please try again.'
+            actionParams = { ...(block.input as Record<string, unknown>), planGenerationFailed: true }
           }
         } else if (block.name === 'create_recipe') {
           confirmation = `Create recipe: ${block.input.title}`

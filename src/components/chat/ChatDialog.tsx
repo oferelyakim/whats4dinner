@@ -63,13 +63,21 @@ export function ChatDialog() {
   useEffect(() => {
     if (pendingPlan) return
     for (const msg of messages) {
-      if (
-        !msg.isLoading &&
-        msg.action?.type === 'plan_meals' &&
-        msg.action.params.planData &&
-        !shownPlanMessageIds.current.has(msg.id)
-      ) {
-        const planData = msg.action.params.planData as GeneratedPlan
+      if (!msg.isLoading && msg.action?.type === 'plan_meals' && !shownPlanMessageIds.current.has(msg.id)) {
+        // If inline generation failed, clean up and show error
+        if (msg.action.params.planGenerationFailed) {
+          shownPlanMessageIds.current.add(msg.id)
+          updateMessage(msg.id, { action: undefined })
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: "Sorry, I had trouble generating the plan. Please try again.",
+            timestamp: Date.now(),
+          })
+          break
+        }
+
+        const planData = msg.action.params.planData as GeneratedPlan | undefined
         if (planData?.plan?.length > 0) {
           shownPlanMessageIds.current.add(msg.id)
           setPendingPlan(planData)
@@ -78,7 +86,7 @@ export function ChatDialog() {
         break
       }
     }
-  }, [messages, pendingPlan, updateMessage])
+  }, [messages, pendingPlan, updateMessage, addMessage])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -164,6 +172,18 @@ export function ChatDialog() {
 
     try {
       if (type === 'plan_meals') {
+        // If inline generation failed server-side, show a retry message
+        if (msg.action.params.planGenerationFailed) {
+          updateMessage(messageId, { action: undefined })
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: "Sorry, I had trouble generating the plan. Please try again — describe the dates and any preferences.",
+            timestamp: Date.now(),
+          })
+          return
+        }
+
         // Fast path: plan was already generated server-side inside ai-chat
         const embedded = msg.action.params.planData as GeneratedPlan | undefined
         if (embedded?.plan?.length) {
@@ -173,24 +193,14 @@ export function ChatDialog() {
           return
         }
 
-        // Slow path: call generate-meal-plan separately (fallback)
-        setIsGeneratingPlan(true)
-        try {
-          const result = await applyAction(msg.action)
-          if (result) {
-            setPendingPlan(result)
-            updateMessage(messageId, { action: undefined })
-          } else {
-            addMessage({
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              content: "Sorry, I couldn't generate the meal plan. Try asking again with more specific dates or preferences.",
-              timestamp: Date.now(),
-            })
-          }
-        } finally {
-          setIsGeneratingPlan(false)
-        }
+        // Fallback — dismiss the action and tell user to retry
+        updateMessage(messageId, { action: undefined })
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: "Something went wrong generating the plan. Please try asking again.",
+          timestamp: Date.now(),
+        })
       } else {
         await applyAction(msg.action)
         updateMessage(messageId, { action: undefined })
