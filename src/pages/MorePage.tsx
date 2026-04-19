@@ -7,6 +7,7 @@ import {
   ChevronRight,
   User,
   Sparkles,
+  Type,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -21,7 +22,7 @@ import { useToast } from '@/components/ui/Toast'
 
 export function MorePage() {
   const navigate = useNavigate()
-  const { theme, setTheme, profile } = useAppStore()
+  const { theme, setTheme, fontSize, setFontSize, profile } = useAppStore()
   const { session, signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
   const ai = useAIAccess()
@@ -170,6 +171,40 @@ export function MorePage() {
                 )}
               >
                 {t(`more.${themeOption}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Font size */}
+      <Card className="px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Type className="h-5 w-5 text-slate-500 shrink-0" />
+            <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+              {t('more.fontSize')}
+            </span>
+          </div>
+          <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5">
+            {([
+              { code: 'sm' as const, label: t('more.fontSizeSmall'), size: 'text-xs' },
+              { code: 'md' as const, label: t('more.fontSizeMedium'), size: 'text-sm' },
+              { code: 'lg' as const, label: t('more.fontSizeLarge'), size: 'text-base' },
+            ]).map((opt) => (
+              <button
+                key={opt.code}
+                onClick={() => setFontSize(opt.code)}
+                aria-pressed={fontSize === opt.code}
+                className={cn(
+                  'px-3 py-3 rounded-md font-medium transition-colors min-h-[44px]',
+                  opt.size,
+                  fontSize === opt.code
+                    ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500'
+                )}
+              >
+                {opt.label}
               </button>
             ))}
           </div>

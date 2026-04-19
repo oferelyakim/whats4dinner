@@ -52,10 +52,10 @@ interface AIMealSuggestion {
 // MEAL_LABELS moved inside component for i18n access
 
 const MEAL_COLORS: Record<MealType, string> = {
-  breakfast: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
-  lunch: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
-  dinner: 'bg-purple-500/20 text-purple-700 dark:text-purple-400',
-  snack: 'bg-green-500/20 text-green-700 dark:text-green-400',
+  breakfast: 'bg-yellow-500/20 text-yellow-800 dark:bg-yellow-400/25 dark:text-yellow-100',
+  lunch: 'bg-blue-500/20 text-blue-800 dark:bg-blue-400/25 dark:text-blue-100',
+  dinner: 'bg-purple-500/20 text-purple-800 dark:bg-purple-400/25 dark:text-purple-100',
+  snack: 'bg-green-500/20 text-green-800 dark:bg-green-400/25 dark:text-green-100',
 }
 
 export function PlanPage() {
@@ -89,6 +89,9 @@ export function PlanPage() {
   const [notesExpanded, setNotesExpanded] = useState(false)
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
   const [acceptingPlan, setAcceptingPlan] = useState(false)
+
+  // Remove confirmation state
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; title: string } | null>(null)
 
   // Shop from plan sheet state
   const [showShopSheet, setShowShopSheet] = useState(false)
@@ -176,6 +179,7 @@ export function PlanPage() {
     mutationFn: (planId: string) => removeMealPlan(planId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meal-plans'] })
+      setRemoveTarget(null)
     },
     onError: (err: Error) => toast.error(err.message),
   })
@@ -788,7 +792,7 @@ export function PlanPage() {
                                 <Link
                                   to={`/recipes/${plan.recipe_id}`}
                                   title={plan.recipe.title}
-                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/30 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors"
+                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/40 hover:bg-white/60 dark:bg-black/30 dark:hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors"
                                 >
                                   {plan.recipe.title}
                                 </Link>
@@ -797,7 +801,7 @@ export function PlanPage() {
                                 <Link
                                   to="/food/templates"
                                   title={plan.menu.name}
-                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/30 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors"
+                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/40 hover:bg-white/60 dark:bg-black/30 dark:hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors"
                                 >
                                   {plan.menu.name}
                                 </Link>
@@ -805,7 +809,7 @@ export function PlanPage() {
                                 /* Notes capsule — non-interactive, dimmed */
                                 <span
                                   title={plan.notes ?? ''}
-                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/20 opacity-75"
+                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/30 dark:bg-black/20 opacity-80"
                                 >
                                   {plan.notes ?? ''}
                                 </span>
@@ -828,7 +832,12 @@ export function PlanPage() {
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   e.preventDefault()
-                                  removeMutation.mutate(plan.id)
+                                  const title =
+                                    plan.recipe?.title ??
+                                    plan.menu?.name ??
+                                    plan.notes ??
+                                    ''
+                                  setRemoveTarget({ id: plan.id, title })
                                 }}
                                 className="shrink-0 p-2 -m-2 opacity-60 hover:opacity-100 active:scale-90 transition-all"
                                 aria-label={t('common.remove')}
@@ -994,6 +1003,39 @@ export function PlanPage() {
           initialPlanId={shopSheetPlanId}
         />
       )}
+
+      {/* Remove dish confirmation */}
+      <Dialog.Root open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed top-1/2 start-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-2rem)] max-w-sm bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-2xl focus:outline-none">
+            <Dialog.Title className="text-base font-bold text-slate-900 dark:text-white mb-2">
+              {t('plan.removeDishTitle')}
+            </Dialog.Title>
+            <Dialog.Description className="text-sm text-slate-600 dark:text-slate-300 mb-5">
+              {t('plan.removeDishDesc').replace('{title}', removeTarget?.title ?? '')}
+            </Dialog.Description>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setRemoveTarget(null)}
+                disabled={removeMutation.isPending}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                className="flex-1 bg-danger hover:bg-danger/90 text-white"
+                onClick={() => removeTarget && removeMutation.mutate(removeTarget.id)}
+                disabled={removeMutation.isPending}
+                loading={removeMutation.isPending}
+              >
+                {t('common.remove')}
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
     </div>
   )

@@ -278,6 +278,8 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.shopThisWeek': { en: 'Shop this week', he: 'קנייה לשבוע זה', es: 'Comprar esta semana' },
   'plan.shopThisDay': { en: 'Shop day', he: 'קנייה ליום', es: 'Comprar día' },
   'plan.shopThisMeal': { en: 'Shop', he: 'קנייה', es: 'Comprar' },
+  'plan.removeDishTitle': { en: 'Remove dish?', he: 'להסיר מנה?', es: '¿Eliminar plato?' },
+  'plan.removeDishDesc': { en: 'Remove "{title}" from the meal plan?', he: 'להסיר את "{title}" מתוכנית הארוחות?', es: '¿Eliminar "{title}" del plan de comidas?' },
 
   // Navigation (new hub tabs)
   'nav.food': { en: 'Food', he: 'אוכל', es: 'Comida' },
@@ -320,6 +322,10 @@ const translations: Record<string, Record<Locale, string>> = {
   'more.settings': { en: 'Settings', he: 'הגדרות', es: 'Ajustes' },
   'more.familyGroups': { en: 'Family & friend groups', he: 'קבוצות משפחה וחברים', es: 'Grupos de familia y amigos' },
   'more.manageAccount': { en: 'Manage your account', he: 'נהל את החשבון שלך', es: 'Administra tu cuenta' },
+  'more.fontSize': { en: 'Font size', he: 'גודל גופן', es: 'Tamaño de letra' },
+  'more.fontSizeSmall': { en: 'Small', he: 'קטן', es: 'Pequeño' },
+  'more.fontSizeMedium': { en: 'Medium', he: 'בינוני', es: 'Mediano' },
+  'more.fontSizeLarge': { en: 'Large', he: 'גדול', es: 'Grande' },
 
   // Profile
   'profile.displayName': { en: 'Display Name', he: 'שם תצוגה', es: 'Nombre para mostrar' },
