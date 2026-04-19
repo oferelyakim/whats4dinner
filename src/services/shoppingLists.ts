@@ -1,5 +1,15 @@
 import { supabase } from './supabase'
 import type { ShoppingList, ShoppingListItem } from '@/types'
+import type { Unit } from '@/lib/constants'
+
+export interface AggregatedIngredient {
+  key: string
+  name: string
+  quantity: number | null
+  unit: Unit
+  sourceRecipeIds: string[]
+  sourceRecipeTitles: string[]
+}
 
 export async function getShoppingLists(): Promise<ShoppingList[]> {
   const { data, error } = await supabase
@@ -218,6 +228,100 @@ export async function addMealPlansToList(listId: string, planIds: string[]): Pro
   }))
 
   const { error } = await supabase.from('shopping_list_items').insert(items)
+  if (error) throw error
+}
+
+export async function computePlanIngredients(planIds: string[]): Promise<AggregatedIngredient[]> {
+  if (!planIds.length) return []
+
+  // Fetch meal plan rows to get their recipe_ids (and recipe titles via join)
+  const { data: plans, error: plansError } = await supabase
+    .from('meal_plans')
+    .select('id, recipe_id, recipe:recipes(id, title)')
+    .in('id', planIds)
+
+  if (plansError) throw plansError
+  if (!plans?.length) return []
+
+  // Build a map from recipe_id to recipe title, only for plans with a recipe
+  const recipeIdToTitle = new Map<string, string>()
+  for (const plan of plans) {
+    if (plan.recipe_id && plan.recipe) {
+      const recipeRecord = plan.recipe as unknown as { id: string; title: string } | null
+      if (recipeRecord?.title) {
+        recipeIdToTitle.set(plan.recipe_id, recipeRecord.title)
+      }
+    }
+  }
+
+  const recipeIds = [...recipeIdToTitle.keys()]
+  if (!recipeIds.length) return []
+
+  // Fetch all ingredients for those recipes
+  const { data: ingredients, error: ingError } = await supabase
+    .from('recipe_ingredients')
+    .select('id, recipe_id, name, quantity, unit')
+    .in('recipe_id', recipeIds)
+
+  if (ingError) throw ingError
+  if (!ingredients?.length) return []
+
+  // Aggregate by name|unit key
+  const aggregated = new Map<string, AggregatedIngredient>()
+
+  for (const ing of ingredients) {
+    const unitNorm = ((ing.unit as string) || '').toLowerCase().trim() as Unit
+    const nameNorm = ing.name.toLowerCase().trim()
+    const key = `${nameNorm}|${unitNorm}`
+    const title = recipeIdToTitle.get(ing.recipe_id) ?? ''
+
+    const existing = aggregated.get(key)
+    if (existing) {
+      // Sum quantity (null if either side is null)
+      if (existing.quantity !== null && ing.quantity != null) {
+        existing.quantity = existing.quantity + ing.quantity
+      } else {
+        existing.quantity = null
+      }
+      if (!existing.sourceRecipeIds.includes(ing.recipe_id)) {
+        existing.sourceRecipeIds.push(ing.recipe_id)
+        existing.sourceRecipeTitles.push(title)
+      }
+    } else {
+      aggregated.set(key, {
+        key,
+        name: ing.name,
+        quantity: ing.quantity ?? null,
+        unit: unitNorm,
+        sourceRecipeIds: [ing.recipe_id],
+        sourceRecipeTitles: [title],
+      })
+    }
+  }
+
+  return [...aggregated.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export async function addIngredientsBulk(
+  listId: string,
+  items: { name: string; quantity: number | null; unit: Unit; notes?: string | null }[]
+): Promise<void> {
+  if (!items.length) return
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const rows = items.map((item) => ({
+    list_id: listId,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    category: 'Other',
+    notes: item.notes ?? null,
+    added_by: user.id,
+  }))
+
+  const { error } = await supabase.from('shopping_list_items').insert(rows)
   if (error) throw error
 }
 

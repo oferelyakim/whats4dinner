@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, Copy, Download, ArrowLeft, ChevronDown, ChevronUp, Clipboard, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, ShoppingBag, Copy, Download, ArrowLeft, ChevronDown, ChevronUp, Clipboard, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -19,7 +19,8 @@ import { getMealPlans, setMealPlan, removeMealPlan, getWeekDates, copyWeekPlan, 
 import { getRecipes, createRecipe } from '@/services/recipes'
 import { getMealMenus } from '@/services/mealMenus'
 import type { MealMenu, Recipe as RecipeType } from '@/types'
-import { getShoppingLists, createShoppingList, addMealPlansToList } from '@/services/shoppingLists'
+import { createShoppingList } from '@/services/shoppingLists'
+import { ShopFromPlanSheet } from '@/components/plan/ShopFromPlanSheet'
 import { MEAL_TYPES, type MealType } from '@/lib/constants'
 import { useI18n } from '@/lib/i18n'
 import { exportMealPlanToCalendar } from '@/lib/calendar'
@@ -78,8 +79,6 @@ export function PlanPage() {
   const [selectedMealType, setSelectedMealType] = useState<MealType>('dinner')
   const [search, setSearch] = useState('')
   const [addSource, setAddSource] = useState<'recipes' | 'templates'>('recipes')
-  const [showAddToList, setShowAddToList] = useState(false)
-  const [addingToList, setAddingToList] = useState(false)
   const ai = useAIAccess()
   const [aiPlan, setAiPlan] = useState<AIMealSuggestion[]>([])
   const [aiNotes, setAiNotes] = useState<string>('')
@@ -90,6 +89,37 @@ export function PlanPage() {
   const [notesExpanded, setNotesExpanded] = useState(false)
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
   const [acceptingPlan, setAcceptingPlan] = useState(false)
+
+  // Shop from plan sheet state
+  const [showShopSheet, setShowShopSheet] = useState(false)
+  const [shopSheetScope, setShopSheetScope] = useState<'week' | 'day' | 'meal'>('week')
+  const [shopSheetDate, setShopSheetDate] = useState<string | undefined>(undefined)
+  const [shopSheetMealType, setShopSheetMealType] = useState<MealType | undefined>(undefined)
+  const [shopSheetPlanId, setShopSheetPlanId] = useState<string | undefined>(undefined)
+
+  function openShopWeek() {
+    setShopSheetScope('week')
+    setShopSheetDate(undefined)
+    setShopSheetMealType(undefined)
+    setShopSheetPlanId(undefined)
+    setShowShopSheet(true)
+  }
+
+  function openShopDay(date: string) {
+    setShopSheetScope('day')
+    setShopSheetDate(date)
+    setShopSheetMealType(undefined)
+    setShopSheetPlanId(undefined)
+    setShowShopSheet(true)
+  }
+
+  function openShopMeal(date: string, mealType: MealType, planId: string) {
+    setShopSheetScope('meal')
+    setShopSheetDate(date)
+    setShopSheetMealType(mealType)
+    setShopSheetPlanId(planId)
+    setShowShopSheet(true)
+  }
 
   const week = useMemo(() => {
     const ref = new Date()
@@ -106,12 +136,6 @@ export function PlanPage() {
     queryKey: ['meal-plans', activeCircle?.id, week.start, week.end],
     queryFn: () => getMealPlans(activeCircle!.id, week.start, week.end),
     enabled: !!activeCircle,
-  })
-
-  const { data: lists = [] } = useQuery({
-    queryKey: ['shopping-lists'],
-    queryFn: getShoppingLists,
-    enabled: showAddToList,
   })
 
   const { data: recipes = [] } = useQuery({
@@ -167,40 +191,6 @@ export function PlanPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   })
-
-  async function handleAddWeekToList(listId: string) {
-    setAddingToList(true)
-    try {
-      const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
-      if (planIds.length) {
-        await addMealPlansToList(listId, planIds)
-        queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('common.error'))
-    } finally {
-      setAddingToList(false)
-      setShowAddToList(false)
-    }
-  }
-
-  async function handleAddWeekToNewList() {
-    if (!activeCircle) return
-    setAddingToList(true)
-    try {
-      const list = await createShoppingList(`${weekLabel} Groceries`, activeCircle.id)
-      const planIds = plans.filter((p) => p.recipe_id).map((p) => p.id)
-      if (planIds.length) {
-        await addMealPlansToList(list.id, planIds)
-      }
-      queryClient.invalidateQueries({ queryKey: ['shopping-lists'] })
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('common.error'))
-    } finally {
-      setAddingToList(false)
-      setShowAddToList(false)
-    }
-  }
 
   // AI Meal Plan generation
   const generateAiPlan = useMutation({
@@ -570,10 +560,10 @@ export function PlanPage() {
             size="sm"
             variant="secondary"
             className="flex-1 min-w-0"
-            onClick={() => setShowAddToList(true)}
+            onClick={openShopWeek}
           >
-            <ShoppingCart className="h-4 w-4 shrink-0" />
-            <span className="truncate">{t('plan.addWeekToList')}</span>
+            <ShoppingBag className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('plan.shopThisWeek')}</span>
           </Button>
           <Button
             size="sm"
@@ -761,6 +751,16 @@ export function PlanPage() {
                     {t('plan.today')}
                   </span>
                 )}
+                {dayPlans.some((p) => p.recipe_id) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openShopDay(date) }}
+                    aria-label={t('plan.shopThisDay')}
+                    title={t('plan.shopThisDay')}
+                    className="ms-auto h-6 w-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay transition-colors"
+                  >
+                    <ShoppingCart className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
               {/* Meal slots */}
@@ -776,20 +776,63 @@ export function PlanPage() {
                             <div
                               key={plan.id}
                               className={cn(
-                                'flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs',
+                                'flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs min-h-[32px]',
                                 MEAL_COLORS[mealType]
                               )}
                             >
                               {idx === 0 && <span className="font-medium shrink-0">{MEAL_LABELS[mealType]}:</span>}
                               {idx > 0 && <span className="shrink-0 w-[calc(3ch+0.5rem)]" />}
-                              <span className="flex-1 truncate">
-                                {plan.recipe?.title ?? plan.menu?.name ?? plan.notes ?? ''}
-                              </span>
-                              {/* Issue 2: adequate touch target for X button */}
+
+                              {/* Recipe capsule — linked */}
+                              {plan.recipe_id && plan.recipe?.title ? (
+                                <Link
+                                  to={`/recipes/${plan.recipe_id}`}
+                                  title={plan.recipe.title}
+                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/30 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors"
+                                >
+                                  {plan.recipe.title}
+                                </Link>
+                              ) : plan.menu_id && plan.menu?.name ? (
+                                /* Menu capsule — linked to templates */
+                                <Link
+                                  to="/food/templates"
+                                  title={plan.menu.name}
+                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/30 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 transition-colors"
+                                >
+                                  {plan.menu.name}
+                                </Link>
+                              ) : (
+                                /* Notes capsule — non-interactive, dimmed */
+                                <span
+                                  title={plan.notes ?? ''}
+                                  className="flex-1 truncate px-2 py-0.5 rounded-full bg-white/20 opacity-75"
+                                >
+                                  {plan.notes ?? ''}
+                                </span>
+                              )}
+
+                              {plan.recipe_id && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    e.preventDefault()
+                                    openShopMeal(date, mealType, plan.id)
+                                  }}
+                                  className="shrink-0 p-2 -m-2 opacity-60 hover:opacity-100 active:scale-90 transition-all"
+                                  aria-label={t('plan.shopThisMeal')}
+                                >
+                                  <ShoppingCart className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                               <button
-                                onClick={() => removeMutation.mutate(plan.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  e.preventDefault()
+                                  removeMutation.mutate(plan.id)
+                                }}
                                 className="shrink-0 p-2 -m-2 opacity-60 hover:opacity-100 active:scale-90 transition-all"
-                                aria-label={t('common.remove')}                              >
+                                aria-label={t('common.remove')}
+                              >
                                 <X className="h-4 w-4" />
                               </button>
                             </div>
@@ -938,41 +981,20 @@ export function PlanPage() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Add Week to List Dialog */}
-      <Dialog.Root open={showAddToList} onOpenChange={setShowAddToList}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              {t('plan.addIngredientsTitle')}            </Dialog.Title>
-            <p className="text-xs text-slate-400 mb-4">
-              {plans.filter((p) => p.recipe_id).length} {t('plan.plannedRecipesDedup')}            </p>
-            <div className="space-y-2">
-              {lists.filter((l) => l.status === 'active').map((list) => (
-                <button
-                  key={list.id}
-                  onClick={() => handleAddWeekToList(list.id)}
-                  disabled={addingToList}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-left active:scale-[0.98] transition-all hover:border-brand-500"
-                >
-                  <ShoppingCart className="h-5 w-5 text-slate-400 shrink-0" />
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex-1 truncate">{list.name}</p>
-                  <Plus className="h-4 w-4 text-slate-400" />
-                </button>
-              ))}
-              <button
-                onClick={handleAddWeekToNewList}
-                disabled={addingToList}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-left active:scale-[0.98]"
-              >
-                <Plus className="h-5 w-5 text-brand-500" />
-                <p className="text-sm font-medium text-brand-500">
-                  {t('plan.createNewGroceryList')} "{weekLabel}"                </p>
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      {/* Shop from Plan Sheet */}
+      {activeCircle && (
+        <ShopFromPlanSheet
+          open={showShopSheet}
+          onClose={() => setShowShopSheet(false)}
+          plans={plans}
+          circleId={activeCircle.id}
+          initialScope={shopSheetScope}
+          initialDate={shopSheetDate}
+          initialMealType={shopSheetMealType}
+          initialPlanId={shopSheetPlanId}
+        />
+      )}
+
     </div>
   )
 }

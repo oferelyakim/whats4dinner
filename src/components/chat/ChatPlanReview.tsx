@@ -6,6 +6,7 @@ import {
   ChevronUp,
   Clock,
   ExternalLink,
+  RefreshCw,
   ShoppingCart,
   Trash2,
   CalendarCheck,
@@ -34,6 +35,7 @@ export interface MealPlanItem {
   thumbnail?: string
   // Internal UI state
   _status?: 'loading' | 'ready' | 'error'
+  _errorMessage?: string
 }
 
 export interface GeneratedPlan {
@@ -48,12 +50,15 @@ type PlanItemWithKey = MealPlanItem & { _key: number }
 interface ChatPlanReviewProps {
   plan: GeneratedPlan
   isAccepting: boolean
+  fetchError?: string | null
   onApprove: (selectedItems: MealPlanItem[]) => void
   onAccept: (selectedItems: MealPlanItem[]) => void
   onRequestChanges: (request: string) => void
   onDismiss: () => void
   onNavigateToRecipe?: (recipeId: string) => void
   onAddToShoppingList?: (items: MealPlanItem[]) => void
+  onRetryItem?: (item: MealPlanItem) => void
+  onRetryAllFailed?: () => void
 }
 
 const MEAL_ICONS: Record<string, string> = {
@@ -75,12 +80,15 @@ function formatPlanDate(dateStr: string, locale: string): string {
 export function ChatPlanReview({
   plan,
   isAccepting,
+  fetchError,
   onApprove,
   onAccept,
   onRequestChanges,
   onDismiss,
   onNavigateToRecipe,
   onAddToShoppingList,
+  onRetryItem,
+  onRetryAllFailed,
 }: ChatPlanReviewProps) {
   const { t, locale } = useI18n()
   const stage = plan._stage ?? 'selecting'
@@ -197,6 +205,7 @@ export function ChatPlanReview({
   const sortedDates = Object.keys(itemsByDate).sort()
 
   const readyCount = keyedItems.filter((item) => item._status === 'ready').length
+  const errorCount = keyedItems.filter((item) => item._status === 'error').length
   const totalFetchCount = keyedItems.filter((item) => item._status != null).length
 
   const headerTitle =
@@ -254,6 +263,16 @@ export function ChatPlanReview({
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-4">
+        {fetchError && (
+          <div className="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 px-3 py-2.5">
+            <p className="text-xs font-semibold text-red-700 dark:text-red-300">
+              {t('chat.planReview.fetchAllFailed')}
+            </p>
+            <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 leading-relaxed">
+              {fetchError}
+            </p>
+          </div>
+        )}
         {sortedDates.map((date) => (
           <div key={date}>
             <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">
@@ -278,7 +297,13 @@ export function ChatPlanReview({
                   )
                 }
                 if (stage === 'fetching') {
-                  return <FetchingCard key={item._key} item={item} />
+                  return (
+                    <FetchingCard
+                      key={item._key}
+                      item={item}
+                      onRetry={onRetryItem ? () => onRetryItem(stripKey(item)) : undefined}
+                    />
+                  )
                 }
                 return (
                   <ReadyCard
@@ -370,15 +395,35 @@ export function ChatPlanReview({
         )}
 
         {stage === 'fetching' && (
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400 py-2">
-            <div className="h-4 w-4 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-            Fetching {Math.max(0, totalFetchCount - readyCount)} more recipe
-            {totalFetchCount - readyCount !== 1 ? 's' : ''}...
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400 py-2">
+              <div className="h-4 w-4 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+              Fetching {Math.max(0, totalFetchCount - readyCount - errorCount)} more recipe
+              {totalFetchCount - readyCount - errorCount !== 1 ? 's' : ''}...
+            </div>
+            {errorCount > 0 && onRetryAllFailed && (
+              <button
+                onClick={onRetryAllFailed}
+                className="w-full h-10 rounded-xl border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t('chat.planReview.retryAllFailed')} ({errorCount})
+              </button>
+            )}
           </div>
         )}
 
         {stage === 'ready' && (
           <>
+            {errorCount > 0 && onRetryAllFailed && (
+              <button
+                onClick={onRetryAllFailed}
+                className="w-full h-10 rounded-xl border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 text-sm font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t('chat.planReview.retryAllFailed')} ({errorCount})
+              </button>
+            )}
             {onAddToShoppingList && (
               <button
                 onClick={handleAddToShopping}
@@ -386,7 +431,7 @@ export function ChatPlanReview({
                 className="w-full h-11 rounded-xl border border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
               >
                 <ShoppingCart className="h-4 w-4" />
-                Add to Shopping List
+                {t('chat.planReview.addToShoppingList')}
               </button>
             )}
             <button
@@ -397,12 +442,12 @@ export function ChatPlanReview({
               {isAccepting ? (
                 <>
                   <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
+                  {t('chat.planReview.saving')}
                 </>
               ) : (
                 <>
                   <CalendarCheck className="h-4 w-4" />
-                  Save to Calendar ({readyCount})
+                  {t('chat.planReview.saveToCalendar').replace('{{count}}', String(readyCount))}
                 </>
               )}
             </button>
@@ -571,14 +616,16 @@ function SelectingCard({
 
 interface FetchingCardProps {
   item: PlanItemWithKey
+  onRetry?: () => void
 }
 
-function FetchingCard({ item }: FetchingCardProps) {
+function FetchingCard({ item, onRetry }: FetchingCardProps) {
+  const { t } = useI18n()
   const status = item._status ?? 'loading'
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-3 rounded-2xl border transition-all',
+        'flex items-start gap-3 p-3 rounded-2xl border transition-all',
         status === 'ready'
           ? 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-900/10'
           : status === 'error'
@@ -586,7 +633,7 @@ function FetchingCard({ item }: FetchingCardProps) {
             : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-dark-overlay',
       )}
     >
-      <span className="text-xl shrink-0 leading-none">{MEAL_ICONS[item.meal_type] ?? '🍽️'}</span>
+      <span className="text-xl shrink-0 leading-none mt-0.5">{MEAL_ICONS[item.meal_type] ?? '🍽️'}</span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
           {item.recipe_title}
@@ -606,7 +653,7 @@ function FetchingCard({ item }: FetchingCardProps) {
               style={{ animationDelay: '300ms' }}
             />
             <span className="text-xs text-slate-400 dark:text-slate-500 ms-1">
-              Fetching recipe...
+              {t('chat.planReview.fetchingRecipe')}
             </span>
           </div>
         )}
@@ -629,14 +676,33 @@ function FetchingCard({ item }: FetchingCardProps) {
           </div>
         )}
         {status === 'error' && (
-          <span className="text-[10px] text-red-500 dark:text-red-400">Failed to fetch recipe</span>
+          <div className="mt-1 space-y-1">
+            <span className="text-[10px] font-medium text-red-500 dark:text-red-400">
+              {t('chat.planReview.failedToFetch')}
+            </span>
+            {item._errorMessage && (
+              <p className="text-[10px] text-red-400 dark:text-red-500 leading-relaxed">
+                {t('chat.planReview.errorDetails')}: {item._errorMessage}
+              </p>
+            )}
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors mt-0.5"
+              >
+                <RefreshCw className="h-2.5 w-2.5" />
+                {t('chat.planReview.retry')}
+              </button>
+            )}
+          </div>
         )}
       </div>
       {status === 'ready' && <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />}
       {status === 'loading' && (
         <div className="h-5 w-5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin shrink-0" />
       )}
-      {status === 'error' && <span className="text-[10px] text-red-500 shrink-0">✕</span>}
+      {status === 'error' && <span className="text-[10px] text-red-500 shrink-0 mt-0.5">✕</span>}
     </div>
   )
 }

@@ -44,6 +44,7 @@ export function ChatDialog() {
   const [pendingPlan, setPendingPlan] = useState<GeneratedPlan | null>(null)
   const [isAcceptingPlan, setIsAcceptingPlan] = useState(false)
   const [shoppingItems, setShoppingItems] = useState<MealPlanItem[] | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const shownPlanMessageIds = useRef<Set<string>>(new Set())
@@ -98,12 +99,76 @@ export function ChatDialog() {
     sendMessage(text)
   }
 
+  // Helper: extract a human-readable error message from a Supabase FunctionsHttpError
+  const extractFunctionsErrorMessage = useCallback(
+    async (error: unknown): Promise<string> => {
+      if (error && typeof error === 'object' && 'context' in error) {
+        const ctx = (error as { context: Response }).context
+        try {
+          const json = await ctx.clone().json() as { error?: string; detail?: string }
+          if (json.error) return json.detail ? `${json.error}: ${json.detail}` : json.error
+        } catch {
+          try {
+            const text = await ctx.clone().text()
+            if (text) return text
+          } catch {
+            // fall through
+          }
+        }
+      }
+      if (error instanceof Error) return error.message
+      return String(error)
+    },
+    [],
+  )
+
+  // Fetch a single item via get-recipe and update results in-place
+  const fetchSingleRecipe = useCallback(
+    async (item: MealPlanItem, results: MealPlanItem[], index: number): Promise<void> => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-recipe', {
+          body: {
+            dish_name: item.recipe_title,
+            tags: item.tags || [],
+            source_preference: item.source_preference || 'web',
+            preferences: item.description || '',
+          },
+        })
+        if (data && !error) {
+          results[index] = {
+            ...item,
+            ingredients: data.ingredients,
+            instructions: data.instructions,
+            servings: data.servings ?? item.servings,
+            estimated_time_min: data.estimated_time_min ?? item.estimated_time_min,
+            tags: data.tags?.length ? data.tags : item.tags || [],
+            from_web: data.from_web,
+            source_url: data.source_url,
+            thumbnail: data.thumbnail,
+            _status: 'ready',
+            _errorMessage: undefined,
+          }
+        } else {
+          const errorMessage = await extractFunctionsErrorMessage(error)
+          console.error('[ai-chat] get-recipe failed', item.recipe_title, errorMessage)
+          results[index] = { ...item, _status: 'error', _errorMessage: errorMessage }
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        console.error('[ai-chat] get-recipe failed', item.recipe_title, errorMessage)
+        results[index] = { ...item, _status: 'error', _errorMessage: errorMessage }
+      }
+    },
+    [extractFunctionsErrorMessage],
+  )
+
   // Phase 2: fetch full recipes in parallel via get-recipe edge function
   const handleApproveAndFetchRecipes = useCallback(async (selectedItems: MealPlanItem[]) => {
+    setFetchError(null)
     // Move to fetching stage — all items start in loading state
     const loadingItems: MealPlanItem[] = selectedItems.map((item) => ({
       ...item,
-      _status: 'loading',
+      _status: 'loading' as const,
     }))
     setPendingPlan((prev) =>
       prev ? { ...prev, plan: loadingItems, _stage: 'fetching' } : null
@@ -114,48 +179,85 @@ export function ChatDialog() {
 
     await Promise.allSettled(
       selectedItems.map((item, i) =>
-        supabase.functions
-          .invoke('get-recipe', {
-            body: {
-              dish_name: item.recipe_title,
-              tags: item.tags || [],
-              source_preference: item.source_preference || 'web',
-              preferences: item.description || '',
-            },
-          })
-          .then(({ data, error }) => {
-            if (data && !error) {
-              results[i] = {
-                ...item,
-                ingredients: data.ingredients,
-                instructions: data.instructions,
-                servings: data.servings ?? item.servings,
-                estimated_time_min: data.estimated_time_min ?? item.estimated_time_min,
-                tags: data.tags?.length ? data.tags : item.tags || [],
-                from_web: data.from_web,
-                source_url: data.source_url,
-                thumbnail: data.thumbnail,
-                _status: 'ready',
-              }
-            } else {
-              results[i] = { ...item, _status: 'error' }
-            }
-            setPendingPlan((prev) =>
-              prev ? { ...prev, plan: [...results] } : null
-            )
-          })
-          .catch(() => {
-            results[i] = { ...item, _status: 'error' }
-            setPendingPlan((prev) =>
-              prev ? { ...prev, plan: [...results] } : null
-            )
-          })
+        fetchSingleRecipe(item, results, i).then(() => {
+          setPendingPlan((prev) =>
+            prev ? { ...prev, plan: [...results] } : null
+          )
+        })
       )
     )
 
+    // If every single item failed, surface a top-level error
+    const allFailed = results.every((r) => r._status === 'error')
+    if (allFailed) {
+      const firstError = results[0]?._errorMessage ?? t('chat.planReview.fetchAllFailed')
+      setFetchError(firstError)
+    }
+
     // Mark the whole plan as ready
     setPendingPlan((prev) => (prev ? { ...prev, _stage: 'ready' } : null))
-  }, [])
+  }, [fetchSingleRecipe, t])
+
+  // Retry a single failed item
+  const handleRetryItem = useCallback(async (failedItem: MealPlanItem) => {
+    if (!pendingPlan) return
+    setFetchError(null)
+    const results: MealPlanItem[] = pendingPlan.plan.map((p) =>
+      p.recipe_title === failedItem.recipe_title && p.date === failedItem.date && p.meal_type === failedItem.meal_type
+        ? { ...p, _status: 'loading' as const, _errorMessage: undefined }
+        : p
+    )
+    setPendingPlan((prev) => prev ? { ...prev, plan: results, _stage: 'fetching' } : null)
+
+    const index = results.findIndex(
+      (p) => p.recipe_title === failedItem.recipe_title && p.date === failedItem.date && p.meal_type === failedItem.meal_type
+    )
+    if (index === -1) return
+
+    await fetchSingleRecipe(failedItem, results, index)
+    const allFailed = results.every((r) => r._status === 'error')
+    if (allFailed) {
+      setFetchError(results[0]?._errorMessage ?? t('chat.planReview.fetchAllFailed'))
+    }
+    setPendingPlan((prev) => prev ? { ...prev, plan: [...results], _stage: 'ready' } : null)
+  }, [pendingPlan, fetchSingleRecipe, t])
+
+  // Retry all failed items
+  const handleRetryAllFailed = useCallback(async () => {
+    if (!pendingPlan) return
+    setFetchError(null)
+    const currentPlan: MealPlanItem[] = pendingPlan.plan.map((p) =>
+      p._status === 'error'
+        ? { ...p, _status: 'loading' as const, _errorMessage: undefined }
+        : p
+    )
+    setPendingPlan((prev) => prev ? { ...prev, plan: currentPlan, _stage: 'fetching' } : null)
+
+    const results: MealPlanItem[] = [...currentPlan]
+    const failedIndices = currentPlan.reduce<number[]>((acc, p, i) => {
+      if (p._status === 'loading') acc.push(i)
+      return acc
+    }, [])
+
+    await Promise.allSettled(
+      failedIndices.map((i) =>
+        fetchSingleRecipe(results[i], results, i).then(() => {
+          setPendingPlan((prev) =>
+            prev ? { ...prev, plan: [...results] } : null
+          )
+        })
+      )
+    )
+
+    const retriedAllFailed =
+      failedIndices.length > 0 &&
+      failedIndices.every((i) => results[i]?._status === 'error')
+    if (retriedAllFailed) {
+      const firstFailed = failedIndices.map((i) => results[i]).find((r) => r?._errorMessage)
+      setFetchError(firstFailed?._errorMessage ?? t('chat.planReview.fetchAllFailed'))
+    }
+    setPendingPlan((prev) => (prev ? { ...prev, _stage: 'ready' } : null))
+  }, [pendingPlan, fetchSingleRecipe, t])
 
   const handleActionApply = useCallback(async (messageId: string) => {
     const msg = messages.find((m) => m.id === messageId)
@@ -398,15 +500,22 @@ export function ChatDialog() {
             <ChatPlanReview
               plan={pendingPlan}
               isAccepting={isAcceptingPlan}
+              fetchError={fetchError}
               onApprove={handleApproveAndFetchRecipes}
               onAccept={handleAcceptPlan}
               onRequestChanges={(request) => {
                 setPendingPlan(null)
+                setFetchError(null)
                 sendMessage(request)
               }}
-              onDismiss={() => setPendingPlan(null)}
+              onDismiss={() => {
+                setPendingPlan(null)
+                setFetchError(null)
+              }}
               onNavigateToRecipe={handleNavigateToRecipe}
               onAddToShoppingList={(items) => setShoppingItems(items)}
+              onRetryItem={handleRetryItem}
+              onRetryAllFailed={handleRetryAllFailed}
             />
           </>
         )}
