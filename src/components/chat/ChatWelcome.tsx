@@ -35,7 +35,7 @@ export function ChatWelcome({ isPaid, freeImportsRemaining, freeImportCap, onSug
         {isPaid ? t('chat.paidWelcome') : t('chat.freeWelcome')}
       </p>
 
-      <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-1">
+      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
         v{APP_VERSION}
       </p>
 

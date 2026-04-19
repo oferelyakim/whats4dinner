@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronDown, ChevronUp, Clock, ShoppingBag } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Clock, ShoppingBag, ExternalLink, Trash2, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useI18n } from '@/lib/i18n'
 
@@ -10,6 +10,7 @@ export interface MealPlanItem {
   recipe_title: string
   recipe_id?: string | null
   ingredients?: Array<{ name: string; quantity?: number; unit?: string }>
+  instructions?: string[]
   servings?: number
   estimated_time_min?: number
   tags?: string[]
@@ -28,6 +29,8 @@ interface ChatPlanReviewProps {
   onRequestChanges: (request: string) => void
   onRequestReplacements: (accepted: MealPlanItem[], rejected: Array<{ item: MealPlanItem; comment: string }>) => void
   onDismiss: () => void
+  onNavigateToRecipe?: (recipeId: string) => void
+  onAddToShoppingList?: (items: MealPlanItem[]) => void
 }
 
 const MEAL_ICONS: Record<string, string> = {
@@ -46,6 +49,8 @@ function formatPlanDate(dateStr: string, locale: string): string {
   })
 }
 
+type PlanItemWithKey = MealPlanItem & { _key: number }
+
 export function ChatPlanReview({
   plan,
   isAccepting,
@@ -53,31 +58,37 @@ export function ChatPlanReview({
   onRequestChanges,
   onRequestReplacements,
   onDismiss,
+  onNavigateToRecipe,
+  onAddToShoppingList,
 }: ChatPlanReviewProps) {
   const { t, locale } = useI18n()
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(
+
+  const [planItems, setPlanItems] = useState<PlanItemWithKey[]>(
+    () => plan.plan.map((item, i) => ({ ...item, _key: i }))
+  )
+  const [selectedKeys, setSelectedKeys] = useState<Set<number>>(
     () => new Set(plan.plan.map((_, i) => i))
   )
   const [itemComments, setItemComments] = useState<Record<number, string>>({})
   const [shoppingExpanded, setShoppingExpanded] = useState(false)
   const [showStartOverInput, setShowStartOverInput] = useState(false)
   const [startOverRequest, setStartOverRequest] = useState('')
+  const [confirmRemoveKey, setConfirmRemoveKey] = useState<number | null>(null)
 
-  const uncheckedIndices = plan.plan
-    .map((_, i) => i)
-    .filter((i) => !selectedIds.has(i))
+  const uncheckedKeys = planItems
+    .map((item) => item._key)
+    .filter((key) => !selectedKeys.has(key))
 
-  const toggleItem = (index: number) => {
-    setSelectedIds((prev) => {
+  const toggleItem = (key: number) => {
+    setSelectedKeys((prev) => {
       const next = new Set(prev)
-      if (next.has(index)) {
-        next.delete(index)
+      if (next.has(key)) {
+        next.delete(key)
       } else {
-        next.add(index)
-        // Clear comment when re-checking
+        next.add(key)
         setItemComments((c) => {
           const nc = { ...c }
-          delete nc[index]
+          delete nc[key]
           return nc
         })
       }
@@ -85,22 +96,37 @@ export function ChatPlanReview({
     })
   }
 
+  const handleRemoveDish = (key: number) => {
+    setPlanItems((prev) => prev.filter((item) => item._key !== key))
+    setSelectedKeys((prev) => {
+      const next = new Set(prev)
+      next.delete(key)
+      return next
+    })
+    setItemComments((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    setConfirmRemoveKey(null)
+  }
+
   const handleAccept = () => {
-    const selectedItems = plan.plan.filter((_, i) => selectedIds.has(i))
+    const selectedItems = planItems.filter((item) => selectedKeys.has(item._key))
     onAccept(selectedItems)
   }
 
   const handleSaveWithoutReplacements = () => {
-    const selectedItems = plan.plan.filter((_, i) => selectedIds.has(i))
+    const selectedItems = planItems.filter((item) => selectedKeys.has(item._key))
     onAccept(selectedItems)
   }
 
   const handleGetReplacements = () => {
-    const accepted = plan.plan.filter((_, i) => selectedIds.has(i))
-    const rejected = uncheckedIndices.map((i) => ({
-      item: plan.plan[i],
-      comment: itemComments[i] || '',
-    }))
+    const accepted = planItems.filter((item) => selectedKeys.has(item._key))
+    const rejected = uncheckedKeys.map((key) => {
+      const item = planItems.find((p) => p._key === key)!
+      return { item, comment: itemComments[key] || '' }
+    })
     onRequestReplacements(accepted, rejected)
   }
 
@@ -111,19 +137,17 @@ export function ChatPlanReview({
   }
 
   // Group items by date
-  const itemsByDate = plan.plan.reduce<Record<string, Array<{ item: MealPlanItem; index: number }>>>(
-    (acc, item, index) => {
-      if (!acc[item.date]) acc[item.date] = []
-      acc[item.date].push({ item, index })
-      return acc
-    },
-    {}
-  )
+  const itemsByDate = planItems.reduce<Record<string, PlanItemWithKey[]>>((acc, item) => {
+    if (!acc[item.date]) acc[item.date] = []
+    acc[item.date].push(item)
+    return acc
+  }, {})
 
   const sortedDates = Object.keys(itemsByDate).sort()
 
-  const hasUnchecked = uncheckedIndices.length > 0
-  const allUnchecked = selectedIds.size === 0
+  const hasUnchecked = uncheckedKeys.length > 0
+  const allUnchecked = selectedKeys.size === 0
+  const selectedItems = planItems.filter((item) => selectedKeys.has(item._key))
 
   return (
     <motion.div
@@ -168,12 +192,12 @@ export function ChatPlanReview({
               {formatPlanDate(date, locale)}
             </p>
             <div className="space-y-2">
-              {itemsByDate[date].map(({ item, index }) => {
-                const isSelected = selectedIds.has(index)
+              {itemsByDate[date].map((item) => {
+                const isSelected = selectedKeys.has(item._key)
                 return (
-                  <div key={index}>
+                  <div key={item._key}>
                     <button
-                      onClick={() => toggleItem(index)}
+                      onClick={() => toggleItem(item._key)}
                       className={cn(
                         'w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-start active:scale-[0.98]',
                         isSelected
@@ -220,6 +244,21 @@ export function ChatPlanReview({
                         </div>
                       </div>
 
+                      {/* Recipe navigation link */}
+                      {item.recipe_id && onNavigateToRecipe && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onNavigateToRecipe(item.recipe_id!)
+                          }}
+                          className="shrink-0 p-1 rounded-md text-slate-400 hover:text-brand-500 transition-colors"
+                          title={t('chat.planReview.viewRecipe')}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+
                       {/* Checkmark */}
                       <div
                         className={cn(
@@ -231,6 +270,19 @@ export function ChatPlanReview({
                       >
                         {isSelected && <Check className="h-3 w-3 text-white" />}
                       </div>
+
+                      {/* Remove button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setConfirmRemoveKey(item._key)
+                        }}
+                        className="shrink-0 p-1 rounded-md text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+                        title={t('chat.planReview.removeDish')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </button>
 
                     {/* Per-item comment input when unchecked */}
@@ -245,9 +297,9 @@ export function ChatPlanReview({
                         >
                           <input
                             type="text"
-                            value={itemComments[index] || ''}
+                            value={itemComments[item._key] || ''}
                             onChange={(e) =>
-                              setItemComments((prev) => ({ ...prev, [index]: e.target.value }))
+                              setItemComments((prev) => ({ ...prev, [item._key]: e.target.value }))
                             }
                             placeholder={t('chat.planReview.replacementPlaceholder')}
                             className="mt-1.5 w-full h-9 px-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-orange-400/30"
@@ -354,6 +406,17 @@ export function ChatPlanReview({
         className="px-5 pt-3 pb-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col gap-2 shrink-0"
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
+        {/* Add to Shopping List */}
+        {onAddToShoppingList && selectedItems.length > 0 && (
+          <button
+            onClick={() => onAddToShoppingList(selectedItems)}
+            className="w-full h-10 rounded-xl border border-brand-300 dark:border-brand-700 text-sm font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            {t('chat.planReview.addToShoppingList')}
+          </button>
+        )}
+
         {/* Save without replacements link — only when items are unchecked and not all */}
         {hasUnchecked && !allUnchecked && (
           <button
@@ -382,12 +445,12 @@ export function ChatPlanReview({
               disabled={isAccepting || allUnchecked}
               className="flex-1 h-11 rounded-xl bg-orange-500 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
             >
-              {t('chat.planReview.getReplacements')} ({uncheckedIndices.length})
+              {t('chat.planReview.getReplacements')} ({uncheckedKeys.length})
             </button>
           ) : (
             <button
               onClick={handleAccept}
-              disabled={isAccepting || selectedIds.size === 0}
+              disabled={isAccepting || selectedKeys.size === 0}
               className="flex-1 h-11 rounded-xl bg-brand-500 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.98] transition-all"
             >
               {isAccepting ? (
@@ -409,6 +472,34 @@ export function ChatPlanReview({
           </p>
         )}
       </div>
+
+      {/* Remove dish confirmation */}
+      {confirmRemoveKey !== null && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center p-4">
+          <div className="bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-2xl w-full max-w-sm space-y-3">
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+              {t('chat.planReview.confirmRemove').replace(
+                '{title}',
+                planItems.find((i) => i._key === confirmRemoveKey)?.recipe_title ?? ''
+              )}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmRemoveKey(null)}
+                className="flex-1 h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => handleRemoveDish(confirmRemoveKey)}
+                className="flex-1 h-10 rounded-xl bg-red-500 text-white text-sm font-medium"
+              >
+                {t('common.remove')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }

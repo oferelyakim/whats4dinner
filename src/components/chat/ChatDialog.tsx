@@ -2,11 +2,13 @@ import { useRef, useEffect, useState, useCallback, type FormEvent } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X, Send, Sparkles, Trash2 } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { useChat } from '@/hooks/useChat'
 import { useI18n } from '@/lib/i18n'
 import { ChatMessage } from './ChatMessage'
 import { ChatWelcome } from './ChatWelcome'
 import { ChatPlanReview } from './ChatPlanReview'
+import { PlanShoppingModal } from './PlanShoppingModal'
 import type { GeneratedPlan, MealPlanItem } from './ChatPlanReview'
 import { cn } from '@/lib/cn'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
@@ -20,6 +22,7 @@ export function ChatDialog() {
   const { t } = useI18n()
   const { activeCircle } = useAppStore()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const {
     messages,
     isOpen,
@@ -41,6 +44,7 @@ export function ChatDialog() {
   const [pendingPlan, setPendingPlan] = useState<GeneratedPlan | null>(null)
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
   const [isAcceptingPlan, setIsAcceptingPlan] = useState(false)
+  const [shoppingItems, setShoppingItems] = useState<MealPlanItem[] | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const shownPlanMessageIds = useRef<Set<string>>(new Set())
@@ -205,6 +209,12 @@ export function ChatDialog() {
     updateMessage(messageId, { action: undefined })
   }, [updateMessage])
 
+  const handleNavigateToRecipe = useCallback((recipeId: string) => {
+    setPendingPlan(null)
+    closeChat()
+    navigate(`/recipes/${recipeId}`)
+  }, [navigate, closeChat])
+
   const handleAcceptPlan = async (selectedItems: MealPlanItem[]) => {
     if (!activeCircle) return
     setIsAcceptingPlan(true)
@@ -224,6 +234,9 @@ export function ChatDialog() {
               item_id: null,
             })),
             tags: item.tags || [],
+            instructions: item.instructions?.length ? item.instructions.join('\n') : undefined,
+            servings: item.servings ?? undefined,
+            prep_time_min: item.estimated_time_min ?? undefined,
           })
           recipeId = recipe.id
         }
@@ -399,8 +412,29 @@ export function ChatDialog() {
               }}
               onRequestReplacements={handleRequestReplacements}
               onDismiss={() => setPendingPlan(null)}
+              onNavigateToRecipe={handleNavigateToRecipe}
+              onAddToShoppingList={(items) => setShoppingItems(items)}
             />
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Shopping list selection modal */}
+      <AnimatePresence>
+        {shoppingItems && (
+          <PlanShoppingModal
+            items={shoppingItems}
+            onDismiss={() => setShoppingItems(null)}
+            onDone={() => {
+              setShoppingItems(null)
+              addMessage({
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: '✅ Ingredients added to your shopping list!',
+                timestamp: Date.now(),
+              })
+            }}
+          />
         )}
       </AnimatePresence>
     </>

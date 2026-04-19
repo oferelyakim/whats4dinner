@@ -296,6 +296,7 @@ const translations: Record<string, Record<Locale, string>> = {
 
   // Common
   'common.cancel': { en: 'Cancel', he: 'ביטול', es: 'Cancelar' },
+  'common.remove': { en: 'Remove', he: 'הסר', es: 'Eliminar' },
   'common.save': { en: 'Save', he: 'שמור', es: 'Guardar' },
   'common.delete': { en: 'Delete', he: 'מחק', es: 'Eliminar' },
   'common.edit': { en: 'Edit', he: 'ערוך', es: 'Editar' },
@@ -476,6 +477,18 @@ const translations: Record<string, Record<Locale, string>> = {
   'chat.planReview.itemReplacementHint': { en: 'Tap to replace — add a note for the AI', he: 'לחץ להחלפה — הוסף הערה לAI', es: 'Toca para reemplazar — agrega una nota para la IA' },
   'chat.planReview.replacementPlaceholder': { en: 'Why or what to replace with?', he: 'למה או במה להחליף?', es: '¿Por qué o con qué reemplazar?' },
   'chat.planReview.findingReplacements': { en: 'Finding replacements…', he: 'מחפש תחליפים…', es: 'Buscando reemplazos…' },
+  'chat.planReview.viewRecipe': { en: 'View recipe', he: 'צפה במתכון', es: 'Ver receta' },
+  'chat.planReview.removeDish': { en: 'Remove from plan', he: 'הסר מהתכנית', es: 'Eliminar del plan' },
+  'chat.planReview.confirmRemove': { en: 'Remove "{title}" from the plan?', he: 'להסיר את "{title}" מהתכנית?', es: '¿Eliminar "{title}" del plan?' },
+  'chat.planReview.addToShoppingList': { en: 'Add to Shopping List', he: 'הוסף לרשימת קניות', es: 'Agregar a la lista de compras' },
+  'chat.shoppingModal.title': { en: 'Add to Shopping List', he: 'הוסף לרשימת קניות', es: 'Agregar a la lista de compras' },
+  'chat.shoppingModal.subtitle': { en: 'Deselect what you already have', he: 'בטל בחירה של מה שכבר יש לך', es: 'Anula la selección de lo que ya tienes' },
+  'chat.shoppingModal.recipesLabel': { en: 'Recipes', he: 'מתכונים', es: 'Recetas' },
+  'chat.shoppingModal.ingredientsLabel': { en: 'Ingredients', he: 'מרכיבים', es: 'Ingredientes' },
+  'chat.shoppingModal.selected': { en: 'selected', he: 'נבחרו', es: 'seleccionados' },
+  'chat.shoppingModal.adding': { en: 'Adding…', he: 'מוסיף…', es: 'Agregando…' },
+  'chat.shoppingModal.addItems': { en: 'Add items to list', he: 'הוסף פריטים לרשימה', es: 'Agregar artículos a la lista' },
+  'chat.shoppingModal.addError': { en: 'Failed to add items', he: 'הוספת פריטים נכשלה', es: 'Error al agregar artículos' },
 
   // Chores
   'chore.chores': { en: 'Chores', he: 'מטלות בית', es: 'Tareas del hogar' },

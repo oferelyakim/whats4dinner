@@ -44,8 +44,13 @@ const INLINE_MEAL_PLAN_TOOL = {
             estimated_time_min: { type: ['integer', 'null'] },
             tags: { type: 'array', items: { type: 'string' } },
             servings: { type: ['integer', 'null'] },
+            instructions: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Step-by-step cooking instructions',
+            },
           },
-          required: ['date', 'meal_type', 'recipe_title', 'ingredients', 'tags'],
+          required: ['date', 'meal_type', 'recipe_title', 'ingredients', 'tags', 'instructions'],
         },
       },
       shopping_suggestions: { type: 'array', items: { type: 'string' } },
@@ -220,6 +225,10 @@ const PAID_TOOLS = [
       properties: {
         dates: { type: 'array', items: { type: 'string' }, description: 'Array of date strings (YYYY-MM-DD) to plan meals for' },
         preferences: { type: 'string', description: 'Dietary preferences or constraints (optional)' },
+        meal_structure: {
+          type: 'string',
+          description: 'Describes what dishes make up a meal (e.g. "2 main dishes, 1 vegetarian, 2 sides, 1 potato dish" or "1 salad, 1 protein"). Default: 1 main, 1 veggie side, 1 carb per meal.',
+        },
       },
       required: ['dates'],
     },
@@ -391,13 +400,20 @@ serve(async (req) => {
 
           if (ANTHROPIC_API_KEY && planDates.length > 0) {
             try {
+              const mealStructure = ((block.input as Record<string, unknown>).meal_structure as string) || ''
               const mealScope = planDates.length > 3
                 ? 'dinner only for each date (keep the plan concise)'
                 : 'breakfast, lunch, and dinner for each date'
+              const mealCompositionNote = mealStructure
+                ? `IMPORTANT: Each meal must include: ${mealStructure}. Generate separate meal entries for each dish (e.g., if 2 main dishes + 1 side, generate 3 separate meal entries for that date+meal_type).`
+                : 'Default per meal: 1 main dish, 1 vegetarian side, 1 carb/starch. Generate each as a separate meal entry.'
+
               const planPrompt = `Generate a meal plan for these dates: ${planDates.join(', ')}.
 Plan ${mealScope}.
-${prefs ? `User preferences: ${prefs}` : 'Use Mediterranean/Middle-Eastern family cooking as default.'}
-For every meal, provide full ingredient list with quantities. Keep recipes practical and realistic.`
+${mealCompositionNote}
+${prefs ? `User preferences/constraints: ${prefs}` : 'Use Mediterranean/Middle-Eastern family cooking as default.'}
+For every dish, provide: full ingredient list with quantities, estimated_time_min, servings, and step-by-step instructions.
+Keep recipes practical and realistic.`
 
               const planResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
