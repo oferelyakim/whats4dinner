@@ -14,6 +14,7 @@ import type { Circle } from '@/types'
 import { getShoppingLists, createShoppingList, addRecipeToList } from '@/services/shoppingLists'
 import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/components/ui/Toast'
+import { useWakeLock } from '@/hooks/useWakeLock'
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -36,6 +37,8 @@ export function RecipeDetailPage() {
     queryFn: () => getRecipe(id!),
     enabled: !!id,
   })
+
+  useWakeLock(!!recipe)
 
   const { data: lists = [] } = useQuery({
     queryKey: ['shopping-lists'],

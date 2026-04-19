@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { getSharedRecipe } from '@/services/recipes'
 import { useAuth } from '@/hooks/useAuth'
 import { formatQuantity } from '@/lib/format'
+import { useWakeLock } from '@/hooks/useWakeLock'
 
 export function SharedRecipePage() {
   const { code } = useParams<{ code: string }>()
@@ -17,6 +18,8 @@ export function SharedRecipePage() {
     queryFn: () => getSharedRecipe(code!),
     enabled: !!code,
   })
+
+  useWakeLock(!!recipe)
 
   if (isLoading) {
     return (
