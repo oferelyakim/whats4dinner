@@ -372,9 +372,9 @@ export function ChatDialog() {
 
   return (
     <>
-      <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) closeChat() }}>
+      <Dialog.Root modal={false} open={isOpen} onOpenChange={(open) => { if (!open) closeChat() }}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" onClick={closeChat} />
           <Dialog.Content
             className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl max-w-lg mx-auto flex flex-col"
             style={{ maxHeight: '80dvh' }}
