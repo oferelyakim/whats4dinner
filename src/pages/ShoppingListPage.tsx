@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus, GripVertical,
+  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus, GripVertical, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -26,25 +26,33 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { formatQuantity } from '@/lib/format'
 import { getShoppingList, addListItem, toggleListItem, removeListItem, shareListWithUser, deleteShoppingList } from '@/services/shoppingLists'
+import { getIngredientSuggestions } from '@/services/recipes'
 import { getStores, getStoreRoutes } from '@/services/stores'
 import { getCircleMembers } from '@/services/circles'
 import { supabase } from '@/services/supabase'
 import type { ShoppingListItem } from '@/types'
 import { DEPARTMENTS, type Department } from '@/lib/constants'
 import { useI18n } from '@/lib/i18n'
+import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
+
+interface DraftRow {
+  id: string
+  name: string
+  quantity: string
+  category: Department
+}
 
 export function ShoppingListPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   const [showAdd, setShowAdd] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showDeleteList, setShowDeleteList] = useState(false)
-  const [newItemName, setNewItemName] = useState('')
-  const [newItemQty, setNewItemQty] = useState('')
-  const [newItemCategory, setNewItemCategory] = useState<Department>('Other')
+  const [draftRows, setDraftRows] = useState<DraftRow[]>([])
+  const [addError, setAddError] = useState('')
   const [sortBy, setSortBy] = useState<'default' | 'department' | 'route'>('default')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [sharedUsers, setSharedUsers] = useState<Set<string>>(new Set())
@@ -70,6 +78,12 @@ export function ShoppingListPage() {
     queryKey: ['circle-members', data?.circle_id],
     queryFn: () => getCircleMembers(data!.circle_id),
     enabled: showShare && !!data?.circle_id,
+  })
+
+  const { data: ingredientSuggestions = [] } = useQuery({
+    queryKey: ['ingredient-suggestions', locale],
+    queryFn: () => getIngredientSuggestions(locale),
+    staleTime: 5 * 60 * 1000,
   })
 
   // Real-time subscription for list items
@@ -99,22 +113,26 @@ export function ShoppingListPage() {
 
   const [mutationError, setMutationError] = useState('')
 
-  const addMutation = useMutation({
-    mutationFn: () =>
-      addListItem(id!, {
-        name: newItemName.trim(),
-        quantity: newItemQty ? parseFloat(newItemQty) : undefined,
-        category: newItemCategory,
-      }),
+  const bulkAddMutation = useMutation({
+    mutationFn: async (rows: DraftRow[]) => {
+      const validRows = rows.filter((r) => r.name.trim().length > 0)
+      await Promise.all(
+        validRows.map((row) =>
+          addListItem(id!, {
+            name: row.name.trim(),
+            quantity: row.quantity ? parseFloat(row.quantity) : undefined,
+            category: row.category,
+          })
+        )
+      )
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
-      setNewItemName('')
-      setNewItemQty('')
-      setNewItemCategory('Other')
       setShowAdd(false)
-      setMutationError('')
+      setDraftRows([])
+      setAddError('')
     },
-    onError: (err: Error) => setMutationError(err.message),
+    onError: (err: Error) => setAddError(err.message),
   })
 
   const toggleMutation = useMutation({
@@ -153,6 +171,32 @@ export function ShoppingListPage() {
       navigate('/lists')
     },
   })
+
+  const openAddModal = useCallback(() => {
+    setDraftRows([{ id: crypto.randomUUID(), name: '', quantity: '', category: 'Other' }])
+    setAddError('')
+    setShowAdd(true)
+  }, [])
+
+  const addDraftRow = useCallback(() => {
+    setDraftRows((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name: '', quantity: '', category: 'Other' },
+    ])
+  }, [])
+
+  const removeDraftRow = useCallback((rowId: string) => {
+    setDraftRows((prev) => prev.filter((r) => r.id !== rowId))
+  }, [])
+
+  const updateDraftRow = useCallback(
+    (rowId: string, field: keyof Omit<DraftRow, 'id'>, value: string) => {
+      setDraftRows((prev) =>
+        prev.map((r) => (r.id === rowId ? { ...r, [field]: value } : r))
+      )
+    },
+    []
+  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -239,7 +283,7 @@ export function ShoppingListPage() {
   const checkedCount = checked.length
 
   return (
-    <div className={cn('px-4 sm:px-6 py-4 space-y-4 animate-page-enter', showAdd && 'pb-40')}>
+    <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
@@ -262,7 +306,7 @@ export function ShoppingListPage() {
         <Button size="sm" variant="ghost" onClick={() => setShowShare(true)}>
           <Share2 className="h-4 w-4" />
         </Button>
-        <Button size="sm" onClick={() => setShowAdd(true)}>
+        <Button size="sm" onClick={openAddModal}>
           <Plus className="h-4 w-4" />
           {t('list.addItem')}
         </Button>
@@ -410,53 +454,117 @@ export function ShoppingListPage() {
         </>
       )}
 
-      {/* Quick Add bar (fixed at bottom above nav) */}
-      {showAdd && (
-        <div className="fixed bottom-20 left-0 right-0 z-[56] px-4 pb-2">
-          <Card variant="elevated" className="p-3 shadow-lg border-brand-500/30">
-            <div className="flex gap-2 mb-2">
-              <input
-                autoFocus
-                placeholder="Item name..."
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newItemName.trim()) addMutation.mutate()
-                }}
-                className="flex-1 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
-              />
-              <input
-                placeholder="Qty"
-                value={newItemQty}
-                onChange={(e) => setNewItemQty(e.target.value)}
-                inputMode="decimal"
-                className="w-14 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 text-center"
-              />
+      {/* Add Items Modal */}
+      <Dialog.Root
+        open={showAdd}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowAdd(false)
+            setDraftRows([])
+            setAddError('')
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content
+            className="fixed inset-x-4 top-[10%] z-50 bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-xl sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md focus:outline-none"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <Dialog.Title className="text-base font-bold text-slate-900 dark:text-white mb-4">
+              {t('lists.addItems')}
+            </Dialog.Title>
+
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto pe-1">
+              {draftRows.map((row, index) => (
+                <div key={row.id} className="flex items-start gap-2">
+                  <div className="flex-1 space-y-2">
+                    <AutocompleteInput
+                      placeholder={t('lists.itemName')}
+                      value={row.name}
+                      onChange={(val) => updateDraftRow(row.id, 'name', val)}
+                      suggestions={ingredientSuggestions}
+                      autoFocus={index === 0}
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        placeholder={t('lists.quantity')}
+                        value={row.quantity}
+                        onChange={(e) => updateDraftRow(row.id, 'quantity', e.target.value)}
+                        inputMode="decimal"
+                        aria-label={t('lists.quantity')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && index === draftRows.length - 1) {
+                            e.preventDefault()
+                            addDraftRow()
+                          }
+                        }}
+                        className="w-16 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 text-center"
+                      />
+                      <select
+                        value={row.category}
+                        onChange={(e) => updateDraftRow(row.id, 'category', e.target.value)}
+                        aria-label="Department"
+                        className="flex-1 text-xs bg-white dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300"
+                      >
+                        {DEPARTMENTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {draftRows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeDraftRow(row.id)}
+                      aria-label={t('lists.removeRow')}
+                      className="mt-1 shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={newItemCategory}
-                onChange={(e) => setNewItemCategory(e.target.value as Department)}
-                className="flex-1 text-xs bg-white dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300"
+
+            <button
+              type="button"
+              onClick={addDraftRow}
+              className="mt-3 text-sm text-brand-500 font-medium hover:text-brand-600 transition-colors"
+            >
+              {t('lists.addAnother')}
+            </button>
+
+            {addError && (
+              <p className="mt-2 text-sm text-danger">{addError}</p>
+            )}
+
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setShowAdd(false)
+                  setDraftRows([])
+                  setAddError('')
+                }}
               >
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-              <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
                 {t('common.cancel')}
               </Button>
               <Button
-                size="sm"
-                onClick={() => addMutation.mutate()}
-                disabled={!newItemName.trim() || addMutation.isPending}
+                className="flex-1"
+                onClick={() => bulkAddMutation.mutate(draftRows)}
+                disabled={
+                  bulkAddMutation.isPending ||
+                  draftRows.every((r) => r.name.trim().length === 0)
+                }
               >
-                {addMutation.isPending ? '...' : t('list.addItem')}
+                {bulkAddMutation.isPending ? t('common.loading') : t('lists.addAll')}
               </Button>
             </div>
-          </Card>
-        </div>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Share Dialog */}
       <Dialog.Root open={showShare} onOpenChange={setShowShare}>

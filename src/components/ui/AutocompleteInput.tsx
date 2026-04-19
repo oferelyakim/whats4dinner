@@ -7,6 +7,7 @@ interface AutocompleteInputProps {
   suggestions: string[]
   placeholder?: string
   className?: string
+  autoFocus?: boolean
 }
 
 export function AutocompleteInput({
@@ -15,6 +16,7 @@ export function AutocompleteInput({
   suggestions,
   placeholder,
   className,
+  autoFocus,
 }: AutocompleteInputProps) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filtered, setFiltered] = useState<string[]>([])
@@ -88,6 +90,7 @@ export function AutocompleteInput({
         aria-controls={listboxId}
         aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
         value={value}
+        autoFocus={autoFocus}
         onChange={(e) => {
           onChange(e.target.value)
           setShowSuggestions(true)

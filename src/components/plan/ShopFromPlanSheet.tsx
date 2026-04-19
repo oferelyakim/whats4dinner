@@ -572,7 +572,6 @@ export function ShopFromPlanSheet({
                     {aggregated.map((ing) => {
                       const excluded = excludedIngredientKeys.has(ing.key)
                       const hasQty = ing.quantity != null
-                      const isMultiSource = ing.sourceRecipeTitles.length > 1
 
                       return (
                         <button
@@ -610,10 +609,10 @@ export function ShopFromPlanSheet({
                               {hasQty ? `${ing.quantity}${ing.unit ? ' ' + ing.unit : ''} ` : ''}
                               {ing.name}
                             </span>
-                            {(isMultiSource || ing.sourceRecipeTitles.length === 1) && !excluded && (
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
-                                {t('plan.shop.from')} {ing.sourceRecipeTitles.join(', ')}
-                              </p>
+                            {!excluded && ing.sourceRecipeTitles.length > 0 && (
+                              <div className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                                {ing.sourceRecipeTitles.join(' · ')}
+                              </div>
                             )}
                           </div>
                         </button>

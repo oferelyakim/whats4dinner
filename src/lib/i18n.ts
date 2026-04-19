@@ -37,6 +37,17 @@ const translations: Record<string, Record<Locale, string>> = {
   'auth.emailSent': { en: 'We sent a confirmation link to', he: 'שלחנו קישור אישור ל', es: 'Enviamos un enlace de confirmación a' },
   'auth.checkSpam': { en: 'Check your spam/junk folder if you don\'t see it.', he: 'בדוק את תיקיית הספאם אם לא מצאת.', es: 'Revisa tu carpeta de spam si no lo ves.' },
   'auth.backToSignIn': { en: 'Back to Sign In', he: 'חזרה להתחברות', es: 'Volver a iniciar sesión' },
+  'auth.forgotPassword': { en: 'Forgot password?', he: 'שכחת סיסמה?', es: '¿Olvidaste tu contraseña?' },
+  'auth.forgotTitle': { en: 'Reset your password', he: 'איפוס סיסמה', es: 'Restablece tu contraseña' },
+  'auth.forgotSubtitle': { en: "Enter your email and we'll send you a reset link.", he: 'הזן את האימייל שלך ונשלח לך קישור לאיפוס.', es: 'Ingresa tu correo y te enviaremos un enlace para restablecerla.' },
+  'auth.sendResetLink': { en: 'Send reset link', he: 'שלח קישור איפוס', es: 'Enviar enlace' },
+  'auth.resetEmailSent': { en: 'If that email exists, a reset link is on its way.', he: 'אם קיים חשבון עם כתובת זו, קישור האיפוס בדרך.', es: 'Si la cuenta existe, el enlace ya está en camino.' },
+  'auth.newPassword': { en: 'New password', he: 'סיסמה חדשה', es: 'Nueva contraseña' },
+  'auth.confirmPassword': { en: 'Confirm password', he: 'אישור סיסמה', es: 'Confirmar contraseña' },
+  'auth.passwordMismatch': { en: 'Passwords do not match', he: 'הסיסמאות אינן תואמות', es: 'Las contraseñas no coinciden' },
+  'auth.updatePassword': { en: 'Update password', he: 'עדכן סיסמה', es: 'Actualizar contraseña' },
+  'auth.passwordUpdated': { en: 'Password updated successfully', he: 'הסיסמה עודכנה בהצלחה', es: 'Contraseña actualizada' },
+  'auth.resetLinkInvalid': { en: 'This reset link is invalid or has expired.', he: 'קישור האיפוס אינו תקף או שפג תוקפו.', es: 'Este enlace no es válido o ha expirado.' },
 
   // Home
   'home.goodMorning': { en: 'Good morning', he: 'בוקר טוב', es: 'Buenos días' },
@@ -106,6 +117,12 @@ const translations: Record<string, Record<Locale, string>> = {
   'list.noItems': { en: 'No items yet', he: 'אין פריטים עדיין', es: 'Aún no hay artículos' },
   'list.share': { en: 'Share List', he: 'שתף רשימה', es: 'Compartir lista' },
   'list.delete': { en: 'Delete List', he: 'מחק רשימה', es: 'Eliminar lista' },
+  'lists.addItems': { en: 'Add Items', he: 'הוסף פריטים', es: 'Agregar artículos' },
+  'lists.addAnother': { en: '+ Add another', he: '+ הוסף עוד', es: '+ Agregar otro' },
+  'lists.addAll': { en: 'Add All', he: 'הוסף הכל', es: 'Agregar todo' },
+  'lists.itemName': { en: 'Item name', he: 'שם פריט', es: 'Nombre del artículo' },
+  'lists.quantity': { en: 'Qty', he: 'כמות', es: 'Cant.' },
+  'lists.removeRow': { en: 'Remove row', he: 'הסר שורה', es: 'Eliminar fila' },
 
   // Circles
   'circle.myCircles': { en: 'My Circles', he: 'המעגלים שלי', es: 'Mis círculos' },

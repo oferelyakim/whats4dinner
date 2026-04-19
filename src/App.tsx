@@ -28,6 +28,7 @@ const EventDetailPage = lazy(() => import('@/pages/EventDetailPage').then(m => (
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const MealMenusPage = lazy(() => import('@/pages/MealMenusPage').then(m => ({ default: m.MealMenusPage })))
 const JoinEventPage = lazy(() => import('@/pages/JoinEventPage').then(m => ({ default: m.JoinEventPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const ActivitiesPage = lazy(() => import('@/pages/ActivitiesPage').then(m => ({ default: m.ActivitiesPage })))
 const ChoresPage = lazy(() => import('@/pages/ChoresPage').then(m => ({ default: m.ChoresPage })))
 const SupplyKitFormPage = lazy(() => import('@/pages/SupplyKitFormPage').then(m => ({ default: m.SupplyKitFormPage })))
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/join/:code" element={<JoinCirclePage />} />
           <Route path="/join-event/:code" element={<JoinEventPage />} />
           <Route path="/r/:code" element={<SharedRecipePage />} />
+          <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPasswordPage /></Suspense>} />
         </Routes>
         <AuthGuard>
           <Suspense fallback={<PageLoader />}>

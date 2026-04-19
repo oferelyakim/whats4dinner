@@ -4,6 +4,17 @@ import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import { useAppStore } from '@/stores/appStore'
 import type { Profile } from '@/types'
 
+const CANONICAL_APP_URL = 'https://app.replanish.app'
+
+function getAuthRedirectUrl(): string {
+  if (typeof window === 'undefined') return CANONICAL_APP_URL
+  const host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return window.location.origin
+  }
+  return CANONICAL_APP_URL
+}
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -63,6 +74,7 @@ export function useAuth() {
       password,
       options: {
         data: { display_name: displayName },
+        emailRedirectTo: getAuthRedirectUrl(),
       },
     })
     return { error }
@@ -72,9 +84,21 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getAuthRedirectUrl(),
       },
     })
+    return { error }
+  }
+
+  async function sendPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${getAuthRedirectUrl()}/reset-password`,
+    })
+    return { error }
+  }
+
+  async function updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
     return { error }
   }
 
@@ -90,6 +114,8 @@ export function useAuth() {
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
+    sendPasswordReset,
+    updatePassword,
     signOut,
   }
 }

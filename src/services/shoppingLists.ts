@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import type { ShoppingList, ShoppingListItem } from '@/types'
 import type { Unit } from '@/lib/constants'
+import { normalizeIngredient } from '@/lib/ingredientNormalize'
 
 export interface AggregatedIngredient {
   key: string
@@ -266,22 +267,28 @@ export async function computePlanIngredients(planIds: string[]): Promise<Aggrega
   if (ingError) throw ingError
   if (!ingredients?.length) return []
 
-  // Aggregate by name|unit key
+  // Aggregate by normalized base|form key
   const aggregated = new Map<string, AggregatedIngredient>()
 
   for (const ing of ingredients) {
-    const unitNorm = ((ing.unit as string) || '').toLowerCase().trim() as Unit
-    const nameNorm = ing.name.toLowerCase().trim()
-    const key = `${nameNorm}|${unitNorm}`
+    const { base, form } = normalizeIngredient(ing.name)
+    const key = `${base}|${form ?? ''}`
+    const displayName = form ? `${form} ${base}` : base
     const title = recipeIdToTitle.get(ing.recipe_id) ?? ''
+    const incomingUnit = ((ing.unit as string) || '').toLowerCase().trim() as Unit
 
     const existing = aggregated.get(key)
     if (existing) {
-      // Sum quantity (null if either side is null)
-      if (existing.quantity !== null && ing.quantity != null) {
+      // Sum quantity; null out if either side is null or units differ
+      if (
+        existing.quantity !== null &&
+        ing.quantity != null &&
+        existing.unit === incomingUnit
+      ) {
         existing.quantity = existing.quantity + ing.quantity
       } else {
         existing.quantity = null
+        existing.unit = '' as Unit
       }
       if (!existing.sourceRecipeIds.includes(ing.recipe_id)) {
         existing.sourceRecipeIds.push(ing.recipe_id)
@@ -290,9 +297,9 @@ export async function computePlanIngredients(planIds: string[]): Promise<Aggrega
     } else {
       aggregated.set(key, {
         key,
-        name: ing.name,
+        name: displayName,
         quantity: ing.quantity ?? null,
-        unit: unitNorm,
+        unit: incomingUnit,
         sourceRecipeIds: [ing.recipe_id],
         sourceRecipeTitles: [title],
       })
