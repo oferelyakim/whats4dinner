@@ -100,6 +100,29 @@ const FREE_SYSTEM_PROMPT_HE = `אתה העוזר של Replanish, עוזר ידי
 
 תמיד היה מועיל, תמציתי וידידותי. ענה בשפה שבה המשתמש כותב (עברית או אנגלית).`
 
+function buildDateContext(): string {
+  const now = new Date()
+  const iso = now.toISOString().split('T')[0]
+  const weekday = now.toLocaleDateString('en-US', { weekday: 'long' })
+  const friendly = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const year = now.getUTCFullYear()
+  return `## Current Date Context
+Today is ${weekday}, ${friendly} (ISO: ${iso}). The current year is ${year}.
+
+When the user references relative dates or holidays, resolve them to concrete YYYY-MM-DD dates BEFORE calling a tool:
+- "today" → ${iso}
+- "tomorrow" → the calendar date after today
+- "this Monday/Tuesday/..." → the upcoming occurrence of that weekday (today counts only if today IS that weekday)
+- "next Monday/..." → the occurrence in the following week
+- "next week" → the 7 days starting next Monday
+- "in 2 weeks", "in a month" → compute from today
+- Holidays (Christmas = Dec 25, Thanksgiving = 4th Thursday of November, New Year's = Jan 1, Passover, etc.) → resolve to the NEAREST FUTURE occurrence. If the holiday's date this year is already in the past, use next year.
+- When the user says "plan meals for Christmas" or similar holiday, compute the actual calendar date and pass it as the dates array.
+
+Never ask the user what today is — you already know.
+`
+}
+
 const PAID_SYSTEM_PROMPT = `You are Replanish Helper, a warm and friendly AI assistant for the Replanish family app. You can help users manage meals, activities, chores, shopping, events, and recipes.
 
 ## How to interact
@@ -132,19 +155,20 @@ Always respond in the user's language (English or Hebrew).`
 const PAID_TOOLS = [
   {
     name: 'create_activity',
-    description: 'Create a recurring activity (e.g., soccer practice, piano lessons). Execute immediately when you have enough information.',
+    description: 'Create an activity (recurring or one-time). Always provide a concrete start_date (YYYY-MM-DD) that you resolved from the Current Date Context — never leave the user waiting.',
     input_schema: {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Activity name' },
-        day_of_week: { type: 'string', description: 'Day of week (monday, tuesday, etc.) or comma-separated for multiple days' },
-        start_time: { type: 'string', description: 'Start time in HH:MM format' },
-        end_time: { type: 'string', description: 'End time in HH:MM format (optional)' },
-        recurrence: { type: 'string', enum: ['weekly', 'biweekly', 'daily', 'monthly', 'once'], description: 'How often it repeats' },
-        end_date: { type: 'string', description: "End date in YYYY-MM-DD format (e.g., for 'until June 2026')" },
+        start_date: { type: 'string', description: "Concrete start date in YYYY-MM-DD format. For 'today'/'tomorrow'/'this Monday'/'Christmas' etc., resolve to a real calendar date using the Current Date Context. REQUIRED." },
+        day_of_week: { type: 'string', description: "Day of week (monday, tuesday, etc.). Only required when recurrence is weekly/biweekly. For 'once', omit or leave blank." },
+        start_time: { type: 'string', description: 'Start time in HH:MM 24h format' },
+        end_time: { type: 'string', description: 'End time in HH:MM 24h format (optional)' },
+        recurrence: { type: 'string', enum: ['weekly', 'biweekly', 'daily', 'monthly', 'yearly', 'once'], description: 'How often it repeats. Use "once" for a single-day event (birthday, appointment, holiday dinner).' },
+        end_date: { type: 'string', description: "End date in YYYY-MM-DD format (e.g., for 'until June 2026'). Optional." },
         assigned_to: { type: 'string', description: 'Name of the person this activity is for (optional)' },
       },
-      required: ['name', 'day_of_week', 'recurrence'],
+      required: ['name', 'start_date', 'recurrence'],
     },
   },
   {
@@ -264,10 +288,13 @@ serve(async (req) => {
       && subscription.status === 'active'
       && new Date(subscription.current_period_end) >= new Date()
 
-    // Build system prompt based on tier
-    const systemPrompt = isPaid
+    // Build system prompt based on tier, prepending current-date context so the
+    // model can resolve relative dates ("tomorrow", "this Monday") and holidays.
+    const dateContext = buildDateContext()
+    const basePrompt = isPaid
       ? PAID_SYSTEM_PROMPT
       : (locale === 'he' ? FREE_SYSTEM_PROMPT_HE : FREE_SYSTEM_PROMPT_EN)
+    const systemPrompt = `${dateContext}\n${basePrompt}`
 
     // Build API request
     const apiBody: Record<string, unknown> = {
@@ -310,10 +337,50 @@ serve(async (req) => {
         reply += block.text
       } else if (block.type === 'tool_use') {
         let confirmation = `Action: ${block.name}`
+        let actionParams: Record<string, unknown> = block.input as Record<string, unknown>
+
         if (block.name === 'create_activity') {
           confirmation = `Create activity: ${block.input.name} on ${block.input.day_of_week}`
         } else if (block.name === 'plan_meals') {
-          confirmation = 'Generating meal plan...'
+          // Generate the meal plan server-side so the browser never needs to make
+          // a separate call to the generate-meal-plan edge function.
+          let embeddedPlan: Record<string, unknown> | null = null
+          if (circleId) {
+            try {
+              const planDates = Array.isArray((block.input as Record<string, unknown>).dates)
+                ? (block.input as Record<string, unknown>).dates as string[]
+                : []
+              const planResp = await fetch(`${SUPABASE_URL}/functions/v1/generate-meal-plan`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': authHeader!,
+                },
+                body: JSON.stringify({
+                  circleId,
+                  dates: planDates,
+                  planScope: 'custom',
+                  preferences: {
+                    special_requests: ((block.input as Record<string, unknown>).preferences as string) || '',
+                  },
+                }),
+              })
+              if (planResp.ok) {
+                const pd = await planResp.json()
+                if (pd?.plan && Array.isArray(pd.plan) && pd.plan.length > 0) {
+                  embeddedPlan = pd
+                }
+              }
+            } catch {
+              // Generation failed — frontend will fall back to a separate call
+            }
+          }
+          if (embeddedPlan) {
+            confirmation = "Here's your meal plan! Review and customize before saving."
+            actionParams = { ...(block.input as Record<string, unknown>), planData: embeddedPlan }
+          } else {
+            confirmation = 'Generating meal plan...'
+          }
         } else if (block.name === 'create_recipe') {
           confirmation = `Create recipe: ${block.input.title}`
         } else if (block.name === 'add_to_shopping_list') {
@@ -324,7 +391,7 @@ serve(async (req) => {
         }
         action = {
           type: block.name,
-          params: block.input,
+          params: actionParams,
           confirmation,
         }
       }

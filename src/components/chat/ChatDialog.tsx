@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, type FormEvent } from 'react'
+import { useRef, useEffect, useState, useCallback, type FormEvent } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X, Send, Sparkles, Trash2 } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
@@ -14,6 +14,7 @@ import { useAppStore } from '@/stores/appStore'
 import { useQueryClient } from '@tanstack/react-query'
 import { createRecipe } from '@/services/recipes'
 import { setMealPlan } from '@/services/mealPlans'
+import { supabase } from '@/services/supabase'
 
 export function ChatDialog() {
   const { t } = useI18n()
@@ -30,6 +31,7 @@ export function ChatDialog() {
     sendMessage,
     applyAction,
     addMessage,
+    updateMessage,
     clearMessages,
     showUpgradeModal,
     setShowUpgradeModal,
@@ -41,6 +43,7 @@ export function ChatDialog() {
   const [isAcceptingPlan, setIsAcceptingPlan] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const shownPlanMessageIds = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -51,6 +54,27 @@ export function ChatDialog() {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [isOpen])
+
+  // Auto-show plan review when ai-chat has already generated the plan server-side
+  useEffect(() => {
+    if (pendingPlan) return
+    for (const msg of messages) {
+      if (
+        !msg.isLoading &&
+        msg.action?.type === 'plan_meals' &&
+        msg.action.params.planData &&
+        !shownPlanMessageIds.current.has(msg.id)
+      ) {
+        const planData = msg.action.params.planData as GeneratedPlan
+        if (planData?.plan?.length > 0) {
+          shownPlanMessageIds.current.add(msg.id)
+          setPendingPlan(planData)
+          updateMessage(msg.id, { action: undefined })
+        }
+        break
+      }
+    }
+  }, [messages, pendingPlan, updateMessage])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -63,30 +87,123 @@ export function ChatDialog() {
     sendMessage(text)
   }
 
-  const handleActionApply = async (messageId: string) => {
+  const handleRequestReplacements = async (
+    accepted: MealPlanItem[],
+    rejected: Array<{ item: MealPlanItem; comment: string }>
+  ) => {
+    if (!activeCircle) return
+    setIsGeneratingPlan(true)
+    setPendingPlan(null)
+
+    try {
+      const dates = [...new Set(rejected.map((r) => r.item.date))]
+      const replacementContext = rejected
+        .map((r) =>
+          `Replace ${r.item.meal_type} on ${r.item.date} (was: "${r.item.recipe_title}")${r.comment ? `: ${r.comment}` : ''}`
+        )
+        .join('; ')
+
+      const { data, error } = await supabase.functions.invoke('generate-meal-plan', {
+        body: {
+          circleId: activeCircle.id,
+          dates,
+          planScope: 'custom',
+          preferences: {
+            special_requests: replacementContext,
+          },
+        },
+      })
+
+      if (!error && data?.plan) {
+        const rejectedSlots = new Set(rejected.map((r) => `${r.item.date}|${r.item.meal_type}`))
+        const relevantReplacements = (data.plan as MealPlanItem[]).filter((item) =>
+          rejectedSlots.has(`${item.date}|${item.meal_type}`)
+        )
+
+        const mealOrder = ['breakfast', 'brunch', 'lunch', 'snack', 'dinner']
+        const mergedPlan: GeneratedPlan = {
+          plan: [...accepted, ...relevantReplacements].sort((a, b) => {
+            if (a.date < b.date) return -1
+            if (a.date > b.date) return 1
+            return mealOrder.indexOf(a.meal_type) - mealOrder.indexOf(b.meal_type)
+          }),
+          shopping_suggestions: data.shopping_suggestions,
+          notes: data.notes,
+        }
+
+        setPendingPlan(mergedPlan)
+      } else {
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: "Sorry, I couldn't find replacements. Please try again.",
+          timestamp: Date.now(),
+        })
+      }
+    } catch (err) {
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `Sorry, something went wrong: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        timestamp: Date.now(),
+      })
+    } finally {
+      setIsGeneratingPlan(false)
+    }
+  }
+
+  const handleActionApply = useCallback(async (messageId: string) => {
     const msg = messages.find((m) => m.id === messageId)
     if (!msg?.action) return
 
     const { type } = msg.action
 
-    if (type === 'plan_meals') {
-      setIsGeneratingPlan(true)
-      try {
-        const result = await applyAction(msg.action)
-        if (result) {
-          setPendingPlan(result)
+    try {
+      if (type === 'plan_meals') {
+        // Fast path: plan was already generated server-side inside ai-chat
+        const embedded = msg.action.params.planData as GeneratedPlan | undefined
+        if (embedded?.plan?.length) {
+          shownPlanMessageIds.current.add(messageId)
+          setPendingPlan(embedded)
+          updateMessage(messageId, { action: undefined })
+          return
         }
-      } finally {
-        setIsGeneratingPlan(false)
-      }
-    } else {
-      await applyAction(msg.action)
-    }
-  }
 
-  const handleActionDismiss = (_messageId: string) => {
-    // Dismissing just leaves the message as-is without acting
-  }
+        // Slow path: call generate-meal-plan separately (fallback)
+        setIsGeneratingPlan(true)
+        try {
+          const result = await applyAction(msg.action)
+          if (result) {
+            setPendingPlan(result)
+            updateMessage(messageId, { action: undefined })
+          } else {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: "Sorry, I couldn't generate the meal plan. Try asking again with more specific dates or preferences.",
+              timestamp: Date.now(),
+            })
+          }
+        } finally {
+          setIsGeneratingPlan(false)
+        }
+      } else {
+        await applyAction(msg.action)
+        updateMessage(messageId, { action: undefined })
+      }
+    } catch (err) {
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `Sorry, something went wrong: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        timestamp: Date.now(),
+      })
+    }
+  }, [messages, applyAction, addMessage, updateMessage])
+
+  const handleActionDismiss = useCallback((messageId: string) => {
+    updateMessage(messageId, { action: undefined })
+  }, [updateMessage])
 
   const handleAcceptPlan = async (selectedItems: MealPlanItem[]) => {
     if (!activeCircle) return
@@ -280,6 +397,7 @@ export function ChatDialog() {
                 setPendingPlan(null)
                 sendMessage(request)
               }}
+              onRequestReplacements={handleRequestReplacements}
               onDismiss={() => setPendingPlan(null)}
             />
           </>
