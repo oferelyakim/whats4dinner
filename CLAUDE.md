@@ -139,3 +139,19 @@ Additional SQL fixes applied directly (not in migration files):
 - Calendar import from external calendars: deferred (needs Google OAuth)
 - Code splitting: 1MB+ bundle, needs lazy routes via dynamic import()
 - App store listing (TWA/Capacitor): not started
+
+## Version Tracking
+
+- App version lives in `src/lib/version.ts` (exported as `APP_VERSION`) and `package.json`
+- Version is displayed in the AI assistant welcome screen so users can confirm which build they're testing
+- **Bump the version on every production deployment** — increment the patch digit (1.0.2 → 1.0.3 → ...)
+- Use minor version (1.1.0) for significant feature additions, major (2.0.0) for architecture changes
+- After each deploy, report the new version number to the user
+- Deploy command sequence:
+  ```bash
+  # 1. Update version in src/lib/version.ts and package.json
+  # 2. Run: npx tsc --noEmit  (type check)
+  # 3. Run: git add -A && git commit -m "chore: bump version to X.Y.Z"
+  # 4. Run: git push origin master  (triggers Vercel deploy)
+  # 5. If edge functions changed: npx supabase functions deploy <name> --no-verify-jwt
+  ```

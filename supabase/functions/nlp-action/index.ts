@@ -53,7 +53,15 @@ serve(async (req) => {
       )
     }
 
+    const now = new Date()
+    const todayIso = now.toISOString().split('T')[0]
+    const todayWeekday = now.toLocaleDateString('en-US', { weekday: 'long' })
+    const todayFriendly = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
     const prompt = `You are a family household management assistant for the app "Replanish".
+
+Today is ${todayWeekday}, ${todayFriendly} (ISO: ${todayIso}). Resolve all relative dates ("tomorrow", "this Monday", "next week") and holidays (Christmas=Dec 25, etc.) to concrete YYYY-MM-DD dates — use the nearest FUTURE occurrence if the date has already passed this year.
+
 Parse the user's natural language request and return a structured action.
 
 Supported actions:

@@ -24,7 +24,8 @@ import {
   formatRecurrence, formatTimeRange,
   type Activity, type Participant, type BringItem, type Reminder,
 } from '@/services/activities'
-import { getCircleMembers } from '@/services/circles'
+import { getCircleMembers, getMyCircles } from '@/services/circles'
+import { Share2 } from 'lucide-react'
 
 const CATEGORIES = [
   { value: 'sports', label: 'activity.cat.sports', emoji: '⚽' },
@@ -110,6 +111,16 @@ export function ActivitiesPage() {
   const [newReminderAmount, setNewReminderAmount] = useState('1')
   const [newReminderUnit, setNewReminderUnit] = useState<Reminder['unit']>('hours')
 
+  // Cross-circle sharing: which of the user's OTHER circles should also see
+  // this activity. Empty = scoped to the home circle only.
+  const [sharedWithCircles, setSharedWithCircles] = useState<string[]>([])
+
+  const { data: myCircles = [] } = useQuery({
+    queryKey: ['my-circles'],
+    queryFn: getMyCircles,
+  })
+  const shareableCircles = myCircles.filter((c) => c.id !== activeCircle?.id)
+
   const calendarDateObj = useMemo(() => new Date(calendarDate + 'T12:00:00'), [calendarDate])
   const calYear = calendarDateObj.getFullYear()
   const calMonth = calendarDateObj.getMonth()
@@ -184,6 +195,7 @@ export function ActivitiesPage() {
         participants,
         bring_items: bringItems,
         reminders,
+        shared_with_circles: sharedWithCircles,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['activities'] })
@@ -210,6 +222,7 @@ export function ActivitiesPage() {
         participants,
         bring_items: bringItems,
         reminders,
+        shared_with_circles: sharedWithCircles,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['activities'] })
@@ -254,6 +267,7 @@ export function ActivitiesPage() {
     setParticipants(activity.participants || [])
     setBringItems(activity.bring_items || [])
     setReminders(activity.reminders || [])
+    setSharedWithCircles(activity.shared_with_circles || [])
     setShowDialog(true)
   }
 
@@ -279,6 +293,7 @@ export function ActivitiesPage() {
     setParticipants([])
     setBringItems([])
     setReminders([])
+    setSharedWithCircles([])
     setNewParticipantName('')
     setNewBringItem('')
     setNewReminderAmount('1')
@@ -868,6 +883,40 @@ export function ActivitiesPage() {
                 />
                 <span className="text-sm text-slate-700 dark:text-slate-300">{t('activity.skipHolidays')}</span>
               </label>
+
+              {/* Share with other circles */}
+              {shareableCircles.length > 0 && (
+                <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Share2 className="h-4 w-4 text-slate-500" />
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      {t('activity.shareWithCircles')}
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    {t('activity.shareWithCirclesHint')}
+                  </p>
+                  <div className="space-y-1">
+                    {shareableCircles.map((c) => (
+                      <label key={c.id} className="flex items-center gap-3 py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={sharedWithCircles.includes(c.id)}
+                          onChange={(e) => {
+                            setSharedWithCircles((prev) =>
+                              e.target.checked
+                                ? [...prev, c.id]
+                                : prev.filter((id) => id !== c.id),
+                            )
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
+                        />
+                        <span className="text-sm text-slate-700 dark:text-slate-300">{c.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <Input
                 label={t('activity.notes')}

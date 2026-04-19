@@ -94,6 +94,26 @@ export function HomePage() {
 
   const todayActivities = activities.filter((a: Activity) => activityOccursOnDate(a, today))
 
+  // Upcoming: next 7 days (excluding today). Surfaced so newly-created
+  // activities are visible even when the earliest occurrence isn't today.
+  const upcomingActivities = (() => {
+    const result: Array<{ activity: Activity; date: string }> = []
+    const start = new Date()
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      const ds = d.toISOString().split('T')[0]
+      for (const a of activities) {
+        if (activityOccursOnDate(a, ds)) {
+          if (!result.some((r) => r.activity.id === a.id)) {
+            result.push({ activity: a, date: ds })
+          }
+        }
+      }
+    }
+    return result.slice(0, 5)
+  })()
+
   // Meal plan index: date -> has entry
   const mealPlanByDate = new Set(mealPlans.map((mp) => mp.plan_date))
 
@@ -193,6 +213,42 @@ export function HomePage() {
                 </Card>
               </button>
             ))}
+          </div>
+        </motion.section>
+      )}
+
+      {/* 2b. Upcoming activities (next 7 days) */}
+      {upcomingActivities.length > 0 && (
+        <motion.section variants={fadeUp}>
+          <SectionLabel>{t('home.upcomingActivities')}</SectionLabel>
+          <div className="space-y-2">
+            {upcomingActivities.map(({ activity, date }) => {
+              const d = new Date(date + 'T12:00:00')
+              const dayLabel = d.toLocaleDateString(dateLocale, { weekday: 'short', month: 'short', day: 'numeric' })
+              return (
+                <button
+                  key={`${activity.id}-${date}`}
+                  onClick={() => navigate('/household/activities')}
+                  className="w-full text-start"
+                >
+                  <Card className="px-3 py-2.5 flex items-center gap-3 active:scale-[0.98] transition-transform">
+                    <div className="h-9 w-9 rounded-xl bg-slate-500/10 flex items-center justify-center text-base shrink-0">
+                      {CATEGORIES_EMOJI[activity.category] || '📌'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        {activity.name}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {[dayLabel, formatTimeRange(activity), activity.assigned_name]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                  </Card>
+                </button>
+              )
+            })}
           </div>
         </motion.section>
       )}

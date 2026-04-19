@@ -36,6 +36,7 @@ export interface Activity {
   participants: Participant[]
   bring_items: BringItem[]
   reminders: Reminder[]
+  shared_with_circles: string[]
   created_by: string
   created_at: string
   profile?: { display_name: string }
@@ -79,20 +80,34 @@ export function formatTimeRange(activity: Activity): string {
 }
 
 export async function getActivities(circleId: string): Promise<Activity[]> {
+  // Include activities homed in this circle AND activities shared TO this
+  // circle (cross-circle sharing). RLS further restricts to activities the
+  // caller has permission to view.
   const { data, error } = await supabase
     .from('activities')
     .select('*, profile:profiles(display_name)')
-    .eq('circle_id', circleId)
+    .or(`circle_id.eq.${circleId},shared_with_circles.cs.{${circleId}}`)
     .order('start_date')
 
   if (error) throw error
-  // Parse JSON fields
   return (data ?? []).map((a: Record<string, unknown>) => ({
     ...a,
     participants: Array.isArray(a.participants) ? a.participants : [],
     bring_items: Array.isArray(a.bring_items) ? a.bring_items : [],
     reminders: Array.isArray(a.reminders) ? a.reminders : [],
+    shared_with_circles: Array.isArray(a.shared_with_circles) ? a.shared_with_circles : [],
   })) as Activity[]
+}
+
+export async function updateActivitySharing(
+  activityId: string,
+  circleIds: string[],
+): Promise<void> {
+  const { error } = await supabase
+    .from('activities')
+    .update({ shared_with_circles: circleIds })
+    .eq('id', activityId)
+  if (error) throw error
 }
 
 export async function createActivity(input: {
@@ -114,6 +129,7 @@ export async function createActivity(input: {
   participants?: Participant[]
   bring_items?: BringItem[]
   reminders?: Reminder[]
+  shared_with_circles?: string[]
 }): Promise<Activity> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -129,6 +145,7 @@ export async function createActivity(input: {
       participants: input.participants || [],
       bring_items: input.bring_items || [],
       reminders: input.reminders || [],
+      shared_with_circles: input.shared_with_circles || [],
     })
     .select()
     .single()
@@ -155,6 +172,7 @@ export async function updateActivity(id: string, input: {
   participants?: Participant[]
   bring_items?: BringItem[]
   reminders?: Reminder[]
+  shared_with_circles?: string[]
 }): Promise<Activity> {
   const { data, error } = await supabase
     .from('activities')

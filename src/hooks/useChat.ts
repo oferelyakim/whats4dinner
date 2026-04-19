@@ -52,23 +52,44 @@ export function useChat() {
         const members = await getCircleMembers(activeCircle.id)
         const assignedName = action.params.assigned_to as string | undefined
 
-        // Map day_of_week string to number
         const dayMap: Record<string, number> = {
           sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
           thursday: 4, friday: 5, saturday: 6,
         }
         const dayName = ((action.params.day_of_week as string) || '').toLowerCase()
         const dayNum = dayMap[dayName]
+        const recurrence = (action.params.recurrence as string) || 'weekly'
 
-        // Calculate next occurrence of the given day
-        const today = new Date()
-        let startDate = new Date(today)
-        if (dayNum !== undefined) {
-          const daysUntil = (dayNum - today.getDay() + 7) % 7
-          startDate.setDate(today.getDate() + (daysUntil === 0 ? 7 : daysUntil))
+        // Prefer the concrete start_date Claude resolved from the Current Date
+        // Context. Fall back to computing the next occurrence of day_of_week
+        // only when Claude didn't provide one (older clients / old prompts).
+        const claudeStart = (action.params.start_date as string | undefined)?.trim()
+        let startDateStr: string
+        if (claudeStart && /^\d{4}-\d{2}-\d{2}$/.test(claudeStart)) {
+          startDateStr = claudeStart
+        } else {
+          const today = new Date()
+          const startDate = new Date(today)
+          if (dayNum !== undefined) {
+            const daysUntil = (dayNum - today.getDay() + 7) % 7
+            // daysUntil=0 means today IS the target day — start today, not next week.
+            startDate.setDate(today.getDate() + daysUntil)
+          }
+          startDateStr = startDate.toISOString().split('T')[0]
         }
 
-        // Try to match assigned name to a circle member for display_name
+        // For weekly/biweekly recurrence, recurrence_days is required. Derive
+        // it from start_date if Claude didn't send a day_of_week.
+        let recurrenceDays: number[] = []
+        if (recurrence === 'weekly' || recurrence === 'biweekly' || recurrence === 'custom') {
+          if (dayNum !== undefined) {
+            recurrenceDays = [dayNum]
+          } else {
+            const derivedDay = new Date(startDateStr + 'T12:00:00').getDay()
+            recurrenceDays = [derivedDay]
+          }
+        }
+
         let resolvedAssignedName = assignedName
         if (assignedName) {
           const matched = members.find((m) => {
@@ -86,9 +107,9 @@ export function useChat() {
         await createActivity({
           circle_id: activeCircle.id,
           name: action.params.name as string,
-          recurrence_type: (action.params.recurrence as string) || 'weekly',
-          recurrence_days: dayNum !== undefined ? [dayNum] : [],
-          start_date: startDate.toISOString().split('T')[0],
+          recurrence_type: recurrence,
+          recurrence_days: recurrenceDays,
+          start_date: startDateStr,
           start_time: (action.params.start_time as string | undefined) ?? undefined,
           end_time: (action.params.end_time as string | undefined) ?? undefined,
           end_date: (action.params.end_date as string | undefined) ?? undefined,
@@ -99,7 +120,7 @@ export function useChat() {
         addMessage({
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `✅ Done! I've added "${action.params.name as string}" to the schedule.`,
+          content: `✅ Done! I've added "${action.params.name as string}" to the schedule (starting ${startDateStr}).`,
           timestamp: Date.now(),
         })
         return undefined
@@ -298,6 +319,7 @@ export function useChat() {
     sendMessage,
     applyAction,
     addMessage,
+    updateMessage,
     clearMessages,
     showUpgradeModal: ai.showUpgradeModal,
     setShowUpgradeModal: ai.setShowUpgradeModal,

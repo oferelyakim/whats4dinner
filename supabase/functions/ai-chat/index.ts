@@ -14,6 +14,47 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const INPUT_COST_PER_1M = 1.00
 const OUTPUT_COST_PER_1M = 5.00
 
+const INLINE_MEAL_PLAN_TOOL = {
+  name: 'generate_plan',
+  description: 'Generate a structured meal plan with full recipe details',
+  input_schema: {
+    type: 'object',
+    properties: {
+      meals: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            date: { type: 'string', description: 'YYYY-MM-DD' },
+            meal_type: { type: 'string', enum: ['breakfast', 'lunch', 'dinner', 'snack'] },
+            recipe_title: { type: 'string' },
+            recipe_id: { type: ['string', 'null'], description: 'null for new recipes' },
+            ingredients: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  quantity: { type: ['number', 'null'] },
+                  unit: { type: 'string', description: 'empty string if count' },
+                },
+                required: ['name'],
+              },
+            },
+            estimated_time_min: { type: ['integer', 'null'] },
+            tags: { type: 'array', items: { type: 'string' } },
+            servings: { type: ['integer', 'null'] },
+          },
+          required: ['date', 'meal_type', 'recipe_title', 'ingredients', 'tags'],
+        },
+      },
+      shopping_suggestions: { type: 'array', items: { type: 'string' } },
+      notes: { type: 'string' },
+    },
+    required: ['meals'],
+  },
+}
+
 const FREE_SYSTEM_PROMPT_EN = `You are Replanish Helper, a friendly assistant for the Replanish family management app.
 
 You can ONLY help users understand how to use the app. You cannot perform actions for free-tier users except importing recipes from URLs.
@@ -342,39 +383,57 @@ serve(async (req) => {
         if (block.name === 'create_activity') {
           confirmation = `Create activity: ${block.input.name} on ${block.input.day_of_week}`
         } else if (block.name === 'plan_meals') {
-          // Generate the meal plan server-side so the browser never needs to make
-          // a separate call to the generate-meal-plan edge function.
           let embeddedPlan: Record<string, unknown> | null = null
-          if (circleId) {
+          const planDates = Array.isArray((block.input as Record<string, unknown>).dates)
+            ? (block.input as Record<string, unknown>).dates as string[]
+            : []
+          const prefs = ((block.input as Record<string, unknown>).preferences as string) || ''
+
+          if (ANTHROPIC_API_KEY && planDates.length > 0) {
             try {
-              const planDates = Array.isArray((block.input as Record<string, unknown>).dates)
-                ? (block.input as Record<string, unknown>).dates as string[]
-                : []
-              const planResp = await fetch(`${SUPABASE_URL}/functions/v1/generate-meal-plan`, {
+              const mealScope = planDates.length > 3
+                ? 'dinner only for each date (keep the plan concise)'
+                : 'breakfast, lunch, and dinner for each date'
+              const planPrompt = `Generate a meal plan for these dates: ${planDates.join(', ')}.
+Plan ${mealScope}.
+${prefs ? `User preferences: ${prefs}` : 'Use Mediterranean/Middle-Eastern family cooking as default.'}
+For every meal, provide full ingredient list with quantities. Keep recipes practical and realistic.`
+
+              const planResp = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': authHeader!,
+                  'x-api-key': ANTHROPIC_API_KEY,
+                  'anthropic-version': '2023-06-01',
                 },
                 body: JSON.stringify({
-                  circleId,
-                  dates: planDates,
-                  planScope: 'custom',
-                  preferences: {
-                    special_requests: ((block.input as Record<string, unknown>).preferences as string) || '',
-                  },
+                  model: MODEL,
+                  max_tokens: 4096,
+                  system: 'You are an expert family meal planner. Create practical, varied meal plans with full recipe details. Default to Mediterranean/Middle-Eastern cuisine unless otherwise specified.',
+                  tools: [INLINE_MEAL_PLAN_TOOL],
+                  tool_choice: { type: 'tool', name: 'generate_plan' },
+                  messages: [{ role: 'user', content: planPrompt }],
                 }),
               })
+
               if (planResp.ok) {
-                const pd = await planResp.json()
-                if (pd?.plan && Array.isArray(pd.plan) && pd.plan.length > 0) {
-                  embeddedPlan = pd
+                const planResult = await planResp.json()
+                const planToolUse = planResult.content?.find(
+                  (b: { type: string }) => b.type === 'tool_use',
+                )
+                if (planToolUse?.input?.meals?.length > 0) {
+                  embeddedPlan = {
+                    plan: planToolUse.input.meals,
+                    shopping_suggestions: planToolUse.input.shopping_suggestions || [],
+                    notes: planToolUse.input.notes || '',
+                  }
                 }
               }
             } catch {
-              // Generation failed — frontend will fall back to a separate call
+              // fall through — no plan embedded
             }
           }
+
           if (embeddedPlan) {
             confirmation = "Here's your meal plan! Review and customize before saving."
             actionParams = { ...(block.input as Record<string, unknown>), planData: embeddedPlan }

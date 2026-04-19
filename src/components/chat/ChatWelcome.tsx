@@ -1,4 +1,5 @@
 import { useI18n } from '@/lib/i18n'
+import { APP_VERSION } from '@/lib/version'
 import { Sparkles } from 'lucide-react'
 
 interface ChatWelcomeProps {
@@ -32,6 +33,10 @@ export function ChatWelcome({ isPaid, freeImportsRemaining, freeImportCap, onSug
 
       <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-[280px]">
         {isPaid ? t('chat.paidWelcome') : t('chat.freeWelcome')}
+      </p>
+
+      <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-1">
+        v{APP_VERSION}
       </p>
 
       {!isPaid && (
