@@ -17,7 +17,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/cn'
 import { useI18n, type Locale } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
+import { useGrocerFlag } from '@/hooks/useGrocerFlag'
 import { AIUpgradeModal, UsageMeter, cancelSubscription } from '@/components/ui/UpgradePrompt'
+import { ConnectedStoresSection } from '@/components/grocers/ConnectedStoresSection'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/Toast'
 
@@ -27,6 +29,7 @@ export function MorePage() {
   const { session, signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
   const ai = useAIAccess()
+  const grocerFlag = useGrocerFlag()
   const queryClient = useQueryClient()
   const toast = useToast()
 
@@ -145,6 +148,9 @@ export function MorePage() {
           </div>
         </Card>
       )}
+
+      {/* Grocer integrations (feature flagged) */}
+      {grocerFlag.enabled && <ConnectedStoresSection />}
 
       {/* Theme toggle */}
       <Card className="px-4 py-3">

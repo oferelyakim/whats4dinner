@@ -197,3 +197,49 @@ export interface AIUsage {
   feature_context?: string
   scope?: string
 }
+
+// Grocer integrations
+export type GrocerProviderName = 'kroger' | 'walmart' | 'instacart'
+
+export interface GrocerConnectionRow {
+  id: string
+  user_id: string
+  provider: GrocerProviderName
+  /** Encrypted on server; not returned to client */
+  expires_at: string
+  store_id: string | null
+  store_name: string | null
+  store_zip: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ListGrocerLink {
+  list_id: string
+  provider: GrocerProviderName
+  store_id: string
+  store_name: string | null
+  updated_at: string
+}
+
+export interface GrocerProduct {
+  id: string
+  name: string
+  brand?: string
+  price_cents?: number
+  unit_size?: string
+  image_url?: string
+  available: boolean
+}
+
+export interface CartResult {
+  success: boolean
+  items_added: number
+  items_failed: string[]
+  cart_url: string | null
+}
+
+export interface GrocerFlag {
+  enabled: boolean
+  enabled_for_user_ids: string[]
+}

@@ -34,6 +34,7 @@ const ChoresPage = lazy(() => import('@/pages/ChoresPage').then(m => ({ default:
 const SupplyKitFormPage = lazy(() => import('@/pages/SupplyKitFormPage').then(m => ({ default: m.SupplyKitFormPage })))
 const FoodHubPage = lazy(() => import('@/pages/FoodHubPage').then(m => ({ default: m.FoodHubPage })))
 const HouseholdHubPage = lazy(() => import('@/pages/HouseholdHubPage').then(m => ({ default: m.HouseholdHubPage })))
+const GrocerCallbackPage = lazy(() => import('@/pages/GrocerCallbackPage').then(m => ({ default: m.GrocerCallbackPage })))
 
 function PageLoader() {
   return (
@@ -127,6 +128,9 @@ export default function App() {
               <Route path="/profile/circles" element={<CirclesPage />} />
               <Route path="/profile/circles/:id" element={<CircleDetailPage />} />
               <Route path="/profile/settings" element={<ProfilePage />} />
+
+              {/* Grocer OAuth callback */}
+              <Route path="/grocer/callback/:provider" element={<GrocerCallbackPage />} />
 
               {/* Legacy redirects — keep old paths working */}
               <Route path="/more" element={<MorePage />} />

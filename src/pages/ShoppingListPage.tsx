@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus, GripVertical, X,
+  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus, GripVertical, X, Store,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -34,6 +34,11 @@ import type { ShoppingListItem } from '@/types'
 import { DEPARTMENTS, type Department } from '@/lib/constants'
 import { useI18n } from '@/lib/i18n'
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
+import { useGrocerFlag } from '@/hooks/useGrocerFlag'
+import { useAuth } from '@/hooks/useAuth'
+import { getMyGrocerConnections, getLinkForList } from '@/services/grocers/service'
+import { ListStoreLinkerModal } from '@/components/grocers/ListStoreLinkerModal'
+import { CartPreviewModal } from '@/components/grocers/CartPreviewModal'
 
 interface DraftRow {
   id: string
@@ -48,9 +53,15 @@ export function ShoppingListPage() {
   const queryClient = useQueryClient()
   const { t, locale } = useI18n()
 
+  const { session } = useAuth()
+  const grocerFlag = useGrocerFlag()
+  const userId = session?.user?.id
+
   const [showAdd, setShowAdd] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showDeleteList, setShowDeleteList] = useState(false)
+  const [showStoreLinker, setShowStoreLinker] = useState(false)
+  const [showCartPreview, setShowCartPreview] = useState(false)
   const [draftRows, setDraftRows] = useState<DraftRow[]>([])
   const [addError, setAddError] = useState('')
   const [sortBy, setSortBy] = useState<'default' | 'department' | 'route'>('default')
@@ -85,6 +96,29 @@ export function ShoppingListPage() {
     queryFn: () => getIngredientSuggestions(locale),
     staleTime: 5 * 60 * 1000,
   })
+
+  const { data: grocerConnections = [], refetch: refetchGrocerConnections } = useQuery({
+    queryKey: ['grocer-connections', userId],
+    queryFn: getMyGrocerConnections,
+    enabled: grocerFlag.enabled && !!userId,
+  })
+
+  const { data: grocerLink, refetch: refetchGrocerLink } = useQuery({
+    queryKey: ['grocer-link', id],
+    queryFn: () => getLinkForList(id!),
+    enabled: grocerFlag.enabled && !!id,
+  })
+
+  const krogerConnection = grocerConnections.find((c) => c.provider === 'kroger') ?? null
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
+
+  // Item names for cart search (unchecked items only)
+  function getUncheckedItemNames() {
+    if (!data?.items) return []
+    return data.items
+      .filter((item: ShoppingListItem) => !item.is_checked)
+      .map((item: ShoppingListItem) => item.name)
+  }
 
   // Real-time subscription for list items
   useEffect(() => {
@@ -311,6 +345,34 @@ export function ShoppingListPage() {
           {t('list.addItem')}
         </Button>
       </div>
+
+      {/* Grocer store chip + shop button (feature flagged) */}
+      {grocerFlag.enabled && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowStoreLinker(true)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors min-h-[36px]',
+              grocerLink
+                ? 'border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10'
+                : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+            )}
+          >
+            <Store className="h-3.5 w-3.5" />
+            {grocerLink?.store_name ?? t('grocer.linkThisList')}
+          </button>
+
+          {grocerLink && krogerConnection?.store_id && isOnline && (
+            <button
+              onClick={() => setShowCartPreview(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600 text-white min-h-[36px] active:scale-95 transition-transform"
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              {t('grocer.shopAtKroger')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Error banner */}
       {mutationError && (
@@ -645,6 +707,34 @@ export function ShoppingListPage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {/* Grocer modals (feature flagged) */}
+      {grocerFlag.enabled && (
+        <>
+          <ListStoreLinkerModal
+            open={showStoreLinker}
+            onOpenChange={setShowStoreLinker}
+            listId={id!}
+            currentLink={grocerLink ?? null}
+            connections={grocerConnections}
+            onChanged={() => {
+              refetchGrocerLink()
+              refetchGrocerConnections()
+            }}
+          />
+
+          {grocerLink && krogerConnection?.store_id && (
+            <CartPreviewModal
+              open={showCartPreview}
+              onOpenChange={setShowCartPreview}
+              listId={id!}
+              storeId={grocerLink.store_id}
+              storeName={grocerLink.store_name}
+              itemNames={getUncheckedItemNames()}
+            />
+          )}
+        </>
+      )}
     </div>
   )
 }
