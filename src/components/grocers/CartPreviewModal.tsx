@@ -96,10 +96,10 @@ export function CartPreviewModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40 animate-fade-in" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
-          <div className="sticky top-0 bg-white dark:bg-surface-dark-elevated px-6 pt-6 pb-3 border-b border-slate-100 dark:border-slate-800">
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-rp-card rounded-t-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
+          <div className="sticky top-0 bg-rp-card px-6 pt-6 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
-              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white">
+              <Dialog.Title className="text-lg font-bold text-rp-ink">
                 {t('grocer.cartPreview')}
               </Dialog.Title>
               <Dialog.Close asChild>
@@ -180,7 +180,7 @@ export function CartPreviewModal({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                    <p className="text-sm font-medium text-rp-ink truncate">
                       {entry.query}
                     </p>
                     {topProduct ? (
@@ -201,7 +201,7 @@ export function CartPreviewModal({
 
           {/* Footer action */}
           {!isSearching && preview.length > 0 && !cartResult?.success && (
-            <div className="sticky bottom-0 bg-white dark:bg-surface-dark-elevated border-t border-slate-100 dark:border-slate-800 px-6 py-4">
+            <div className="sticky bottom-0 bg-rp-card border-t border-slate-100 dark:border-slate-800 px-6 py-4">
               <Button
                 className="w-full gap-2"
                 onClick={handleAddAllToCart}

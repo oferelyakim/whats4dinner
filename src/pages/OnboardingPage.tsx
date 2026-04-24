@@ -129,10 +129,10 @@ export function OnboardingPage() {
               </motion.div>
 
               <div className="space-y-3">
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-rp-ink">
                   {t('onboard.welcome')}
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-sm text-rp-ink-mute leading-relaxed">
                   {t('onboard.welcomeDesc')}
                 </p>
               </div>
@@ -167,22 +167,22 @@ export function OnboardingPage() {
                 <div className="mx-auto h-14 w-14 rounded-2xl bg-blue-500/10 flex items-center justify-center">
                   <Users className="h-7 w-7 text-blue-500" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">
                   {t('onboard.createCircle')}
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-rp-ink-mute">
                   {t('onboard.createCircleDesc')}
                 </p>
               </div>
 
               {/* Mode toggle */}
-              <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-lg p-0.5">
+              <div className="flex gap-1 bg-rp-bg-soft rounded-lg p-0.5">
                 <button
                   onClick={() => { setMode('create'); setError('') }}
                   className={cn(
                     'flex-1 py-2 rounded-md text-sm font-medium transition-colors',
                     mode === 'create'
-                      ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                      ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
                       : 'text-slate-500'
                   )}
                 >
@@ -193,7 +193,7 @@ export function OnboardingPage() {
                   className={cn(
                     'flex-1 py-2 rounded-md text-sm font-medium transition-colors',
                     mode === 'join'
-                      ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                      ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
                       : 'text-slate-500'
                   )}
                 >
@@ -210,7 +210,7 @@ export function OnboardingPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCircleName(e.target.value)}
                   />
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <label className="mb-1.5 block text-sm font-medium text-rp-ink-soft">
                       {t('onboard.circleIcon')}
                     </label>
                     <div className="flex gap-2 flex-wrap">
@@ -222,7 +222,7 @@ export function OnboardingPage() {
                             'h-10 w-10 rounded-xl flex items-center justify-center text-xl transition-all',
                             circleIcon === icon
                               ? 'bg-brand-500/20 ring-2 ring-brand-500 scale-110'
-                              : 'bg-slate-100 dark:bg-surface-dark-elevated hover:bg-slate-200 dark:hover:bg-surface-dark-overlay'
+                              : 'bg-rp-bg-soft hover:bg-slate-200 dark:hover:bg-surface-dark-overlay'
                           )}
                         >
                           {icon}
@@ -299,10 +299,10 @@ export function OnboardingPage() {
               </motion.div>
 
               <div className="space-y-3">
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-rp-ink">
                   {t('onboard.allSet')}
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-sm text-rp-ink-mute leading-relaxed">
                   {t('onboard.allSetDesc')}
                 </p>
               </div>

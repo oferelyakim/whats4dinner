@@ -228,7 +228,7 @@ export function ChatPlanReview({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 40 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="fixed bottom-0 start-0 end-0 z-[60] bg-white dark:bg-surface-dark-elevated rounded-t-3xl max-w-lg mx-auto max-h-[90dvh] flex flex-col shadow-2xl"
+      className="fixed bottom-0 start-0 end-0 z-[60] bg-rp-card rounded-t-3xl max-w-lg mx-auto max-h-[90dvh] flex flex-col shadow-2xl"
     >
       <div className="flex justify-center pt-3 pb-1 shrink-0">
         <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
@@ -237,10 +237,10 @@ export function ChatPlanReview({
       <div className="px-5 pb-3 shrink-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+            <h2 className="text-lg font-bold text-rp-ink leading-tight">
               {headerTitle}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{headerSubtitle}</p>
+            <p className="text-sm text-rp-ink-mute mt-0.5">{headerSubtitle}</p>
             {stage === 'fetching' && totalFetchCount > 0 && (
               <div className="mt-2 h-1 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
                 <motion.div
@@ -275,7 +275,7 @@ export function ChatPlanReview({
         )}
         {sortedDates.map((date) => (
           <div key={date}>
-            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">
+            <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wide mb-2">
               {formatPlanDate(date, locale)}
             </p>
             <div className="space-y-2">
@@ -347,7 +347,7 @@ export function ChatPlanReview({
                         handleStartOver()
                       }
                     }}
-                    className="flex-1 h-10 px-3 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-brand-500/30"
+                    className="flex-1 h-10 px-3 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay text-sm text-rp-ink placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-brand-500/30"
                   />
                   <button
                     onClick={handleStartOver}
@@ -364,14 +364,14 @@ export function ChatPlanReview({
       </div>
 
       <div
-        className="px-5 pt-3 pb-4 border-t border-slate-200 dark:border-slate-700/50 flex flex-col gap-2 shrink-0"
+        className="px-5 pt-3 pb-4 border-t border-rp-hairline/50 flex flex-col gap-2 shrink-0"
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
         {stage === 'selecting' && (
           <div className="flex gap-3">
             <button
               onClick={() => setShowStartOverInput((v) => !v)}
-              className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-surface-dark-elevated hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors active:scale-[0.98]"
+              className="flex-1 h-11 rounded-xl border border-rp-hairline text-sm font-medium text-slate-700 dark:text-slate-200 bg-rp-card hover:bg-slate-50 dark:hover:bg-surface-dark-overlay transition-colors active:scale-[0.98]"
             >
               {t('chat.planReview.requestChanges')}
             </button>
@@ -396,7 +396,7 @@ export function ChatPlanReview({
 
         {stage === 'fetching' && (
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400 py-2">
+            <div className="flex items-center justify-center gap-2 text-sm text-rp-ink-mute py-2">
               <div className="h-4 w-4 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
               Fetching {Math.max(0, totalFetchCount - readyCount - errorCount)} more recipe
               {totalFetchCount - readyCount - errorCount !== 1 ? 's' : ''}...
@@ -461,14 +461,14 @@ export function ChatPlanReview({
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setConfirmRemoveKey(null)}
           />
-          <div className="relative bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-2xl w-full max-w-sm space-y-3">
-            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          <div className="relative bg-rp-card rounded-2xl p-5 shadow-2xl w-full max-w-sm space-y-3">
+            <p className="text-sm font-medium text-rp-ink">
               Remove &quot;{keyedItems.find((i) => i._key === confirmRemoveKey)?.recipe_title}&quot; from the plan?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmRemoveKey(null)}
-                className="flex-1 h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300"
+                className="flex-1 h-10 rounded-xl border border-rp-hairline text-sm text-rp-ink-soft"
               >
                 {t('common.cancel')}
               </button>
@@ -521,14 +521,14 @@ function SelectingCard({
             className={cn(
               'text-sm font-semibold',
               isSelected
-                ? 'text-slate-800 dark:text-slate-200'
-                : 'text-slate-500 dark:text-slate-400 line-through',
+                ? 'text-rp-ink'
+                : 'text-rp-ink-mute line-through',
             )}
           >
             {item.recipe_title}
           </p>
           {item.description && isSelected && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+            <p className="text-xs text-rp-ink-mute mt-0.5 line-clamp-2">
               {item.description}
             </p>
           )}
@@ -546,7 +546,7 @@ function SelectingCard({
               </span>
             )}
             {item.estimated_time_min && (
-              <span className="flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+              <span className="flex items-center gap-0.5 text-[10px] text-rp-ink-mute">
                 <Clock className="h-2.5 w-2.5" />
                 {item.estimated_time_min}m
               </span>
@@ -554,7 +554,7 @@ function SelectingCard({
             {(item.tags || []).slice(0, 2).map((tag) => (
               <span
                 key={tag}
-                className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400"
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700/50 text-rp-ink-mute"
               >
                 {tag}
               </span>
@@ -605,7 +605,7 @@ function SelectingCard({
               value={comment}
               onChange={(e) => onCommentChange(e.target.value)}
               placeholder="What to replace it with (optional)..."
-              className="w-full h-9 px-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-orange-400/30"
+              className="w-full h-9 px-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 text-sm text-rp-ink-soft placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-orange-400/30"
             />
           </motion.div>
         )}
@@ -630,12 +630,12 @@ function FetchingCard({ item, onRetry }: FetchingCardProps) {
           ? 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-900/10'
           : status === 'error'
             ? 'border-red-200 dark:border-red-800/50 bg-red-50/30 dark:bg-red-900/10'
-            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-dark-overlay',
+            : 'border-rp-hairline bg-rp-bg-soft',
       )}
     >
       <span className="text-xl shrink-0 leading-none mt-0.5">{MEAL_ICONS[item.meal_type] ?? '🍽️'}</span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+        <p className="text-sm font-semibold text-rp-ink truncate">
           {item.recipe_title}
         </p>
         {status === 'loading' && (
@@ -652,7 +652,7 @@ function FetchingCard({ item, onRetry }: FetchingCardProps) {
               className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce"
               style={{ animationDelay: '300ms' }}
             />
-            <span className="text-xs text-slate-400 dark:text-slate-500 ms-1">
+            <span className="text-xs text-rp-ink-mute ms-1">
               {t('chat.planReview.fetchingRecipe')}
             </span>
           </div>
@@ -670,7 +670,7 @@ function FetchingCard({ item, onRetry }: FetchingCardProps) {
                 AI recipe
               </span>
             )}
-            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] text-rp-ink-mute">
               {item.ingredients?.length || 0} ingredients
             </span>
           </div>
@@ -722,7 +722,7 @@ function ReadyCard({ item, isExpanded, onToggle, onNavigateToRecipe }: ReadyCard
         'rounded-2xl border overflow-hidden',
         isError
           ? 'border-red-200 dark:border-red-800/50 bg-red-50/30 dark:bg-red-900/10'
-          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated',
+          : 'border-rp-hairline bg-rp-card',
       )}
     >
       <button
@@ -732,7 +732,7 @@ function ReadyCard({ item, isExpanded, onToggle, onNavigateToRecipe }: ReadyCard
       >
         <span className="text-xl shrink-0 leading-none">{MEAL_ICONS[item.meal_type] ?? '🍽️'}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+          <p className="text-sm font-semibold text-rp-ink truncate">
             {item.recipe_title}
           </p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -749,11 +749,11 @@ function ReadyCard({ item, isExpanded, onToggle, onNavigateToRecipe }: ReadyCard
                     AI
                   </span>
                 )}
-                <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                <span className="text-[10px] text-rp-ink-mute">
                   {item.ingredients?.length || 0} ingredients
                 </span>
                 {item.estimated_time_min && (
-                  <span className="flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                  <span className="flex items-center gap-0.5 text-[10px] text-rp-ink-mute">
                     <Clock className="h-2.5 w-2.5" />
                     {item.estimated_time_min}m
                   </span>
@@ -796,12 +796,12 @@ function ReadyCard({ item, isExpanded, onToggle, onNavigateToRecipe }: ReadyCard
             className="overflow-hidden"
           >
             <div className="px-4 pb-3 border-t border-slate-100 dark:border-slate-700/50">
-              <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mt-2 mb-1.5">
+              <p className="text-[10px] font-semibold text-rp-ink-mute uppercase tracking-wide mt-2 mb-1.5">
                 Ingredients
               </p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
                 {item.ingredients.map((ing, i) => (
-                  <p key={i} className="text-xs text-slate-600 dark:text-slate-400">
+                  <p key={i} className="text-xs text-rp-ink-soft">
                     {ing.quantity != null
                       ? `${ing.quantity}${ing.unit ? ' ' + ing.unit : ''} `
                       : ''}

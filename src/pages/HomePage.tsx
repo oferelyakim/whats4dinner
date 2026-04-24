@@ -1,33 +1,34 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import {
-  ShoppingCart, CalendarDays, ChefHat, PlusCircle,
-  Sparkles, Camera, PenLine,
-} from 'lucide-react'
+import { Sparkles, Camera, PenLine } from 'lucide-react'
 import { motion } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Card } from '@/components/ui/Card'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
+import {
+  PageTitle,
+  MonoLabel,
+  HandAccent,
+  AvatarStack,
+  RingsOrnament,
+  PotIcon,
+  TableIcon,
+  HouseCircleIcon,
+} from '@/components/ui/hearth'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { getShoppingLists, getShoppingList } from '@/services/shoppingLists'
+import { getCircleMembers } from '@/services/circles'
 import { getActivities, activityOccursOnDate, formatTimeRange, type Activity } from '@/services/activities'
 import { getMealPlans, getWeekDates } from '@/services/mealPlans'
 import { cn } from '@/lib/cn'
 import type { ShoppingListItem } from '@/types'
 
-const CATEGORIES_EMOJI: Record<string, string> = {
-  sports: '⚽', music: '🎵', arts: '🎨', education: '📚',
-  social: '👥', chores: '🧹', carpool: '🚗', other: '📌',
-}
-
 const stagger = {
   hidden: {},
   show: { transition: { staggerChildren: 0.06 } },
 }
-
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
@@ -40,12 +41,15 @@ function getGreeting(t: (key: string) => string) {
   return t('home.goodEvening')
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-medium mb-2">
-      {children}
-    </p>
-  )
+const CATEGORY_DOT: Record<string, string> = {
+  sports: 'var(--rp-accent)',
+  music: 'var(--rp-glow)',
+  arts: 'var(--rp-brand)',
+  education: 'var(--rp-cool)',
+  social: 'var(--rp-brand)',
+  chores: 'var(--rp-ink-mute)',
+  carpool: 'var(--rp-cool)',
+  other: 'var(--rp-ink-mute)',
 }
 
 export function HomePage() {
@@ -58,20 +62,17 @@ export function HomePage() {
   const dateLocale = locale === 'he' ? 'he-IL' : 'en-US'
   const today = new Date().toISOString().split('T')[0]
 
-  // Shopping lists — metadata only
   const { data: lists = [], isLoading: listsLoading } = useQuery({
     queryKey: ['shopping-lists'],
     queryFn: getShoppingLists,
   })
 
-  // Activities
   const { data: activities = [], isLoading: activitiesLoading } = useQuery({
     queryKey: ['activities', activeCircle?.id],
     queryFn: () => getActivities(activeCircle!.id),
     enabled: !!activeCircle,
   })
 
-  // Meal plans for the week
   const weekDates = getWeekDates()
   const { data: mealPlans = [], isLoading: mealPlansLoading } = useQuery({
     queryKey: ['meal-plans', activeCircle?.id, weekDates.start, weekDates.end],
@@ -79,7 +80,12 @@ export function HomePage() {
     enabled: !!activeCircle,
   })
 
-  // Primary active list — fetch items only for the most recently updated one
+  const { data: members = [] } = useQuery({
+    queryKey: ['circle-members', activeCircle?.id],
+    queryFn: () => getCircleMembers(activeCircle!.id),
+    enabled: !!activeCircle,
+  })
+
   const primaryList = lists
     .filter((l) => l.status === 'active')
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0]
@@ -90,12 +96,15 @@ export function HomePage() {
     enabled: !!primaryList,
   })
 
+  const todayMealPlan = mealPlans.find((mp) => mp.plan_date === today)
+  const memberNames = members
+    .map((m) => m.profile?.display_name ?? '')
+    .filter(Boolean)
+
   const isLoading = listsLoading || activitiesLoading || mealPlansLoading
 
   const todayActivities = activities.filter((a: Activity) => activityOccursOnDate(a, today))
 
-  // Upcoming: next 7 days (excluding today). Surfaced so newly-created
-  // activities are visible even when the earliest occurrence isn't today.
   const upcomingActivities = (() => {
     const result: Array<{ activity: Activity; date: string }> = []
     const start = new Date()
@@ -104,237 +113,245 @@ export function HomePage() {
       d.setDate(start.getDate() + i)
       const ds = d.toISOString().split('T')[0]
       for (const a of activities) {
-        if (activityOccursOnDate(a, ds)) {
-          if (!result.some((r) => r.activity.id === a.id)) {
-            result.push({ activity: a, date: ds })
-          }
+        if (activityOccursOnDate(a, ds) && !result.some((r) => r.activity.id === a.id)) {
+          result.push({ activity: a, date: ds })
         }
       }
     }
     return result.slice(0, 5)
   })()
 
-  // Meal plan index: date -> has entry
   const mealPlanByDate = new Set(mealPlans.map((mp) => mp.plan_date))
-
+  const firstName = profile?.display_name?.split(' ')[0] ?? 'friend'
   const greeting = getGreeting(t)
-
-  const formattedDate = new Date().toLocaleDateString(dateLocale, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
 
   if (isLoading) {
     return (
-      <div className="px-4 sm:px-6 py-6 space-y-6">
+      <div className="px-5 py-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Skeleton className="h-3 w-32" />
-            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-8 w-56" />
           </div>
-          <Skeleton className="h-11 w-11 rounded-full" />
+          <Skeleton className="h-14 w-14 rounded-full" />
         </div>
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-28" />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-28" />
-          <SkeletonCard />
-        </div>
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-28" />
-          <div className="flex gap-2 overflow-hidden">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-12 w-12 rounded-xl shrink-0" />
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-28" />
-          <div className="grid grid-cols-4 gap-2">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-20 rounded-2xl" />
-            ))}
-          </div>
-        </div>
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
     )
   }
 
   return (
     <motion.div
-      className="px-4 sm:px-6 py-6 space-y-6"
+      className="relative px-5 py-6 space-y-7"
       variants={stagger}
       initial="hidden"
       animate="show"
     >
-      {/* 1. Greeting header */}
-      <motion.div variants={fadeUp} className="flex items-center justify-between">
+      {/* Decorative rings bleed off the right edge */}
+      <RingsOrnament
+        className="absolute -top-16 -right-40 text-rp-brand"
+        opacity={0.14}
+        size={420}
+      />
+
+      {/* 1 — Greeting + circle pulse */}
+      <motion.header variants={fadeUp} className="relative flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-slate-400 dark:text-slate-500">{formattedDate}</p>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
-            {greeting}, {profile?.display_name?.split(' ')[0] ?? 'there'}! 👋
-          </h2>
+          <MonoLabel>
+            {new Date().toLocaleDateString(dateLocale, { weekday: 'long', month: 'long', day: 'numeric' })}
+          </MonoLabel>
+          <PageTitle className="mt-2 text-[32px]">
+            {greeting},{' '}
+            <span className="text-rp-brand">{firstName}.</span>
+          </PageTitle>
+          {memberNames.length > 1 && (
+            <p className="mt-2 text-sm text-rp-ink-soft">
+              {t('home.todayTogether').replace('{count}', String(memberNames.length))}
+            </p>
+          )}
         </div>
-        <div className="h-11 w-11 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
-          {profile?.display_name?.[0]?.toUpperCase() ?? '?'}
-        </div>
-      </motion.div>
-
-      {/* 2. Today's Activities */}
-      {todayActivities.length > 0 && (
-        <motion.section variants={fadeUp}>
-          <SectionLabel>{t('home.todaysActivities')}</SectionLabel>
-          <div className="space-y-2">
-            {todayActivities.map((activity: Activity) => (
-              <button
-                key={activity.id}
-                onClick={() => navigate('/household/activities')}
-                className="w-full text-start"
-              >
-                <Card className="px-3 py-2.5 flex items-center gap-3 active:scale-[0.98] transition-transform">
-                  <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-base shrink-0">
-                    {CATEGORIES_EMOJI[activity.category] || '📌'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      {activity.name}
-                    </p>
-                    <p className="text-[11px] text-slate-400 truncate">
-                      {[formatTimeRange(activity), activity.location]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                  </div>
-                  <div className="h-2 w-2 rounded-full bg-blue-400 shrink-0" />
-                </Card>
-              </button>
-            ))}
+        {memberNames.length > 0 && (
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <AvatarStack names={memberNames} size="md" max={4} ring="bg" />
+            <MonoLabel>{activeCircle?.name ?? ''}</MonoLabel>
           </div>
-        </motion.section>
-      )}
+        )}
+      </motion.header>
 
-      {/* 2b. Upcoming activities (next 7 days) */}
-      {upcomingActivities.length > 0 && (
-        <motion.section variants={fadeUp}>
-          <SectionLabel>{t('home.upcomingActivities')}</SectionLabel>
-          <div className="space-y-2">
-            {upcomingActivities.map(({ activity, date }) => {
-              const d = new Date(date + 'T12:00:00')
-              const dayLabel = d.toLocaleDateString(dateLocale, { weekday: 'short', month: 'short', day: 'numeric' })
-              return (
-                <button
-                  key={`${activity.id}-${date}`}
-                  onClick={() => navigate('/household/activities')}
-                  className="w-full text-start"
-                >
-                  <Card className="px-3 py-2.5 flex items-center gap-3 active:scale-[0.98] transition-transform">
-                    <div className="h-9 w-9 rounded-xl bg-slate-500/10 flex items-center justify-center text-base shrink-0">
-                      {CATEGORIES_EMOJI[activity.category] || '📌'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                        {activity.name}
-                      </p>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {[dayLabel, formatTimeRange(activity), activity.assigned_name]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                    </div>
-                  </Card>
-                </button>
-              )
-            })}
+      {/* 2 — Tonight at the table (hero) */}
+      <motion.section variants={fadeUp}>
+        <button
+          onClick={() => navigate('/plan')}
+          className="group w-full text-start block"
+        >
+          <div
+            className="relative overflow-hidden rounded-rp-lg p-5 shadow-rp-hero"
+            style={{ background: 'var(--rp-bg-deep)', color: 'var(--rp-bg)' }}
+          >
+            <RingsOrnament
+              className="absolute -bottom-20 -right-24"
+              opacity={0.18}
+              size={360}
+            />
+            <span className="rp-mono-label" style={{ color: 'rgba(250,246,239,0.6)' }}>
+              {t('home.tonightAtTable')}
+            </span>
+            <h2 className="font-display italic tracking-rp-tight leading-[1.05] text-[28px] mt-2 pr-10">
+              {todayMealPlan?.notes || todayMealPlan?.recipe_id
+                ? todayMealPlan?.notes || t('home.mealsForTheWeek')
+                : t('home.letsPlan')}
+            </h2>
+            <p className="mt-3 text-xs opacity-80 inline-flex items-center gap-1.5">
+              <PotIcon width={14} height={14} />
+              <span>{firstName}</span>
+            </p>
           </div>
-        </motion.section>
-      )}
+        </button>
+      </motion.section>
 
-      {/* 3. Shopping List — primary active list with inline items */}
-      {primaryList && (
-        <motion.section variants={fadeUp}>
-          <SectionLabel>{t('home.shoppingLists')}</SectionLabel>
+      {/* 3 — Pulse row: shared list + next gathering */}
+      <motion.section variants={fadeUp} className="grid grid-cols-2 gap-3">
+        {primaryList ? (
           <button
             onClick={() => navigate(`/lists/${primaryList.id}`)}
-            className="w-full text-start"
+            className="rp-card p-4 text-start active:scale-[0.98] transition-transform"
           >
-            <Card className="p-4 active:scale-[0.98] transition-transform">
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">
-                {primaryList.name}
-              </p>
-              {primaryListDetail?.items && primaryListDetail.items.length > 0 ? (
-                <ul className="space-y-2">
-                  {primaryListDetail.items.slice(0, 5).map((item: ShoppingListItem) => (
-                    <li key={item.id} className="flex items-center gap-2.5">
-                      <div className={cn(
-                        'h-4 w-4 rounded border shrink-0 flex items-center justify-center',
-                        item.is_checked
-                          ? 'border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700'
-                          : 'border-slate-300 dark:border-slate-600'
-                      )}>
-                        {item.is_checked && (
-                          <div className="h-2 w-2 rounded-sm bg-slate-400" />
-                        )}
-                      </div>
-                      <span className={cn(
-                        'text-sm',
-                        item.is_checked
-                          ? 'line-through text-slate-400 dark:text-slate-500'
-                          : 'text-slate-800 dark:text-slate-200'
-                      )}>
-                        {item.name}
-                      </span>
-                    </li>
-                  ))}
-                  {primaryListDetail.items.length > 5 && (
-                    <li className="text-xs text-slate-400 ps-6">
-                      +{primaryListDetail.items.length - 5} {t('common.more')}
-                    </li>
-                  )}
-                </ul>
-              ) : (
-                <p className="text-xs text-slate-400">{t('list.noItems')}</p>
-              )}
-            </Card>
+            <MonoLabel>{t('home.sharedList')}</MonoLabel>
+            <p className="font-display italic text-[18px] mt-1.5 text-rp-ink leading-tight">
+              {primaryList.name}
+            </p>
+            <p className="text-[11px] text-rp-ink-mute mt-2">
+              {primaryListDetail?.items?.length
+                ? `${primaryListDetail.items.filter((i: ShoppingListItem) => !i.is_checked).length} ${t('common.more')}`
+                : t('list.noItems')}
+            </p>
           </button>
+        ) : (
+          <button
+            onClick={() => navigate('/lists/new')}
+            className="rp-card p-4 text-start border-dashed active:scale-[0.98] transition-transform"
+            style={{ borderColor: 'var(--rp-brand-soft)' }}
+          >
+            <MonoLabel>{t('home.sharedList')}</MonoLabel>
+            <p className="font-display italic text-[18px] mt-1.5 text-rp-ink-soft leading-tight">
+              {t('home.createFirstList')}
+            </p>
+          </button>
+        )}
+
+        <button
+          onClick={() => navigate('/events')}
+          className="p-4 text-start active:scale-[0.98] transition-transform rounded-rp-md border border-rp-hairline shadow-rp-card"
+          style={{ background: 'var(--rp-glow-soft)' }}
+        >
+          <MonoLabel>{t('home.nextGathering')}</MonoLabel>
+          <p className="font-display italic text-[18px] mt-1.5 text-rp-ink leading-tight">
+            {t('home.planEvent')}
+          </p>
+          <p className="text-[11px] text-rp-ink-soft mt-2 inline-flex items-center gap-1">
+            <TableIcon width={14} height={14} />
+            {t('home.planEventDesc')}
+          </p>
+        </button>
+      </motion.section>
+
+      {/* 4 — Today's beats timeline */}
+      {(todayActivities.length > 0 || upcomingActivities.length > 0) && (
+        <motion.section variants={fadeUp}>
+          <MonoLabel>{t('home.todaysBeats')}</MonoLabel>
+          <ul className="mt-3 space-y-2.5">
+            {todayActivities.map((activity) => {
+              const time = formatTimeRange(activity)
+              return (
+                <li key={activity.id}>
+                  <button
+                    onClick={() => navigate('/household/activities')}
+                    className="w-full flex items-center gap-3 py-1.5 text-start"
+                  >
+                    <span className="font-mono text-[11px] text-rp-ink-mute w-14 tabular-nums">
+                      {time || t('home.today')}
+                    </span>
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ background: CATEGORY_DOT[activity.category] ?? 'var(--rp-brand)' }}
+                    />
+                    <span className="flex-1 min-w-0">
+                      <p className="text-sm text-rp-ink truncate">{activity.name}</p>
+                      {activity.assigned_name && (
+                        <p className="text-[11px] text-rp-ink-mute truncate">
+                          {activity.assigned_name}
+                        </p>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+            {upcomingActivities.slice(0, 3).map(({ activity, date }) => {
+              const d = new Date(date + 'T12:00:00')
+              const dayLabel = d.toLocaleDateString(dateLocale, { weekday: 'short' })
+              return (
+                <li key={`${activity.id}-${date}`}>
+                  <button
+                    onClick={() => navigate('/household/activities')}
+                    className="w-full flex items-center gap-3 py-1.5 text-start"
+                  >
+                    <span className="font-mono text-[11px] text-rp-ink-mute w-14 tabular-nums uppercase">
+                      {dayLabel}
+                    </span>
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ background: CATEGORY_DOT[activity.category] ?? 'var(--rp-cool)' }}
+                    />
+                    <span className="flex-1 min-w-0">
+                      <p className="text-sm text-rp-ink-soft truncate">{activity.name}</p>
+                      {activity.assigned_name && (
+                        <p className="text-[11px] text-rp-ink-mute truncate">
+                          {activity.assigned_name}
+                        </p>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         </motion.section>
       )}
 
-      {/* 4. This Week's Meals */}
+      {/* 5 — Week rhythm */}
       {activeCircle && (
         <motion.section variants={fadeUp}>
-          <SectionLabel>{t('home.thisWeeksMeals')}</SectionLabel>
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5 no-scrollbar">
+          <MonoLabel>{t('home.thisWeeksMeals')}</MonoLabel>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5 no-scrollbar">
             {weekDates.dates.map((date) => {
               const isToday = date === today
               const hasMeal = mealPlanByDate.has(date)
-              const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString(dateLocale, { weekday: 'short' })
-              const dayNum = new Date(date + 'T12:00:00').getDate()
-
+              const d = new Date(date + 'T12:00:00')
+              const dayLabel = d.toLocaleDateString(dateLocale, { weekday: 'short' })
+              const dayNum = d.getDate()
               return (
                 <button
                   key={date}
                   onClick={() => navigate(`/plan?date=${date}`)}
                   className={cn(
-                    'flex flex-col items-center gap-0.5 rounded-xl px-3 py-2.5 shrink-0 min-w-[52px] transition-colors active:scale-95',
+                    'flex flex-col items-center gap-0.5 rounded-rp-sm px-3 py-2.5 shrink-0 min-w-[54px] transition-colors active:scale-95 border',
                     isToday
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-slate-100 dark:bg-surface-dark-elevated text-slate-600 dark:text-slate-300'
+                      ? 'bg-rp-brand text-rp-card border-rp-brand'
+                      : 'bg-rp-card text-rp-ink-soft border-rp-hairline'
                   )}
                 >
-                  <span className="text-[10px] font-medium uppercase tracking-wide">{dayLabel}</span>
-                  <span className="text-base font-bold leading-none">{dayNum}</span>
-                  {hasMeal ? (
-                    <div className={cn(
-                      'h-1.5 w-1.5 rounded-full mt-0.5',
-                      isToday ? 'bg-white/70' : 'bg-brand-500'
-                    )} />
-                  ) : (
-                    <div className="h-1.5 w-1.5 mt-0.5" />
-                  )}
+                  <span className="text-[10px] font-mono uppercase tracking-wider opacity-80">{dayLabel}</span>
+                  <span className="font-display italic text-[20px] leading-none mt-0.5">{dayNum}</span>
+                  <span
+                    className={cn(
+                      'h-1 w-1 rounded-full mt-1',
+                      hasMeal
+                        ? isToday ? 'bg-rp-card/80' : 'bg-rp-brand'
+                        : 'opacity-0'
+                    )}
+                  />
                 </button>
               )
             })}
@@ -342,122 +359,94 @@ export function HomePage() {
         </motion.section>
       )}
 
-      {/* 5. Quick Actions */}
-      <motion.section variants={fadeUp}>
-        <SectionLabel>{t('home.quickActions')}</SectionLabel>
-        <div className="grid grid-cols-4 gap-2">
-          {/* Plan */}
-          <button
-            onClick={() => navigate('/plan')}
-            className="flex flex-col items-center gap-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated p-3 active:scale-95 transition-transform min-h-[72px]"
-          >
-            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center">
-              <CalendarDays className="h-5 w-5 text-teal-500" />
-            </div>
-            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-tight text-center">
-              {t('nav.plan')}
-            </span>
-          </button>
-
-          {/* List */}
-          <button
-            onClick={() => navigate('/lists')}
-            className="flex flex-col items-center gap-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated p-3 active:scale-95 transition-transform min-h-[72px]"
-          >
-            <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
-              <ShoppingCart className="h-5 w-5 text-blue-500" />
-            </div>
-            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-tight text-center">
-              {t('nav.lists')}
-            </span>
-          </button>
-
-          {/* Recipe — opens picker bottom sheet */}
-          <button
-            onClick={() => setRecipePickerOpen(true)}
-            className="flex flex-col items-center gap-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated p-3 active:scale-95 transition-transform min-h-[72px]"
-          >
-            <div className="h-9 w-9 rounded-xl bg-brand-500/10 flex items-center justify-center">
-              <ChefHat className="h-5 w-5 text-brand-500" />
-            </div>
-            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-tight text-center">
-              {t('home.addRecipe')}
-            </span>
-          </button>
-
-          {/* Event */}
-          <button
-            onClick={() => navigate('/events')}
-            className="flex flex-col items-center gap-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-elevated p-3 active:scale-95 transition-transform min-h-[72px]"
-          >
-            <div className="h-9 w-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
-              <PlusCircle className="h-5 w-5 text-pink-500" />
-            </div>
-            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-tight text-center">
-              {t('home.planEvent')}
-            </span>
-          </button>
-        </div>
+      {/* 6 — Quick actions (subtle, 3 tiles) */}
+      <motion.section variants={fadeUp} className="grid grid-cols-3 gap-3">
+        <button
+          onClick={() => navigate('/plan')}
+          className="rp-card p-3 flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+        >
+          <span className="h-9 w-9 rounded-[10px] bg-rp-brand-soft flex items-center justify-center text-rp-brand-deep">
+            <PotIcon width={20} height={20} />
+          </span>
+          <span className="text-[11px] font-medium text-rp-ink-soft">{t('nav.plan')}</span>
+        </button>
+        <button
+          onClick={() => setRecipePickerOpen(true)}
+          className="rp-card p-3 flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+        >
+          <span className="h-9 w-9 rounded-[10px] bg-rp-glow-soft flex items-center justify-center text-rp-ink">
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <span className="text-[11px] font-medium text-rp-ink-soft">{t('home.addRecipe')}</span>
+        </button>
+        <button
+          onClick={() => navigate('/household')}
+          className="rp-card p-3 flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+        >
+          <span className="h-9 w-9 rounded-[10px] bg-rp-accent-soft flex items-center justify-center text-rp-ink">
+            <HouseCircleIcon width={20} height={20} />
+          </span>
+          <span className="text-[11px] font-medium text-rp-ink-soft">{t('nav.house')}</span>
+        </button>
       </motion.section>
+
+      {/* 7 — One handwritten accent */}
+      <motion.div variants={fadeUp} className="pt-2 text-center">
+        <HandAccent rotate={-2}>✶ {t('home.aGoodDay')} ✶</HandAccent>
+      </motion.div>
 
       {/* Recipe Picker Bottom Sheet */}
       <Dialog.Root open={recipePickerOpen} onOpenChange={setRecipePickerOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]" />
           <Dialog.Content
-            className="fixed bottom-0 start-0 end-0 z-[60] bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-5 max-w-lg mx-auto"
+            className="fixed bottom-0 start-0 end-0 z-[60] bg-rp-card rounded-t-rp-lg p-5 max-w-lg mx-auto"
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
           >
-            <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600 mx-auto mb-4" />
-            <Dialog.Title className="text-base font-bold text-slate-900 dark:text-white mb-4">
-              {t('home.addRecipe')}
+            <div className="w-10 h-1 rounded-full bg-rp-hairline mx-auto mb-4" />
+            <Dialog.Title asChild>
+              <PageTitle className="text-[24px] mb-4">{t('home.addRecipe')}</PageTitle>
             </Dialog.Title>
 
             <div className="space-y-2">
-              {/* Create manually */}
               <button
-                onClick={() => {
-                  setRecipePickerOpen(false)
-                  navigate('/recipes/new')
-                }}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-surface-dark-overlay hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-[0.98] transition-transform text-start min-h-[56px]"
+                onClick={() => { setRecipePickerOpen(false); navigate('/recipes/new') }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-rp-sm bg-rp-bg-soft active:scale-[0.98] transition-transform text-start min-h-[56px]"
               >
-                <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center shrink-0">
-                  <PenLine className="h-5 w-5 text-teal-500" />
+                <div className="h-9 w-9 rounded-[10px] bg-rp-accent-soft flex items-center justify-center shrink-0">
+                  <PenLine className="h-5 w-5 text-rp-ink" />
                 </div>
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                <span className="text-sm font-medium text-rp-ink">
                   {t('home.recipe.createManually')}
                 </span>
               </button>
 
-              {/* Import from URL */}
               <button
                 onClick={() => {
                   setRecipePickerOpen(false)
                   if (ai.checkAIAccess()) navigate('/recipes/import?mode=url')
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-surface-dark-overlay hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-[0.98] transition-transform text-start min-h-[56px]"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-rp-sm bg-rp-bg-soft active:scale-[0.98] transition-transform text-start min-h-[56px]"
               >
-                <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <Sparkles className="h-5 w-5 text-blue-500" />
+                <div className="h-9 w-9 rounded-[10px] bg-rp-brand-soft flex items-center justify-center shrink-0">
+                  <Sparkles className="h-5 w-5 text-rp-brand-deep" />
                 </div>
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                <span className="text-sm font-medium text-rp-ink">
                   {t('home.recipe.importUrl')}
                 </span>
               </button>
 
-              {/* Scan from photo */}
               <button
                 onClick={() => {
                   setRecipePickerOpen(false)
                   if (ai.checkAIAccess()) navigate('/recipes/import?mode=photo')
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-slate-50 dark:bg-surface-dark-overlay hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-[0.98] transition-transform text-start min-h-[56px]"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-rp-sm bg-rp-bg-soft active:scale-[0.98] transition-transform text-start min-h-[56px]"
               >
-                <div className="h-9 w-9 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
-                  <Camera className="h-5 w-5 text-purple-500" />
+                <div className="h-9 w-9 rounded-[10px] bg-rp-glow-soft flex items-center justify-center shrink-0">
+                  <Camera className="h-5 w-5 text-rp-ink" />
                 </div>
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                <span className="text-sm font-medium text-rp-ink">
                   {t('home.recipe.scanPhoto')}
                 </span>
               </button>

@@ -1,0 +1,119 @@
+/* Replanish — Hearth design tokens
+ * Drop this into src/index.css (or wherever global CSS lives) and import.
+ * Use via: color: var(--rp-ink); background: var(--rp-brand-soft); etc.
+ *
+ * Dark mode (.dark on html) swaps to Dusk palette automatically.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Caveat:wght@500;700&display=swap');
+
+:root {
+  /* Hearth — default palette (light) */
+  --rp-bg:          #faf6ef;
+  --rp-bg-soft:     #f2ece0;
+  --rp-bg-deep:     #1f1612;
+  --rp-ink:         #2a1f18;
+  --rp-ink-soft:    #5c4a3e;
+  --rp-ink-mute:    #9a8878;
+  --rp-hairline:    rgba(42, 31, 24, 0.08);
+  --rp-card:        #ffffff;
+
+  --rp-brand:       #c4522d;
+  --rp-brand-soft:  #f2c9b4;
+  --rp-brand-deep:  #8a2f1a;
+
+  --rp-accent:      #6b7f56;
+  --rp-accent-soft: #d8deaf;
+
+  --rp-glow:        #e8a84a;
+  --rp-glow-soft:   #f9e3b8;
+
+  --rp-cool:        #3e5970;
+  --rp-cool-soft:   #c9d4df;
+
+  /* Member avatar palette */
+  --rp-mem-honey-bg:   #f4c78c; --rp-mem-honey-ink:   #5a3a12;
+  --rp-mem-coral-bg:   #e89b86; --rp-mem-coral-ink:   #5a2418;
+  --rp-mem-sage-bg:    #b6c88a; --rp-mem-sage-ink:    #324018;
+  --rp-mem-sky-bg:     #a8b8d4; --rp-mem-sky-ink:     #1f2e4a;
+  --rp-mem-plum-bg:    #d4a8c8; --rp-mem-plum-ink:    #4a1f3e;
+  --rp-mem-mustard-bg: #e8c866; --rp-mem-mustard-ink: #4a3412;
+
+  /* Type */
+  --rp-ff-display: 'Instrument Serif', 'Times New Roman', serif;
+  --rp-ff-sans:    'Geist', -apple-system, system-ui, sans-serif;
+  --rp-ff-hand:    'Caveat', cursive;
+  --rp-ff-mono:    ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Radii */
+  --rp-radius-xs: 8px;
+  --rp-radius-sm: 12px;
+  --rp-radius-md: 18px;
+  --rp-radius-lg: 24px;
+  --rp-radius-xl: 32px;
+  --rp-radius-round: 9999px;
+
+  /* Spacing */
+  --rp-screen-px: 20px;
+  --rp-card-pad:  18px;
+  --rp-gap-tight: 8px;
+  --rp-gap:       12px;
+  --rp-gap-loose: 18px;
+
+  /* Shadow */
+  --rp-shadow-card: 0 1px 0 var(--rp-hairline), 0 10px 30px -18px rgba(40, 20, 10, 0.2);
+  --rp-shadow-hero: 0 20px 60px -24px rgba(40, 20, 10, 0.3);
+}
+
+/* Dusk palette (dark mode) */
+.dark {
+  --rp-bg:          #1a1620;
+  --rp-bg-soft:     #261f2e;
+  --rp-bg-deep:     #0f0c14;
+  --rp-ink:         #f4ebe0;
+  --rp-ink-soft:    #bcaea0;
+  --rp-ink-mute:    #7d6e63;
+  --rp-hairline:    rgba(255, 235, 210, 0.08);
+  --rp-card:        #241d2a;
+
+  --rp-brand:       #e38466;
+  --rp-brand-soft:  #6a3324;
+  --rp-brand-deep:  #f2c9b4;
+
+  --rp-accent:      #a8bb82;
+  --rp-accent-soft: #3a4a2d;
+
+  --rp-glow:        #f0bf72;
+  --rp-glow-soft:   #6a4a20;
+
+  --rp-cool:        #7a95b2;
+  --rp-cool-soft:   #2e3d4d;
+}
+
+/* Base resets — Hearth body */
+body {
+  background: var(--rp-bg);
+  color: var(--rp-ink);
+  font-family: var(--rp-ff-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Helper classes */
+.rp-display    { font-family: var(--rp-ff-display); font-style: italic; letter-spacing: -0.02em; line-height: 1.05; }
+.rp-hand       { font-family: var(--rp-ff-hand); }
+.rp-mono-label { font-family: var(--rp-ff-mono); font-size: 10.5px; font-weight: 600;
+                 letter-spacing: 0.12em; text-transform: uppercase; color: var(--rp-ink-mute); }
+
+.rp-card {
+  background: var(--rp-card);
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-radius-md);
+  box-shadow: var(--rp-shadow-card);
+}
+
+.rp-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--rp-brand);
+  border-radius: inherit;
+}

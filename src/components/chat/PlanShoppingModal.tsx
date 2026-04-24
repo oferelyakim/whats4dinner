@@ -145,7 +145,7 @@ export function PlanShoppingModal({ items, onDismiss, onDone }: PlanShoppingModa
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
-        className="fixed bottom-0 start-0 end-0 z-[66] bg-white dark:bg-surface-dark-elevated rounded-t-3xl max-w-lg mx-auto max-h-[85dvh] flex flex-col shadow-2xl"
+        className="fixed bottom-0 start-0 end-0 z-[66] bg-rp-card rounded-t-3xl max-w-lg mx-auto max-h-[85dvh] flex flex-col shadow-2xl"
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1 shrink-0">
@@ -155,10 +155,10 @@ export function PlanShoppingModal({ items, onDismiss, onDone }: PlanShoppingModa
         {/* Header */}
         <div className="px-5 pb-3 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h2 className="text-lg font-bold text-rp-ink">
               {t('chat.shoppingModal.title')}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-sm text-rp-ink-mute mt-0.5">
               {t('chat.shoppingModal.subtitle')}
             </p>
           </div>
@@ -187,7 +187,7 @@ export function PlanShoppingModal({ items, onDismiss, onDone }: PlanShoppingModa
                     className={cn(
                       'px-3 py-1.5 rounded-full text-xs font-medium transition-all border',
                       excluded
-                        ? 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 line-through'
+                        ? 'border-rp-hairline text-rp-ink-mute line-through'
                         : 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400'
                     )}
                   >
@@ -216,7 +216,7 @@ export function PlanShoppingModal({ items, onDismiss, onDone }: PlanShoppingModa
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-start transition-all',
                       excluded
                         ? 'border-slate-100 dark:border-slate-700/50 opacity-50'
-                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-dark-overlay'
+                        : 'border-rp-hairline bg-rp-bg-soft'
                     )}
                   >
                     <div
@@ -233,14 +233,14 @@ export function PlanShoppingModal({ items, onDismiss, onDone }: PlanShoppingModa
                       <span
                         className={cn(
                           'text-sm',
-                          excluded ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'
+                          excluded ? 'line-through text-slate-400' : 'text-rp-ink'
                         )}
                       >
                         {qty != null ? `${qty}${ing.unit ? ' ' + ing.unit : ''} ` : ''}
                         {ing.name}
                       </span>
                       {multiRecipe && !excluded && (
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                        <p className="text-[10px] text-rp-ink-mute mt-0.5 truncate">
                           {ing.recipeAttribution
                             .map(
                               (r) =>
@@ -261,7 +261,7 @@ export function PlanShoppingModal({ items, onDismiss, onDone }: PlanShoppingModa
 
         {/* Footer */}
         <div
-          className="px-5 pt-3 pb-4 border-t border-slate-200 dark:border-slate-700/50 shrink-0"
+          className="px-5 pt-3 pb-4 border-t border-rp-hairline/50 shrink-0"
           style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
           <button

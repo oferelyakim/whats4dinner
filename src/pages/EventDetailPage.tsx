@@ -236,8 +236,8 @@ export function EventDetailPage() {
   if (isEventLoading) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft mb-4">
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <div className="space-y-3 animate-pulse">
           <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-lg w-2/3" />
@@ -251,8 +251,8 @@ export function EventDetailPage() {
   if (!event) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft mb-4">
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <p className="text-center text-slate-500">{t('event.notFound')}</p>
       </div>
@@ -276,11 +276,11 @@ export function EventDetailPage() {
     <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0">
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">{event.name}</h2>
+          <h2 className="text-lg font-bold text-rp-ink truncate">{event.name}</h2>
           <div className="flex items-center gap-3 text-xs text-slate-400">
             {event.event_date && (
               <span className="flex items-center gap-1">
@@ -305,7 +305,7 @@ export function EventDetailPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-xl p-1">
+      <div className="flex gap-1 bg-rp-bg-soft rounded-xl p-1">
         {TABS.map(({ id: tabId, label, icon: Icon }) => (
           <button
             key={tabId}
@@ -313,7 +313,7 @@ export function EventDetailPage() {
             className={cn(
               'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors',
               activeTab === tabId
-                ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
                 : 'text-slate-500'
             )}
           >
@@ -327,7 +327,7 @@ export function EventDetailPage() {
       {activeTab === 'overview' && (
         <div className="space-y-4">
           {event.description && (
-            <p className="text-sm text-slate-600 dark:text-slate-400">{event.description}</p>
+            <p className="text-sm text-rp-ink-soft">{event.description}</p>
           )}
 
           {/* Invite link */}
@@ -378,7 +378,7 @@ export function EventDetailPage() {
 
           {/* Attendees */}
           <section>
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
+            <h3 className="text-sm font-semibold text-rp-ink mb-2">
               {t('event.attending')} ({attending.length})
             </h3>
             <div className="space-y-1.5">
@@ -389,7 +389,7 @@ export function EventDetailPage() {
                     <div className="h-7 w-7 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-500 font-bold text-xs shrink-0">
                       {p.profile?.display_name?.[0]?.toUpperCase() ?? '?'}
                     </div>
-                    <span className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate">
+                    <span className="text-sm text-rp-ink-soft flex-1 truncate">
                       {p.profile?.display_name || p.guest_name || 'Guest'}
                     </span>
                     {isOrg && <Crown className="h-3.5 w-3.5 text-yellow-500" />}
@@ -435,7 +435,7 @@ export function EventDetailPage() {
                   <Sparkles className="h-4 w-4 text-white" />
                 )}
               </div>
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              <span className="text-sm font-semibold text-rp-ink">
                 {isAIPlanLoading ? t('event.aiGenerating') : t('event.aiPlan')}
               </span>
             </button>
@@ -549,7 +549,7 @@ export function EventDetailPage() {
                       {myDishes.map((item) => (
                         <div key={item.id} className="px-3 py-2.5 space-y-1">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex-1">{item.name}</p>
+                            <p className="text-sm font-medium text-rp-ink flex-1">{item.name}</p>
                             <span className={cn(
                               'text-xs px-2 py-0.5 rounded-full',
                               item.status === 'done' ? 'bg-success/20 text-success' :
@@ -575,7 +575,7 @@ export function EventDetailPage() {
                     <Card className="divide-y divide-slate-100 dark:divide-slate-800">
                       {mySupplies.map((item) => (
                         <div key={item.id} className="px-3 py-2.5 flex items-center gap-2">
-                          <p className="text-sm text-slate-800 dark:text-slate-200 flex-1">
+                          <p className="text-sm text-rp-ink flex-1">
                             {item.quantity && <span className="text-slate-400">x{formatQuantity(item.quantity)}</span>}
                             {item.name}
                           </p>
@@ -610,7 +610,7 @@ export function EventDetailPage() {
                             {item.status === 'done' && <Check className="h-3 w-3 text-white" />}
                           </button>
                           <div className="flex-1 min-w-0">
-                            <p className={cn('text-sm', item.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200')}>
+                            <p className={cn('text-sm', item.status === 'done' ? 'line-through text-slate-400' : 'text-rp-ink')}>
                               {item.name}
                             </p>
                             {item.notes && <p className="text-[10px] text-slate-400">{item.notes}</p>}
@@ -635,8 +635,8 @@ export function EventDetailPage() {
       <Dialog.Root open={showAddItem} onOpenChange={setShowAddItem}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-rp-card rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               {addType === 'dish' ? t('event.addDish') : addType === 'supply' ? t('event.addSupply') : t('event.addTask')}
             </Dialog.Title>
             <div className="space-y-3">
@@ -649,7 +649,7 @@ export function EventDetailPage() {
 
               {addType === 'dish' && (
                 <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">Category</label>
+                  <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">Category</label>
                   <div className="flex gap-1.5 flex-wrap">
                     {DISH_CATEGORIES.map((cat) => (
                       <button
@@ -657,7 +657,7 @@ export function EventDetailPage() {
                         onClick={() => setAddCategory(cat.value)}
                         className={cn(
                           'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
-                          addCategory === cat.value ? 'bg-brand-500 text-white' : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+                          addCategory === cat.value ? 'bg-brand-500 text-white' : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
                         )}
                       >
                         {cat.emoji} {cat.label}
@@ -680,7 +680,7 @@ export function EventDetailPage() {
               {addType === 'task' && (
                 <>
                   <div>
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">When</label>
+                    <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">When</label>
                     <div className="flex gap-1.5 flex-wrap">
                       {TASK_CATEGORIES.map((cat) => (
                         <button
@@ -688,7 +688,7 @@ export function EventDetailPage() {
                           onClick={() => setAddCategory(cat.value)}
                           className={cn(
                             'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
-                            addCategory === cat.value ? 'bg-brand-500 text-white' : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+                            addCategory === cat.value ? 'bg-brand-500 text-white' : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
                           )}
                         >
                           {cat.label}
@@ -727,9 +727,9 @@ export function EventDetailPage() {
       <Dialog.Root open={showDeleteEvent} onOpenChange={setShowDeleteEvent}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">{t('event.delete')}</Dialog.Title>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">{t('event.delete')}</Dialog.Title>
+            <p className="text-sm text-rp-ink-mute mb-4">
               Are you sure you want to delete <strong>{event.name}</strong>? All dishes, supplies, tasks, and participant info will be removed.
             </p>
             <div className="flex gap-3">
@@ -816,7 +816,7 @@ function ItemList({
                   <div key={item.id} className="px-3 py-2.5 space-y-2">
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                        <p className="text-sm font-medium text-rp-ink">
                           {item.quantity && <span className="text-slate-400">x{formatQuantity(item.quantity)}</span>}
                           {item.name}
                         </p>
@@ -846,7 +846,7 @@ function ItemList({
                             e.target.value = ''
                           }
                         }}
-                        className="w-full text-xs bg-slate-50 dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-600 dark:text-slate-400"
+                        className="w-full text-xs bg-rp-bg-soft border border-rp-hairline rounded-lg px-2 py-1.5 text-rp-ink-soft"
                       >
                         <option value="">Assign to someone...</option>
                         {participants.map((p) => (
@@ -947,7 +947,7 @@ function ItemRow({
         <div className="flex-1 min-w-0">
           <p className={cn(
             'text-sm',
-            isDone ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'
+            isDone ? 'line-through text-slate-400' : 'text-rp-ink'
           )}>
             {item.quantity && <span className="text-slate-400">x{formatQuantity(item.quantity)}</span>}
             {item.name}
@@ -1013,7 +1013,7 @@ function ItemRow({
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             placeholder="Add a note..."
-            className="flex-1 text-xs bg-slate-50 dark:bg-surface-dark-overlay px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+            className="flex-1 text-xs bg-rp-bg-soft px-2 py-1 rounded border border-rp-hairline text-rp-ink-soft"
           />
           <button
             onClick={() => {

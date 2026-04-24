@@ -38,11 +38,11 @@ export function StoresPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">My Stores</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">My Stores</h2>
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
           Add
@@ -77,7 +77,7 @@ export function StoresPage() {
               <div className="flex items-center gap-3">
                 <StoreIcon className="h-5 w-5 text-brand-500 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 dark:text-white truncate">{store.name}</p>
+                  <p className="font-semibold text-rp-ink truncate">{store.name}</p>
                   {store.address && (
                     <p className="text-xs text-slate-400 flex items-center gap-1 truncate">
                       <MapPin className="h-3 w-3" />
@@ -95,8 +95,8 @@ export function StoresPage() {
       <Dialog.Root open={showCreate} onOpenChange={setShowCreate}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               Add Store
             </Dialog.Title>
             <div className="space-y-4">

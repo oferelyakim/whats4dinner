@@ -76,11 +76,11 @@ export function MealMenusPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">Meal Templates</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">Meal Templates</h2>
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
           New
@@ -112,7 +112,7 @@ export function MealMenusPage() {
           {menus.map((menu: MealMenu & { recipes: Recipe[] }) => (
             <Card key={menu.id} variant="elevated" className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-slate-900 dark:text-white">{menu.name}</h3>
+                <h3 className="font-semibold text-rp-ink">{menu.name}</h3>
                 <div className="flex gap-1">
                   <Button size="sm" variant="ghost" onClick={() => { setShowAddRecipe(menu.id); setSearch('') }}>
                     <Plus className="h-3.5 w-3.5" />
@@ -130,10 +130,10 @@ export function MealMenusPage() {
               ) : (
                 <div className="space-y-1.5">
                   {menu.recipes.map((recipe: Recipe) => (
-                    <div key={recipe.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-surface-dark-overlay">
+                    <div key={recipe.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-rp-bg-soft">
                       <BookOpen className="h-3.5 w-3.5 text-brand-500 shrink-0" />
                       <span
-                        className="text-sm text-slate-700 dark:text-slate-300 flex-1 truncate cursor-pointer"
+                        className="text-sm text-rp-ink-soft flex-1 truncate cursor-pointer"
                         onClick={() => navigate(`/recipes/${recipe.id}`)}
                       >
                         {recipe.title}
@@ -157,8 +157,8 @@ export function MealMenusPage() {
       <Dialog.Root open={showCreate} onOpenChange={setShowCreate}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               New Meal Template
             </Dialog.Title>
             <div className="space-y-3">
@@ -179,8 +179,8 @@ export function MealMenusPage() {
       <Dialog.Root open={!!showAddRecipe} onOpenChange={() => setShowAddRecipe(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[60vh] overflow-y-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-3">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[60vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-3">
               Add Recipe
             </Dialog.Title>
             <input
@@ -197,7 +197,7 @@ export function MealMenusPage() {
                 className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay active:scale-[0.98] transition-all"
               >
                 <BookOpen className="h-4 w-4 text-brand-500 shrink-0" />
-                <span className="text-sm text-slate-800 dark:text-slate-200 flex-1 truncate">{recipe.title}</span>
+                <span className="text-sm text-rp-ink flex-1 truncate">{recipe.title}</span>
                 <Plus className="h-4 w-4 text-slate-400" />
               </button>
             ))}
@@ -209,11 +209,11 @@ export function MealMenusPage() {
       <Dialog.Root open={!!showDelete} onOpenChange={() => setShowDelete(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
               Delete Template
             </Dialog.Title>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-rp-ink-mute mb-4">
               Are you sure? The recipes themselves won't be deleted.
             </p>
             <div className="flex gap-3">

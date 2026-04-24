@@ -19,7 +19,7 @@ export function Skeleton({ className }: SkeletonProps) {
 /** Card-shaped skeleton for list items */
 export function SkeletonCard() {
   return (
-    <div className="p-4 rounded-xl bg-white dark:bg-surface-dark-elevated border border-slate-100 dark:border-slate-800">
+    <div className="p-4 rounded-xl bg-rp-card border border-slate-100 dark:border-slate-800">
       <div className="flex items-center gap-3">
         <Skeleton className="h-10 w-10 rounded-xl" />
         <div className="flex-1 space-y-2">

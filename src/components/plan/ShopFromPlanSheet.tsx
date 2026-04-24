@@ -324,7 +324,7 @@ export function ShopFromPlanSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 start-0 end-0 z-[66] bg-white dark:bg-surface-dark-elevated rounded-t-3xl max-w-lg mx-auto max-h-[92dvh] flex flex-col shadow-2xl"
+            className="fixed bottom-0 start-0 end-0 z-[66] bg-rp-card rounded-t-3xl max-w-lg mx-auto max-h-[92dvh] flex flex-col shadow-2xl"
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 shrink-0">
@@ -334,10 +334,10 @@ export function ShopFromPlanSheet({
             {/* Header */}
             <div className="px-5 pb-3 flex items-center justify-between shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h2 className="text-lg font-bold text-rp-ink">
                   {t('plan.shop.title')}
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-sm text-rp-ink-mute mt-0.5">
                   {t('plan.shop.subtitle')}
                 </p>
               </div>
@@ -367,7 +367,7 @@ export function ShopFromPlanSheet({
                         'flex-1 py-2 rounded-full text-xs font-medium border transition-all',
                         scope === s
                           ? 'bg-brand-500 text-white border-brand-500'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-400'
+                          : 'border-rp-hairline text-rp-ink-soft hover:border-brand-400'
                       )}
                     >
                       {t(`plan.shop.scope${s.charAt(0).toUpperCase() + s.slice(1)}` as `plan.shop.scope${string}`)}
@@ -405,7 +405,7 @@ export function ShopFromPlanSheet({
                               'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
                               included
                                 ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-300 dark:border-brand-700 text-brand-600 dark:text-brand-400'
-                                : 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 line-through'
+                                : 'border-rp-hairline text-rp-ink-mute line-through'
                             )}
                           >
                             {formatDate(date, locale)}
@@ -431,7 +431,7 @@ export function ShopFromPlanSheet({
                               'px-3 py-1.5 rounded-full text-xs font-medium border transition-all capitalize',
                               included
                                 ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-300 dark:border-brand-700 text-brand-600 dark:text-brand-400'
-                                : 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 line-through'
+                                : 'border-rp-hairline text-rp-ink-mute line-through'
                             )}
                           >
                             {t(`plan.${mt}` as `plan.${string}`)}
@@ -459,7 +459,7 @@ export function ShopFromPlanSheet({
                               'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
                               selectedDates.has(date)
                                 ? 'bg-brand-500 text-white border-brand-500'
-                                : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                                : 'border-rp-hairline text-rp-ink-mute'
                             )}
                           >
                             {formatDate(date, locale)}
@@ -481,7 +481,7 @@ export function ShopFromPlanSheet({
                               'px-3 py-1.5 rounded-full text-xs font-medium border transition-all capitalize',
                               selectedMealTypes.has(mt)
                                 ? 'bg-brand-500 text-white border-brand-500'
-                                : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                                : 'border-rp-hairline text-rp-ink-mute'
                             )}
                           >
                             {t(`plan.${mt}` as `plan.${string}`)}
@@ -506,7 +506,7 @@ export function ShopFromPlanSheet({
                             className={cn(
                               'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
                               excluded
-                                ? 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 line-through'
+                                ? 'border-rp-hairline text-rp-ink-mute line-through'
                                 : 'bg-brand-50 dark:bg-brand-900/20 border-brand-300 dark:border-brand-700 text-brand-600 dark:text-brand-400'
                             )}
                           >
@@ -581,7 +581,7 @@ export function ShopFromPlanSheet({
                             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-start transition-all',
                             excluded
                               ? 'border-slate-100 dark:border-slate-700/50 opacity-50'
-                              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-dark-overlay'
+                              : 'border-rp-hairline bg-rp-bg-soft'
                           )}
                         >
                           {/* Checkbox */}
@@ -603,14 +603,14 @@ export function ShopFromPlanSheet({
                                 'text-sm',
                                 excluded
                                   ? 'line-through text-slate-400'
-                                  : 'text-slate-800 dark:text-slate-200'
+                                  : 'text-rp-ink'
                               )}
                             >
                               {hasQty ? `${ing.quantity}${ing.unit ? ' ' + ing.unit : ''} ` : ''}
                               {ing.name}
                             </span>
                             {!excluded && ing.sourceRecipeTitles.length > 0 && (
-                              <div className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                              <div className="text-xs text-rp-ink-mute line-clamp-1">
                                 {ing.sourceRecipeTitles.join(' · ')}
                               </div>
                             )}
@@ -633,7 +633,7 @@ export function ShopFromPlanSheet({
                   <select
                     value={targetListId}
                     onChange={(e) => setTargetListId(e.target.value as string | 'new')}
-                    className="w-full appearance-none px-3 py-2.5 pe-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-overlay text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                    className="w-full appearance-none px-3 py-2.5 pe-8 rounded-xl border border-rp-hairline bg-white dark:bg-surface-dark-overlay text-sm text-rp-ink focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                   >
                     <option value="new">{t('plan.shop.newList')}</option>
                     {activeLists.map((list) => (
@@ -652,7 +652,7 @@ export function ShopFromPlanSheet({
                     onChange={(e) => setNewListName(e.target.value)}
                     placeholder={t('plan.shop.newListName')}
                     aria-label={t('plan.shop.newListName')}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-surface-dark-overlay text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                    className="w-full px-3 py-2.5 rounded-xl border border-rp-hairline bg-white dark:bg-surface-dark-overlay text-sm text-rp-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
                   />
                 )}
               </section>
@@ -664,7 +664,7 @@ export function ShopFromPlanSheet({
 
             {/* ── Sticky footer ───────────────────────────────────────────── */}
             <div
-              className="px-5 pt-3 pb-4 border-t border-slate-200 dark:border-slate-700/50 shrink-0"
+              className="px-5 pt-3 pb-4 border-t border-rp-hairline/50 shrink-0"
               style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
             >
               <button

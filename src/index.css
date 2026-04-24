@@ -2,36 +2,165 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ─── Hearth design tokens ────────────────────────────────────────────────── */
+/* Raw CSS variables — also overwritten at runtime by SkinProvider for skin switching. */
+:root {
+  /* Hearth — default palette (light) */
+  --rp-bg:          #faf6ef;
+  --rp-bg-soft:     #f2ece0;
+  --rp-bg-deep:     #1f1612;
+  --rp-ink:         #2a1f18;
+  --rp-ink-soft:    #5c4a3e;
+  --rp-ink-mute:    #9a8878;
+  --rp-hairline:    rgba(42, 31, 24, 0.08);
+  --rp-card:        #ffffff;
+
+  --rp-brand:       #c4522d;
+  --rp-brand-soft:  #f2c9b4;
+  --rp-brand-deep:  #8a2f1a;
+
+  --rp-accent:      #6b7f56;
+  --rp-accent-soft: #d8deaf;
+
+  --rp-glow:        #e8a84a;
+  --rp-glow-soft:   #f9e3b8;
+
+  --rp-cool:        #3e5970;
+  --rp-cool-soft:   #c9d4df;
+
+  /* Member avatar palette */
+  --rp-mem-honey-bg:   #f4c78c; --rp-mem-honey-ink:   #5a3a12;
+  --rp-mem-coral-bg:   #e89b86; --rp-mem-coral-ink:   #5a2418;
+  --rp-mem-sage-bg:    #b6c88a; --rp-mem-sage-ink:    #324018;
+  --rp-mem-sky-bg:     #a8b8d4; --rp-mem-sky-ink:     #1f2e4a;
+  --rp-mem-plum-bg:    #d4a8c8; --rp-mem-plum-ink:    #4a1f3e;
+  --rp-mem-mustard-bg: #e8c866; --rp-mem-mustard-ink: #4a3412;
+
+  /* Type stacks */
+  --rp-ff-display: 'Instrument Serif', 'Times New Roman', serif;
+  --rp-ff-sans:    'Geist', -apple-system, system-ui, sans-serif;
+  --rp-ff-hand:    'Caveat', cursive;
+  --rp-ff-mono:    ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Radii & spacing */
+  --rp-radius-xs: 8px;
+  --rp-radius-sm: 12px;
+  --rp-radius-md: 18px;
+  --rp-radius-lg: 24px;
+  --rp-radius-xl: 32px;
+
+  --rp-screen-px: 20px;
+  --rp-card-pad:  18px;
+  --rp-gap-tight: 8px;
+  --rp-gap:       12px;
+  --rp-gap-loose: 18px;
+
+  --rp-shadow-card: 0 1px 0 var(--rp-hairline), 0 10px 30px -18px rgba(40, 20, 10, 0.2);
+  --rp-shadow-hero: 0 20px 60px -24px rgba(40, 20, 10, 0.3);
+}
+
+/* Dusk — dark palette (also used as the 'dusk' skin) */
+.dark {
+  --rp-bg:          #1a1620;
+  --rp-bg-soft:     #261f2e;
+  --rp-bg-deep:     #0f0c14;
+  --rp-ink:         #f4ebe0;
+  --rp-ink-soft:    #bcaea0;
+  --rp-ink-mute:    #7d6e63;
+  --rp-hairline:    rgba(255, 235, 210, 0.08);
+  --rp-card:        #241d2a;
+
+  --rp-brand:       #e38466;
+  --rp-brand-soft:  #6a3324;
+  --rp-brand-deep:  #f2c9b4;
+
+  --rp-accent:      #a8bb82;
+  --rp-accent-soft: #3a4a2d;
+
+  --rp-glow:        #f0bf72;
+  --rp-glow-soft:   #6a4a20;
+
+  --rp-cool:        #7a95b2;
+  --rp-cool-soft:   #2e3d4d;
+}
+
+/* ─── Tailwind theme: register rp-* utilities ─────────────────────────────── */
 @theme {
-  --color-brand-50: #e6f7f4;
-  --color-brand-100: #ccefe9;
-  --color-brand-200: #99dfd3;
-  --color-brand-300: #66cfbd;
-  --color-brand-400: #40c4ac;
-  --color-brand-500: #2bbaa0;
-  --color-brand-600: #239e88;
-  --color-brand-700: #1a7a69;
+  /* Colors — Hearth scale. Referenced via bg-rp-brand, text-rp-ink, etc. */
+  --color-rp-bg:          var(--rp-bg);
+  --color-rp-bg-soft:     var(--rp-bg-soft);
+  --color-rp-bg-deep:     var(--rp-bg-deep);
+  --color-rp-ink:         var(--rp-ink);
+  --color-rp-ink-soft:    var(--rp-ink-soft);
+  --color-rp-ink-mute:    var(--rp-ink-mute);
+  --color-rp-hairline:    var(--rp-hairline);
+  --color-rp-card:        var(--rp-card);
 
-  --color-surface-dark: #0f172a;
-  --color-surface-dark-elevated: #1e293b;
-  --color-surface-dark-overlay: #334155;
+  --color-rp-brand:       var(--rp-brand);
+  --color-rp-brand-soft:  var(--rp-brand-soft);
+  --color-rp-brand-deep:  var(--rp-brand-deep);
 
-  --color-surface-light: #f8fafc;
-  --color-surface-light-elevated: #ffffff;
-  --color-surface-light-overlay: #e2e8f0;
+  --color-rp-accent:      var(--rp-accent);
+  --color-rp-accent-soft: var(--rp-accent-soft);
 
-  --color-success: #22c55e;
-  --color-warning: #eab308;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
+  --color-rp-glow:        var(--rp-glow);
+  --color-rp-glow-soft:   var(--rp-glow-soft);
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-rp-cool:        var(--rp-cool);
+  --color-rp-cool-soft:   var(--rp-cool-soft);
+
+  /* Legacy brand — remap to Hearth so old `bg-brand-500` now renders ember terracotta.
+     Keeps not-yet-migrated pages visually consistent during the phased redesign. */
+  --color-brand-50:  #f9e1d6;
+  --color-brand-100: #f2c9b4;
+  --color-brand-200: #e9a786;
+  --color-brand-300: #db7a53;
+  --color-brand-400: #cb6139;
+  --color-brand-500: #c4522d;
+  --color-brand-600: #a64222;
+  --color-brand-700: #8a2f1a;
+
+  --color-surface-dark: #1a1620;
+  --color-surface-dark-elevated: #241d2a;
+  --color-surface-dark-overlay: #2e2635;
+
+  --color-surface-light: var(--rp-bg);
+  --color-surface-light-elevated: var(--rp-card);
+  --color-surface-light-overlay: var(--rp-bg-soft);
+
+  --color-success: #6b7f56;
+  --color-warning: #e8a84a;
+  --color-danger: #c4522d;
+  --color-info: #3e5970;
+
+  /* Typography — font-display, font-sans, font-hand, font-mono */
+  --font-sans:    'Geist', -apple-system, system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
+  --font-hand:    'Caveat', cursive;
+  --font-mono:    ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Radii — rounded-rp-md etc. */
+  --radius-rp-xs: 8px;
+  --radius-rp-sm: 12px;
+  --radius-rp-md: 18px;
+  --radius-rp-lg: 24px;
+  --radius-rp-xl: 32px;
+
+  /* Shadows — shadow-rp-card / shadow-rp-hero */
+  --shadow-rp-card: 0 1px 0 var(--rp-hairline), 0 10px 30px -18px rgba(40, 20, 10, 0.2);
+  --shadow-rp-hero: 0 20px 60px -24px rgba(40, 20, 10, 0.3);
+
+  --tracking-rp-tight: -0.02em;
+  --tracking-rp-label: 0.12em;
 
   --z-nav: 50;
   --z-fab: 55;
   --z-fab-backdrop: 60;
   --z-overlay: 70;
 }
+
+/* Load Hearth type families */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Caveat:wght@500;700&display=swap');
 
 html {
   -webkit-tap-highlight-color: transparent;
@@ -40,127 +169,80 @@ html {
 
 body {
   margin: 0;
-  @apply font-sans antialiased;
-  @apply bg-surface-light text-slate-900;
-  @apply dark:bg-surface-dark dark:text-slate-100;
+  background: var(--rp-bg);
+  color: var(--rp-ink);
+  font-family: var(--rp-ff-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Hearth helper classes — for places where a direct className beats inline Tailwind */
+.rp-display    { font-family: var(--rp-ff-display); font-style: italic; letter-spacing: -0.02em; line-height: 1.05; }
+.rp-hand       { font-family: var(--rp-ff-hand); }
+.rp-mono-label { font-family: var(--rp-ff-mono); font-size: 10.5px; font-weight: 600;
+                 letter-spacing: 0.12em; text-transform: uppercase; color: var(--rp-ink-mute); }
 
-/* Better focus-visible states */
+.rp-card {
+  background: var(--rp-card);
+  border: 1px solid var(--rp-hairline);
+  border-radius: var(--rp-radius-md);
+  box-shadow: var(--rp-shadow-card);
+}
+
+/* Focus — warm brand ring, not teal */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(43, 186, 160, 0.5);
+  box-shadow: 0 0 0 2px var(--rp-brand);
   border-radius: inherit;
 }
 
 /* Smooth page transitions */
 @keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.animate-page-enter { animation: fadeSlideIn 0.3s ease-out; }
 
-.animate-page-enter {
-  animation: fadeSlideIn 0.3s ease-out;
-}
-
-.scrollbar-hide {
+.scrollbar-hide, .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
+.scrollbar-hide::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+.pb-safe { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
 
-.pb-safe {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
-}
+.dark select, .dark option { background-color: var(--rp-bg-soft); color: var(--rp-ink); }
+select { color-scheme: light dark; }
 
-/* Fix native select/option dark mode */
-.dark select,
-.dark option {
-  background-color: #1e293b;
-  color: #f1f5f9;
-}
-
-select {
-  color-scheme: light dark;
-}
-
-/* Fix bottom sheet dialogs on mobile - ensure inputs visible above keyboard */
+/* Bottom sheet dialogs */
 [data-radix-dialog-content] {
   max-height: 90vh;
   max-height: 90dvh;
   overflow-y: auto;
   padding-bottom: 0;
 }
-
-/* When a focused input is inside a dialog, scroll it into view */
 [data-radix-dialog-content] input:focus,
 [data-radix-dialog-content] select:focus,
 [data-radix-dialog-content] textarea:focus {
   scroll-margin-bottom: 8rem;
 }
+[data-radix-dialog-overlay] { animation: fadeIn 0.2s ease-out; }
+[data-radix-dialog-content] { animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
 
-/* Bottom sheet dialog entrance animation */
-[data-radix-dialog-overlay] {
-  animation: fadeIn 0.2s ease-out;
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-[data-radix-dialog-content] {
-  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-}
+/* RTL */
+[dir="rtl"] { text-align: right; }
+[dir="rtl"] .flex-row-reverse-rtl { flex-direction: row-reverse; }
+[dir="rtl"] .rtl-flip,
+[dir="rtl"] [data-rtl-flip] { transform: scaleX(-1); }
+[dir="rtl"] .ms-auto { margin-inline-start: auto; }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-/* RTL support */
-[dir="rtl"] {
-  text-align: right;
-}
-
-[dir="rtl"] .flex-row-reverse-rtl {
-  flex-direction: row-reverse;
-}
-
-/* RTL arrow icon flipping */
-[dir="rtl"] .rtl-flip {
-  transform: scaleX(-1);
-}
-
-/* RTL: Flip all chevron/arrow icons inside interactive elements */
-[dir="rtl"] [data-rtl-flip] {
-  transform: scaleX(-1);
-}
-
-/* RTL logical spacing helpers */
-[dir="rtl"] .ms-auto {
-  margin-inline-start: auto;
-}
-
-/* Horizontal scroll container for recipe cards etc */
+/* Horizontal scroll */
 .horizontal-scroll {
   display: flex;
   overflow-x: auto;
@@ -170,15 +252,8 @@ select {
   gap: 0.75rem;
   padding-bottom: 0.25rem;
 }
-
-.horizontal-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.horizontal-scroll > * {
-  scroll-snap-align: start;
-  flex-shrink: 0;
-}
+.horizontal-scroll::-webkit-scrollbar { display: none; }
+.horizontal-scroll > * { scroll-snap-align: start; flex-shrink: 0; }
 
 .touch-target {
   min-height: 44px;

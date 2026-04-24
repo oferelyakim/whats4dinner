@@ -37,7 +37,7 @@ interface SectionLabelProps {
 
 function SectionLabel({ children }: SectionLabelProps) {
   return (
-    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+    <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wide mb-2">
       {children}
     </p>
   )
@@ -54,7 +54,7 @@ interface CounterProps {
 function Counter({ label, value, min, max, onChange }: CounterProps) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
+      <span className="text-sm text-rp-ink-soft">{label}</span>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -63,9 +63,9 @@ function Counter({ label, value, min, max, onChange }: CounterProps) {
           className="h-8 w-8 rounded-full bg-slate-100 dark:bg-surface-dark-overlay flex items-center justify-center disabled:opacity-40 active:scale-90 transition-transform"
           aria-label={`Decrease ${label}`}
         >
-          <Minus className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+          <Minus className="h-3.5 w-3.5 text-rp-ink-soft" />
         </button>
-        <span className="text-sm font-semibold text-slate-900 dark:text-white w-5 text-center tabular-nums">
+        <span className="text-sm font-semibold text-rp-ink w-5 text-center tabular-nums">
           {value}
         </span>
         <button
@@ -75,7 +75,7 @@ function Counter({ label, value, min, max, onChange }: CounterProps) {
           className="h-8 w-8 rounded-full bg-slate-100 dark:bg-surface-dark-overlay flex items-center justify-center disabled:opacity-40 active:scale-90 transition-transform"
           aria-label={`Increase ${label}`}
         >
-          <Plus className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+          <Plus className="h-3.5 w-3.5 text-rp-ink-soft" />
         </button>
       </div>
     </div>
@@ -126,7 +126,7 @@ export function EventAIPlanDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
         <Dialog.Content
-          className="fixed bottom-0 start-0 end-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[90vh] overflow-y-auto focus:outline-none"
+          className="fixed bottom-0 start-0 end-0 z-50 bg-rp-card rounded-t-3xl p-6 max-w-lg mx-auto max-h-[90vh] overflow-y-auto focus:outline-none"
           aria-describedby="event-ai-plan-desc"
         >
           {/* Drag handle */}
@@ -138,7 +138,7 @@ export function EventAIPlanDialog({
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
-              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white">
+              <Dialog.Title className="text-lg font-bold text-rp-ink">
                 {t('event.aiPlanTitle')}
               </Dialog.Title>
             </div>
@@ -204,7 +204,7 @@ export function EventAIPlanDialog({
                       'py-2 px-2 rounded-xl text-xs font-medium transition-all border active:scale-[0.96] min-h-[40px]',
                       values.budget === value
                         ? 'bg-brand-500 text-white border-brand-500'
-                        : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                        : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft border-rp-hairline'
                     )}
                   >
                     {label}
@@ -241,7 +241,7 @@ export function EventAIPlanDialog({
                           </svg>
                         )}
                       </div>
-                      <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
+                      <span className="text-sm text-rp-ink-soft">{label}</span>
                     </label>
                   )
                 })}

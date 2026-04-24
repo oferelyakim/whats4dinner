@@ -19,10 +19,10 @@ export function AppShell() {
   const showBanner = !dismissed && ai.hasAI && (ai.isWarning || ai.isLimitReached)
 
   return (
-    <div className="min-h-dvh flex flex-col max-w-lg mx-auto relative">
+    <div className="min-h-dvh flex flex-col max-w-lg mx-auto relative bg-rp-bg text-rp-ink">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:dark:bg-surface-dark-base focus:text-slate-900 focus:dark:text-slate-100 focus:rounded focus:shadow-lg"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-rp-card focus:text-rp-ink focus:rounded-rp-sm focus:shadow-rp-card"
       >
         {t('common.skipToContent')}
       </a>
@@ -31,8 +31,8 @@ export function AppShell() {
       {showBanner && (
         <div className={`flex items-center gap-2 px-4 py-2 text-xs font-medium ${
           ai.isLimitReached
-            ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400'
-            : 'bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400'
+            ? 'bg-rp-brand-soft text-rp-brand-deep'
+            : 'bg-rp-glow-soft text-rp-ink'
         }`}>
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">

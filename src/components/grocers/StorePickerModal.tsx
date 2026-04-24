@@ -48,9 +48,9 @@ export function StorePickerModal({ open, onOpenChange, initialZip = '', onSelect
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40 animate-fade-in" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-h-[85vh] overflow-y-auto animate-slide-up">
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-rp-card rounded-t-2xl p-6 max-h-[85vh] overflow-y-auto animate-slide-up">
           <div className="flex items-center justify-between mb-4">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white">
+            <Dialog.Title className="text-lg font-bold text-rp-ink">
               {t('grocer.findStores')}
             </Dialog.Title>
             <Dialog.Close asChild>
@@ -70,7 +70,7 @@ export function StorePickerModal({ open, onOpenChange, initialZip = '', onSelect
               onChange={(e) => setZip(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder={t('grocer.enterZip')}
-              className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-surface-dark-overlay px-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="flex-1 rounded-xl border border-rp-hairline bg-rp-bg-soft px-3 py-2.5 text-sm text-rp-ink placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             <Button onClick={handleSearch} disabled={isSearching || !zip.trim()} size="sm">
               {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -92,11 +92,11 @@ export function StorePickerModal({ open, onOpenChange, initialZip = '', onSelect
               <button
                 key={store.id}
                 onClick={() => handleSelect(store)}
-                className="w-full text-start flex items-start gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-brand-500 active:scale-[0.98] transition-all"
+                className="w-full text-start flex items-start gap-3 px-4 py-3 rounded-xl border border-rp-hairline hover:border-brand-500 active:scale-[0.98] transition-all"
               >
                 <MapPin className="h-4 w-4 text-brand-500 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{store.name}</p>
+                  <p className="text-sm font-medium text-rp-ink truncate">{store.name}</p>
                   <p className="text-xs text-slate-500 truncate">
                     {store.address}, {store.city}, {store.state} {store.zip}
                   </p>

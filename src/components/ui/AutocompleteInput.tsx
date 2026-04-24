@@ -99,7 +99,7 @@ export function AutocompleteInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={cn(
-          'w-full text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1.5 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 transition-colors',
+          'w-full text-sm bg-transparent border-b border-rp-hairline pb-1.5 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 transition-colors',
           className
         )}
       />
@@ -108,7 +108,7 @@ export function AutocompleteInput({
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg z-50 overflow-hidden"
+          className="absolute left-0 right-0 top-full mt-1.5 bg-rp-card border border-rp-hairline rounded-xl shadow-lg z-50 overflow-hidden"
         >
           {filtered.map((suggestion, index) => (
             <button
@@ -123,7 +123,7 @@ export function AutocompleteInput({
                 setActiveIndex(-1)
               }}
               className={cn(
-                'w-full text-start px-3 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-brand-50 dark:hover:bg-surface-dark-overlay transition-colors',
+                'w-full text-start px-3 py-2.5 text-sm text-rp-ink-soft hover:bg-brand-50 dark:hover:bg-surface-dark-overlay transition-colors',
                 index === activeIndex && 'bg-brand-50 dark:bg-surface-dark-overlay'
               )}
             >

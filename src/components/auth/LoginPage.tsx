@@ -54,18 +54,18 @@ export function LoginPage() {
           <div className="h-16 w-16 rounded-2xl bg-success/20 flex items-center justify-center mb-4 mx-auto">
             <Mail className="h-9 w-9 text-success" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+          <h1 className="text-2xl font-bold text-rp-ink mb-2">
             {t('auth.checkEmail')}
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
+          <p className="text-sm text-rp-ink-mute mb-2">
             {resetSent ? t('auth.resetEmailSent') : t('auth.emailSent')}
           </p>
           {!resetSent && (
-            <p className="text-sm font-semibold text-slate-900 dark:text-white mb-4">
+            <p className="text-sm font-semibold text-rp-ink mb-4">
               {email}
             </p>
           )}
-          <p className="text-xs text-slate-400 dark:text-slate-500 mb-6">
+          <p className="text-xs text-rp-ink-mute mb-6">
             {t('auth.checkSpam')}
           </p>
           <Button
@@ -92,20 +92,20 @@ export function LoginPage() {
           <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4 shadow-lg overflow-hidden">
             <img src="/logo-icon.png" alt="Replanish" className="h-16 w-16" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-rp-ink">
             {t('app.name')}
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-rp-ink-mute mt-1">
             {t('app.tagline')}
           </p>
         </div>
 
         {mode === 'forgot' && (
           <div className="mb-6 text-center">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
+            <h2 className="text-lg font-semibold text-rp-ink mb-1">
               {t('auth.forgotTitle')}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-rp-ink-mute">
               {t('auth.forgotSubtitle')}
             </p>
           </div>

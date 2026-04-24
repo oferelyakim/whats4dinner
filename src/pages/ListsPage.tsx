@@ -25,11 +25,11 @@ export function ListsPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">{t('list.shoppingLists')}</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">{t('list.shoppingLists')}</h2>
         <Button size="sm" onClick={() => navigate('/lists/new')}>
           <Plus className="h-4 w-4" />
           {t('list.newList')}
@@ -64,7 +64,7 @@ export function ListsPage() {
                   <div className="flex items-center gap-3">
                     <ShoppingCart className="h-5 w-5 text-brand-500 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate">
+                      <p className="font-semibold text-rp-ink truncate">
                         {list.name}
                       </p>
                       <p className="text-xs text-slate-400">

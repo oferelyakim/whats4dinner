@@ -282,10 +282,10 @@ export function ChoresPage() {
     return (
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
-            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft">
+            <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
           </button>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('chore.chores')}</h2>
+          <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('chore.chores')}</h2>
         </div>
         <EmptyState
           icon={<span className="text-5xl">🧹</span>}
@@ -302,11 +302,11 @@ export function ChoresPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">{t('chore.chores')}</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">{t('chore.chores')}</h2>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           {t('common.add')}
@@ -341,7 +341,7 @@ export function ChoresPage() {
               'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
               assigneeFilter === 'all'
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+                : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
             )}
           >
             {t('chore.all')}
@@ -352,7 +352,7 @@ export function ChoresPage() {
               'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
               assigneeFilter === 'me'
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+                : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
             )}
           >
             {t('chore.me')}
@@ -365,7 +365,7 @@ export function ChoresPage() {
                 'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
                 assigneeFilter === name
                   ? 'bg-brand-500 text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+                  : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
               )}
             >
               {name}
@@ -401,7 +401,7 @@ export function ChoresPage() {
                 )}>
                   {person.charAt(0).toUpperCase()}
                 </div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wider">
                   {person}
                 </p>
               </div>
@@ -431,7 +431,7 @@ export function ChoresPage() {
                             <div className="flex-1 min-w-0">
                               <p
                                 className={cn(
-                                  'font-semibold text-sm text-slate-900 dark:text-white',
+                                  'font-semibold text-sm text-rp-ink',
                                   done && 'line-through',
                                 )}
                               >
@@ -509,7 +509,7 @@ export function ChoresPage() {
         <Card className="overflow-hidden">
           <button
             onClick={() => setShowWeekSummary((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300"
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-rp-ink-soft"
           >
             <span>{t('chore.weekSummary')}</span>
             {showWeekSummary ? (
@@ -555,8 +555,8 @@ export function ChoresPage() {
       <Dialog.Root open={showDialog} onOpenChange={(open) => { if (!open) closeDialog() }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               {editingChore ? t('chore.edit') : t('chore.new')}
             </Dialog.Title>
             <div className="space-y-3">
@@ -569,7 +569,7 @@ export function ChoresPage() {
 
               {/* Emoji Picker */}
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                   {t('chore.icon')}
                 </label>
                 <div className="flex gap-1.5 flex-wrap">
@@ -591,7 +591,7 @@ export function ChoresPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                   {t('chore.assignedTo')}
                 </label>
                 <AutocompleteInput
@@ -604,7 +604,7 @@ export function ChoresPage() {
 
               {/* Frequency */}
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                   {t('chore.frequency')}
                 </label>
                 <div className="flex gap-1.5 flex-wrap">
@@ -622,7 +622,7 @@ export function ChoresPage() {
                         'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
                         frequency === f.value
                           ? 'bg-brand-500 text-white'
-                          : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400',
+                          : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft',
                       )}
                     >
                       {f.label}
@@ -634,7 +634,7 @@ export function ChoresPage() {
               {/* Day selector */}
               {(frequency === 'weekly' || frequency === 'biweekly') && (
                 <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                     {t('chore.onDays')}
                   </label>
                   <div className="flex gap-1.5">
@@ -646,7 +646,7 @@ export function ChoresPage() {
                           'h-11 w-11 rounded-full text-xs font-medium transition-colors',
                           recurrenceDays.includes(day.value)
                             ? 'bg-brand-500 text-white'
-                            : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400',
+                            : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft',
                         )}
                       >
                         {day.label}

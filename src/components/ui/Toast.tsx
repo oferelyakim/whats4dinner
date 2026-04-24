@@ -71,7 +71,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onOpenChange={(open) => { if (!open) removeToast(t.id) }}
             className={cn(
               'group pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-xl border p-4 shadow-lg transition-all',
-              'bg-white dark:bg-surface-dark-elevated',
+              'bg-rp-card',
               'data-[state=open]:animate-in data-[state=open]:slide-in-from-top-full data-[state=open]:fade-in-0',
               'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=closed]:fade-out-0',
               'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]',
@@ -86,7 +86,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {t.title}
               </ToastPrimitive.Title>
               {t.description && (
-                <ToastPrimitive.Description className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <ToastPrimitive.Description className="mt-1 text-xs text-rp-ink-mute">
                   {t.description}
                 </ToastPrimitive.Description>
               )}

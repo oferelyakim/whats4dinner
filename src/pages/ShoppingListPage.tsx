@@ -272,8 +272,8 @@ export function ShoppingListPage() {
   if (!data) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft mb-4">
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <p className="text-center text-slate-500">List not found</p>
       </div>
@@ -322,12 +322,12 @@ export function ShoppingListPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">
+          <h2 className="text-lg font-bold text-rp-ink truncate">
             {data.name}
           </h2>
           <p className="text-xs text-slate-400">
@@ -355,7 +355,7 @@ export function ShoppingListPage() {
               'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors min-h-[36px]',
               grocerLink
                 ? 'border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10'
-                : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                : 'border-slate-300 dark:border-slate-700 text-rp-ink-mute'
             )}
           >
             <Store className="h-3.5 w-3.5" />
@@ -397,7 +397,7 @@ export function ShoppingListPage() {
       {/* Sort toggle */}
       {unchecked.length > 1 && (
         <div className="space-y-2">
-          <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-lg p-0.5">
+          <div className="flex gap-1 bg-rp-bg-soft rounded-lg p-0.5">
             {(['default', 'department', 'route'] as const).map((mode) => (
               <button
                 key={mode}
@@ -405,7 +405,7 @@ export function ShoppingListPage() {
                 className={cn(
                   'flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors',
                   sortBy === mode
-                    ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
                     : 'text-slate-500'
                 )}
               >
@@ -417,7 +417,7 @@ export function ShoppingListPage() {
             <select
               value={selectedStoreId}
               onChange={(e) => setSelectedStoreId(e.target.value)}
-              className="w-full text-xs bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300"
+              className="w-full text-xs bg-rp-card border border-rp-hairline rounded-lg px-3 py-2 text-rp-ink-soft"
             >
               <option value="">Select a store...</option>
               {stores.map((s) => (
@@ -447,7 +447,7 @@ export function ShoppingListPage() {
             // Grouped by department
             Object.entries(grouped).map(([dept, deptItems]) => (
               <div key={dept}>
-                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 px-1">
+                <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wider mb-1.5 px-1">
                   {dept}
                 </p>
                 <Card className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -485,7 +485,7 @@ export function ShoppingListPage() {
           {checked.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1.5 px-1">
-                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wider">
                   Done ({checked.length})
                 </p>
                 <button
@@ -530,10 +530,10 @@ export function ShoppingListPage() {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content
-            className="fixed inset-x-4 top-[10%] z-50 bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-xl sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md focus:outline-none"
+            className="fixed inset-x-4 top-[10%] z-50 bg-rp-card rounded-2xl p-5 shadow-xl sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md focus:outline-none"
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <Dialog.Title className="text-base font-bold text-slate-900 dark:text-white mb-4">
+            <Dialog.Title className="text-base font-bold text-rp-ink mb-4">
               {t('lists.addItems')}
             </Dialog.Title>
 
@@ -561,13 +561,13 @@ export function ShoppingListPage() {
                             addDraftRow()
                           }
                         }}
-                        className="w-16 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 text-center"
+                        className="w-16 text-sm bg-transparent border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 text-center"
                       />
                       <select
                         value={row.category}
                         onChange={(e) => updateDraftRow(row.id, 'category', e.target.value)}
                         aria-label="Department"
-                        className="flex-1 text-xs bg-white dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300"
+                        className="flex-1 text-xs bg-white dark:bg-surface-dark-overlay border border-rp-hairline rounded-lg px-2 py-1.5 text-rp-ink-soft"
                       >
                         {DEPARTMENTS.map((d) => (
                           <option key={d} value={d}>{d}</option>
@@ -632,8 +632,8 @@ export function ShoppingListPage() {
       <Dialog.Root open={showShare} onOpenChange={setShowShare}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
               {t('list.share')}
             </Dialog.Title>
             <p className="text-xs text-slate-400 mb-4">
@@ -657,7 +657,7 @@ export function ShoppingListPage() {
                         {member.profile?.display_name?.[0]?.toUpperCase() ?? '?'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                        <p className="text-sm font-medium text-rp-ink truncate">
                           {member.profile?.display_name || 'Unknown'}
                         </p>
                         <p className="text-xs text-slate-400 truncate">
@@ -689,11 +689,11 @@ export function ShoppingListPage() {
       <Dialog.Root open={showDeleteList} onOpenChange={setShowDeleteList}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
               {t('list.delete')}
             </Dialog.Title>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-rp-ink-mute mb-4">
               Are you sure you want to delete <strong>{data?.name}</strong> and all its items? This cannot be undone.
             </p>
             <div className="flex gap-3">
@@ -765,7 +765,7 @@ function SortableListItem({
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-1 px-2 py-2.5 group bg-white dark:bg-surface-dark-elevated">
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1 px-2 py-2.5 group bg-rp-card">
       <button
         {...attributes}
         {...listeners}
@@ -801,8 +801,8 @@ function ListItemRow({
           className={cn(
             'text-sm transition-colors',
             item.is_checked
-              ? 'line-through text-slate-400 dark:text-slate-500'
-              : 'text-slate-800 dark:text-slate-200'
+              ? 'line-through text-rp-ink-mute'
+              : 'text-rp-ink'
           )}
         >
           {item.quantity && (
@@ -823,7 +823,7 @@ function ListItemRow({
       <button
         onClick={onRemove}
         aria-label="Remove item"
-        className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-danger hover:bg-danger/10 active:text-danger active:bg-danger/10 transition-colors"
+        className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-rp-ink-mute hover:text-danger hover:bg-danger/10 active:text-danger active:bg-danger/10 transition-colors"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>

@@ -108,10 +108,10 @@ export function JoinCirclePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-surface-light dark:bg-surface-dark text-center">
         <span className="text-5xl mb-4">{circleIcon}</span>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+        <h1 className="text-2xl font-bold text-rp-ink mb-2">
           You're in!
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-rp-ink-mute">
           Welcome to {circleName ?? 'the circle'}. Redirecting...
         </p>
       </div>
@@ -124,13 +124,13 @@ export function JoinCirclePage() {
         <div className="h-16 w-16 rounded-2xl bg-success/20 flex items-center justify-center mb-4">
           <img src="/logo-icon.png" alt="Replanish" className="h-9 w-9" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+        <h1 className="text-2xl font-bold text-rp-ink mb-2">
           Check your email
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">
+        <p className="text-sm text-rp-ink-mute mb-1">
           We sent a confirmation link to <strong>{email}</strong>
         </p>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mb-6">
+        <p className="text-xs text-rp-ink-mute mb-6">
           After confirming, come back to this link to join {circleName ?? 'the circle'}.
         </p>
         <Button variant="secondary" onClick={() => { setEmailSent(false); setAuthMode('login') }}>
@@ -149,8 +149,8 @@ export function JoinCirclePage() {
           <span className="text-5xl mb-3">{circleIcon}</span>
           {circleName ? (
             <>
-              <p className="text-sm text-slate-500 dark:text-slate-400">You've been invited to join</p>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">{circleName}</h1>
+              <p className="text-sm text-rp-ink-mute">You've been invited to join</p>
+              <h1 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{circleName}</h1>
             </>
           ) : (
             <>

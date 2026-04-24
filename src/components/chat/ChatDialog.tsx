@@ -376,7 +376,7 @@ export function ChatDialog() {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" onClick={closeChat} />
           <Dialog.Content
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl max-w-lg mx-auto flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-3xl max-w-lg mx-auto flex flex-col"
             style={{ maxHeight: '80dvh' }}
           >
             {/* Drag handle */}
@@ -385,10 +385,10 @@ export function ChatDialog() {
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 pb-3 border-b border-slate-200 dark:border-slate-700/50">
+            <div className="flex items-center justify-between px-4 pb-3 border-b border-rp-hairline/50">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-brand-500" />
-                <Dialog.Title className="text-base font-semibold text-slate-900 dark:text-white">
+                <Dialog.Title className="text-base font-semibold text-rp-ink">
                   {t('chat.title')}
                 </Dialog.Title>
                 <span
@@ -396,7 +396,7 @@ export function ChatDialog() {
                     'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
                     isPaid
                       ? 'bg-brand-500/10 text-brand-500'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',
+                      : 'bg-slate-100 dark:bg-slate-700 text-rp-ink-mute',
                   )}
                 >
                   {isPaid ? 'AI Pro' : t('chat.freeTier')}
@@ -451,7 +451,7 @@ export function ChatDialog() {
             {/* Free tier import counter */}
             {!isPaid && messages.length > 0 && (
               <div className="px-4 py-1.5 text-center">
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                <span className="text-[11px] text-rp-ink-mute">
                   {freeImportsRemaining}/{freeImportCap} {t('chat.importsRemainingLabel')}
                 </span>
               </div>
@@ -460,7 +460,7 @@ export function ChatDialog() {
             {/* Input */}
             <form
               onSubmit={handleSubmit}
-              className="flex items-center gap-2 px-4 py-3 border-t border-slate-200 dark:border-slate-700/50"
+              className="flex items-center gap-2 px-4 py-3 border-t border-rp-hairline/50"
               style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
             >
               <input
@@ -470,7 +470,7 @@ export function ChatDialog() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={t('chat.inputPlaceholder')}
                 disabled={isLoading}
-                className="flex-1 h-10 px-4 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50"
+                className="flex-1 h-10 px-4 rounded-xl bg-slate-100 dark:bg-surface-dark-overlay text-sm text-rp-ink placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50"
               />
               <button
                 type="submit"

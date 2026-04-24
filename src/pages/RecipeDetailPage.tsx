@@ -99,8 +99,8 @@ export function RecipeDetailPage() {
   if (error || !recipe) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft mb-4">
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <p className="text-center text-slate-500">Recipe not found</p>
       </div>
@@ -115,11 +115,11 @@ export function RecipeDetailPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => isKit ? navigate('/recipes?view=essentials') : navigate(-1)}
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1 min-w-0 truncate">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1 min-w-0 truncate">
           {recipe.title}
         </h2>
         <Button
@@ -134,7 +134,7 @@ export function RecipeDetailPage() {
 
       {/* Description */}
       {recipe.description && (
-        <p className="text-sm text-slate-600 dark:text-slate-400">{recipe.description}</p>
+        <p className="text-sm text-rp-ink-soft">{recipe.description}</p>
       )}
 
       {/* Meta */}
@@ -190,14 +190,14 @@ export function RecipeDetailPage() {
       {/* Ingredients */}
       {recipe.ingredients && recipe.ingredients.length > 0 && (
         <section>
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
+          <h3 className="text-base font-semibold text-rp-ink mb-3">
             {isKit ? 'Items' : t('recipe.ingredients')} ({recipe.ingredients.length})
           </h3>
           <Card className="divide-y divide-slate-100 dark:divide-slate-800">
             {recipe.ingredients.map((ing) => (
               <div key={ing.id} className="px-4 py-2.5 flex items-center gap-3">
                 <div className="h-1.5 w-1.5 rounded-full bg-brand-500 shrink-0" />
-                <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">
+                <span className="text-sm text-rp-ink-soft flex-1">
                   {ing.quantity && <strong>{formatQuantity(ing.quantity)}</strong>}
                   {ing.unit && ` ${ing.unit}`}
                   {' '}{ing.name}
@@ -214,11 +214,11 @@ export function RecipeDetailPage() {
       {/* Instructions */}
       {!isKit && recipe.instructions && (
         <section>
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
+          <h3 className="text-base font-semibold text-rp-ink mb-3">
             {t('recipe.instructions')}
           </h3>
           <Card className="p-4">
-            <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+            <div className="text-sm text-rp-ink-soft whitespace-pre-wrap leading-relaxed">
               {recipe.instructions}
             </div>
           </Card>
@@ -247,8 +247,8 @@ export function RecipeDetailPage() {
       <Dialog.Root open={showShare} onOpenChange={setShowShare}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               Share Recipe
             </Dialog.Title>
 
@@ -321,7 +321,7 @@ export function RecipeDetailPage() {
                   >
                     <span className="text-xl">{circle.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{circle.name}</p>
+                      <p className="text-sm font-medium text-rp-ink truncate">{circle.name}</p>
                       <p className="text-[10px] text-slate-400">All members will see this recipe</p>
                     </div>
                     {isShared ? (
@@ -348,11 +348,11 @@ export function RecipeDetailPage() {
       <Dialog.Root open={showDelete} onOpenChange={setShowDelete}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
               {isKit ? t('essentials.deleteEssentials') : t('recipe.delete')}
             </Dialog.Title>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-rp-ink-mute mb-4">
               Are you sure you want to delete <strong>{recipe?.title}</strong>? This will also remove it from any shopping lists and meal plans. This cannot be undone.
             </p>
             <div className="flex gap-3">
@@ -381,8 +381,8 @@ export function RecipeDetailPage() {
       }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-rp-card rounded-t-2xl p-6 pb-10 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
               {t('recipe.addToList')}
             </Dialog.Title>
 
@@ -418,7 +418,7 @@ export function RecipeDetailPage() {
                 {recipe?.ingredients && recipe.ingredients.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      <p className="text-sm font-medium text-rp-ink-soft">
                         Select ingredients ({selectedIngredients.size}/{recipe.ingredients.length})
                       </p>
                       <button
@@ -466,7 +466,7 @@ export function RecipeDetailPage() {
                             )}>
                               {isChecked && <Check className="h-2.5 w-2.5 text-white" />}
                             </div>
-                            <span className="text-sm text-slate-700 dark:text-slate-300">
+                            <span className="text-sm text-rp-ink-soft">
                               {ing.quantity && <strong>{formatQuantity(ing.quantity)} </strong>}
                               {ing.unit && `${ing.unit} `}
                               {ing.name}
@@ -485,11 +485,11 @@ export function RecipeDetailPage() {
                     key={list.id}
                     onClick={() => addToListMutation.mutate(list.id)}
                     disabled={addToListMutation.isPending || selectedIngredients.size === 0}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-start active:scale-[0.98] transition-all hover:border-brand-500 disabled:opacity-50"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-rp-hairline text-start active:scale-[0.98] transition-all hover:border-brand-500 disabled:opacity-50"
                   >
                     <ShoppingCart className="h-5 w-5 text-slate-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                      <p className="text-sm font-medium text-rp-ink truncate">
                         {list.name}
                       </p>
                     </div>

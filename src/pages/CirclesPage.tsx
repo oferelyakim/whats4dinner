@@ -66,7 +66,7 @@ export function CirclesPage() {
   return (
     <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('circle.myCircles')}</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('circle.myCircles')}</h2>
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" onClick={() => { setShowJoin(true); setError('') }}>
             <Link2 className="h-4 w-4" />
@@ -110,7 +110,7 @@ export function CirclesPage() {
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{circle.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 dark:text-white truncate">
+                  <p className="font-semibold text-rp-ink truncate">
                     {circle.name}
                   </p>
                   <p className="text-xs text-slate-400 truncate">
@@ -140,13 +140,13 @@ export function CirclesPage() {
       <Dialog.Root open={showCreate} onOpenChange={setShowCreate}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               {t('circle.create')}
             </Dialog.Title>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-2 block">
                   {t('circle.chooseIcon')}
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -196,8 +196,8 @@ export function CirclesPage() {
       <Dialog.Root open={showJoin} onOpenChange={setShowJoin}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               {t('circle.join')}
             </Dialog.Title>
             <div className="space-y-4">

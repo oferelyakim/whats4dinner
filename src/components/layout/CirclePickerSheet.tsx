@@ -32,14 +32,14 @@ export function CirclePickerSheet({ open, onOpenChange }: CirclePickerSheetProps
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-5 max-w-lg mx-auto animate-page-enter max-h-[70vh] overflow-y-auto" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-5 max-w-lg mx-auto animate-page-enter max-h-[70vh] overflow-y-auto" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
           <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600 mx-auto mb-4" />
-          <Dialog.Title className="text-base font-bold text-slate-900 dark:text-white mb-3">
+          <Dialog.Title className="text-base font-bold text-rp-ink mb-3">
             {t('circle.switchCircle')}
           </Dialog.Title>
 
           {circles.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400 py-4 text-center">
+            <p className="text-sm text-rp-ink-mute py-4 text-center">
               {t('circle.noCircles')}
             </p>
           ) : (
@@ -63,7 +63,7 @@ export function CirclePickerSheet({ open, onOpenChange }: CirclePickerSheetProps
                       'flex-1 text-sm font-medium truncate',
                       isActive
                         ? 'text-brand-600 dark:text-brand-300'
-                        : 'text-slate-900 dark:text-white'
+                        : 'text-rp-ink'
                     )}>
                       {circle.name}
                     </span>
@@ -81,7 +81,7 @@ export function CirclePickerSheet({ open, onOpenChange }: CirclePickerSheetProps
               onOpenChange(false)
               navigate('/profile/circles')
             }}
-            className="w-full flex items-center justify-center gap-2 mt-4 pt-3 py-3 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400 hover:text-brand-500 dark:hover:text-brand-300 transition-colors min-h-[44px]"
+            className="w-full flex items-center justify-center gap-2 mt-4 pt-3 py-3 border-t border-rp-hairline text-sm text-rp-ink-mute hover:text-brand-500 dark:hover:text-brand-300 transition-colors min-h-[44px]"
           >
             <Settings className="h-3.5 w-3.5" />
             {t('circle.manageCircles')}

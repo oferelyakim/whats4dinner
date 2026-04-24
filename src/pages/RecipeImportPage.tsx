@@ -135,11 +135,11 @@ export function RecipeImportPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Import Recipe</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">Import Recipe</h2>
         <Sparkles className="h-4 w-4 text-brand-500" />
       </div>
 
@@ -165,12 +165,12 @@ export function RecipeImportPage() {
       {!imported && (
         <div className="space-y-4">
           {/* Mode toggle */}
-          <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-lg p-0.5">
+          <div className="flex gap-1 bg-rp-bg-soft rounded-lg p-0.5">
             <button
               onClick={() => setMode('url')}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 mode === 'url'
-                  ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
                   : 'text-slate-500'
               }`}
             >
@@ -181,7 +181,7 @@ export function RecipeImportPage() {
               onClick={() => setMode('image')}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 mode === 'image'
-                  ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
                   : 'text-slate-500'
               }`}
             >
@@ -193,7 +193,7 @@ export function RecipeImportPage() {
           {mode === 'url' ? (
             <>
               <div className="flex flex-col items-center py-4">
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-xs">
+                <p className="text-sm text-rp-ink-mute text-center max-w-xs">
                   Paste a link to a recipe from any website. We'll extract the title, ingredients, and instructions.
                 </p>
               </div>
@@ -232,7 +232,7 @@ export function RecipeImportPage() {
           ) : (
             <>
               <div className="flex flex-col items-center py-4">
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-xs">
+                <p className="text-sm text-rp-ink-mute text-center max-w-xs">
                   Take a photo of a recipe card, cookbook page, or screenshot. We'll extract the text and ingredients.
                 </p>
               </div>
@@ -311,7 +311,7 @@ export function RecipeImportPage() {
                   </button>
                   <button
                     onClick={() => galleryInputRef.current?.click()}
-                    className="flex items-center justify-center w-full h-12 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-500 hover:border-brand-500 active:scale-[0.98] transition-all"
+                    className="flex items-center justify-center w-full h-12 rounded-xl border border-rp-hairline text-sm text-slate-500 hover:border-brand-500 active:scale-[0.98] transition-all"
                   >
                     Choose from gallery or files
                   </button>
@@ -362,11 +362,11 @@ export function RecipeImportPage() {
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
               />
             )}
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-bold text-rp-ink">
               {imported.title}
             </h3>
             {imported.description && (
-              <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3">
+              <p className="text-sm text-rp-ink-mute line-clamp-3">
                 {imported.description}
               </p>
             )}
@@ -381,7 +381,7 @@ export function RecipeImportPage() {
           {imported.ingredients.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                <h4 className="text-sm font-semibold text-rp-ink">
                   Ingredients ({imported.ingredients.filter((i) => i.include).length}/{imported.ingredients.length})
                 </h4>
               </div>
@@ -399,7 +399,7 @@ export function RecipeImportPage() {
                     }`}>
                       {ing.include && <Check className="h-3 w-3 text-white" />}
                     </div>
-                    <span className={`text-sm flex-1 ${ing.include ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 line-through'}`}>
+                    <span className={`text-sm flex-1 ${ing.include ? 'text-rp-ink' : 'text-slate-400 line-through'}`}>
                       {ing.quantity && <strong>{formatQuantity(ing.quantity)} </strong>}
                       {ing.unit && <span>{ing.unit} </span>}
                       {ing.name}
@@ -422,11 +422,11 @@ export function RecipeImportPage() {
           {/* Instructions preview */}
           {imported.instructions && (
             <div>
-              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
+              <h4 className="text-sm font-semibold text-rp-ink mb-2">
                 Instructions
               </h4>
               <Card className="p-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
+                <p className="text-xs text-rp-ink-mute whitespace-pre-wrap line-clamp-6">
                   {imported.instructions}
                 </p>
               </Card>

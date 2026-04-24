@@ -67,9 +67,9 @@ export function ListStoreLinkerModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40 animate-fade-in" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 animate-slide-up">
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 bg-rp-card rounded-t-2xl p-6 animate-slide-up">
           <div className="flex items-center justify-between mb-4">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white">
+            <Dialog.Title className="text-lg font-bold text-rp-ink">
               {t('grocer.linkStore')}
             </Dialog.Title>
             <Dialog.Close asChild>
@@ -93,7 +93,7 @@ export function ListStoreLinkerModal({
           {isLinked && currentLink && (
             <div className="rounded-xl bg-blue-50 dark:bg-blue-500/10 px-4 py-3 mb-4">
               <p className="text-xs text-slate-500">{t('grocer.linkedTo')}</p>
-              <p className="text-sm font-medium text-slate-900 dark:text-white">
+              <p className="text-sm font-medium text-rp-ink">
                 {currentLink.store_name ?? currentLink.store_id}
               </p>
             </div>

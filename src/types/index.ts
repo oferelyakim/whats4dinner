@@ -23,6 +23,8 @@ export interface Circle {
   invite_code: string
   created_at: string
   updated_at: string
+  skin_id?: string | null
+  custom_skin?: Record<string, unknown> | null
 }
 
 export interface CircleMember {

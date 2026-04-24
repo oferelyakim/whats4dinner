@@ -85,7 +85,7 @@ export function JoinEventPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-surface-light dark:bg-surface-dark text-center">
         <PartyPopper className="h-12 w-12 text-brand-500 mb-4" />
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">You're in!</h1>
+        <h1 className="text-2xl font-bold text-rp-ink mb-2">You're in!</h1>
         <p className="text-sm text-slate-500">Redirecting to the event...</p>
       </div>
     )
@@ -94,7 +94,7 @@ export function JoinEventPage() {
   if (emailSent) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-surface-light dark:bg-surface-dark text-center">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Check your email</h1>
+        <h1 className="text-2xl font-bold text-rp-ink mb-2">Check your email</h1>
         <p className="text-sm text-slate-500 mb-1">We sent a confirmation link to <strong>{email}</strong></p>
         <p className="text-xs text-slate-400 mb-6">After confirming, come back to this link to join the event.</p>
         <Button variant="secondary" onClick={() => { setEmailSent(false); setAuthMode('login') }}>Back to Sign In</Button>
@@ -110,8 +110,8 @@ export function JoinEventPage() {
           <PartyPopper className="h-10 w-10 text-brand-500 mb-3" />
           {eventName ? (
             <>
-              <p className="text-sm text-slate-500 dark:text-slate-400">You're invited to</p>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">{eventName}</h1>
+              <p className="text-sm text-rp-ink-mute">You're invited to</p>
+              <h1 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{eventName}</h1>
               <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
                 {eventDate && (
                   <span className="flex items-center gap-1">

@@ -56,23 +56,23 @@ export function RecipesPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">
           {viewType === 'recipe' ? t('nav.recipes') : t('essentials.essentials')}
         </h2>
       </div>
 
       {/* Type toggle */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-surface-dark-elevated rounded-lg p-0.5">
+      <div className="flex gap-1 bg-rp-bg-soft rounded-lg p-0.5">
         <button
           onClick={() => setViewType('recipe')}
           className={cn(
             'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors',
             viewType === 'recipe'
-              ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+              ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
               : 'text-slate-500'
           )}
         >
@@ -84,7 +84,7 @@ export function RecipesPage() {
           className={cn(
             'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-colors',
             viewType === 'supply_kit'
-              ? 'bg-white dark:bg-surface-dark-overlay text-slate-900 dark:text-white shadow-sm'
+              ? 'bg-white dark:bg-surface-dark-overlay text-rp-ink shadow-sm'
               : 'text-slate-500'
           )}
         >
@@ -101,7 +101,7 @@ export function RecipesPage() {
           placeholder={t('recipe.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full ps-10 pe-4 py-2.5 rounded-xl text-sm bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+          className="w-full ps-10 pe-4 py-2.5 rounded-xl text-sm bg-rp-card border border-rp-hairline text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
         />
       </div>
 
@@ -141,11 +141,11 @@ export function RecipesPage() {
                   <Package className="h-5 w-5 text-brand-500 shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                  <h3 className="font-semibold text-rp-ink">
                     {recipe.title}
                   </h3>
                   {recipe.description && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                    <p className="text-sm text-rp-ink-mute mt-0.5 line-clamp-2">
                       {recipe.description}
                     </p>
                   )}

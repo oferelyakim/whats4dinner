@@ -5,6 +5,7 @@ import { persistQueryCache, restoreQueryCache } from '@/lib/queryPersist'
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
 import { ToastProvider } from '@/components/ui/Toast'
+import { SkinProvider } from '@/components/SkinProvider'
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -82,6 +83,7 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SkinProvider>
       <ToastProvider>
       <BrowserRouter>
         <Routes>
@@ -148,6 +150,7 @@ export default function App() {
         </AuthGuard>
       </BrowserRouter>
       </ToastProvider>
+      </SkinProvider>
     </QueryClientProvider>
   )
 }

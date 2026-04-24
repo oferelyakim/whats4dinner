@@ -66,6 +66,12 @@ const translations: Record<string, Record<Locale, string>> = {
   'home.mealsForTheWeek': { en: 'Meals for the week', he: 'ארוחות לשבוע', es: 'Comidas de la semana' },
   'home.createFirstList': { en: 'Create your first shopping list', he: 'צור את רשימת הקניות הראשונה שלך', es: 'Crea tu primera lista de compras' },
   'home.manageCircles': { en: 'Manage your family & friend groups', he: 'נהל את קבוצות המשפחה והחברים שלך', es: 'Administra tus grupos familiares y de amigos' },
+  'home.tonightAtTable': { en: 'Tonight at the table', he: 'הערב סביב השולחן', es: 'Esta noche en la mesa' },
+  'home.todayTogether':  { en: '{count} of you have a day together.', he: '{count} מכם חולקים יום יחד.', es: '{count} tienen un día juntos.' },
+  'home.sharedList':     { en: 'Shared list', he: 'רשימה משותפת', es: 'Lista compartida' },
+  'home.nextGathering':  { en: 'Next gathering', he: 'המפגש הבא', es: 'Próxima reunión' },
+  'home.todaysBeats':    { en: "Today's beats", he: 'קצב היום', es: 'Ritmo del día' },
+  'home.aGoodDay':       { en: 'a good day to be together', he: 'יום טוב להיות יחד', es: 'un buen día para estar juntos' },
   'home.todaysActivities': { en: "TODAY'S ACTIVITIES", he: 'פעילויות היום', es: 'ACTIVIDADES DE HOY' },
   'home.upcomingActivities': { en: 'UPCOMING (NEXT 7 DAYS)', he: 'בקרוב (7 ימים הקרובים)', es: 'PRÓXIMO (7 DÍAS)' },
   'home.shoppingLists': { en: 'SHOPPING LIST', he: 'רשימת קניות', es: 'LISTA DE COMPRAS' },
@@ -302,6 +308,11 @@ const translations: Record<string, Record<Locale, string>> = {
   'nav.food': { en: 'Food', he: 'אוכל', es: 'Comida' },
   'nav.household': { en: 'Household', he: 'משק בית', es: 'Hogar' },
   'nav.profile': { en: 'Profile', he: 'פרופיל', es: 'Perfil' },
+
+  // Hearth redesign — warmer labels
+  'nav.gather': { en: 'Gather', he: 'אירועים', es: 'Reunir' },
+  'nav.house':  { en: 'House',  he: 'הבית',    es: 'Casa' },
+  'nav.me':     { en: 'Me',     he: 'אני',     es: 'Yo' },
 
   // Food Hub
   'food.title': { en: 'Food & Meals', he: 'אוכל וארוחות', es: 'Comida y comidas' },

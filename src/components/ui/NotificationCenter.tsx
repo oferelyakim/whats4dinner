@@ -81,7 +81,7 @@ export function NotificationCenter() {
         aria-label={t('reminder.upcoming')}
         className="relative h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100/80 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
       >
-        <Bell className="h-4.5 w-4.5 text-slate-600 dark:text-slate-400" />
+        <Bell className="h-4.5 w-4.5 text-rp-ink-soft" />
         {showBadge && (
           <span className="absolute -top-0.5 -end-0.5 h-4 min-w-4 px-1 rounded-full bg-brand-500 text-[10px] font-bold text-white flex items-center justify-center" aria-hidden="true">
             {todayCount}
@@ -100,10 +100,10 @@ export function NotificationCenter() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute end-0 top-11 w-80 max-h-96 overflow-y-auto rounded-2xl bg-white dark:bg-surface-dark-elevated border border-slate-200 dark:border-slate-700 shadow-xl z-50"
+            className="absolute end-0 top-11 w-80 max-h-96 overflow-y-auto rounded-2xl bg-rp-card border border-rp-hairline shadow-xl z-50"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-sm font-semibold text-rp-ink">
                 {t('reminder.upcoming')}
               </h3>
               <button
@@ -140,7 +140,7 @@ export function NotificationCenter() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                        <p className="text-sm font-medium text-rp-ink truncate">
                           {n.title}
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">{n.body}</p>

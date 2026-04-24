@@ -27,7 +27,7 @@ export function ConnectedStoresSection() {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1">
+      <h3 className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wide px-1">
         {t('grocer.connectedStores')}
       </h3>
 

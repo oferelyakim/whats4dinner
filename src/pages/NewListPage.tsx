@@ -39,11 +39,11 @@ export function NewListPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('list.newList')}</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('list.newList')}</h2>
       </div>
 
       <div className="space-y-4">
@@ -57,13 +57,13 @@ export function NewListPage() {
 
         {circles.length > 1 && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label className="mb-1.5 block text-sm font-medium text-rp-ink-soft">
               Circle
             </label>
             <select
               value={circleId}
               onChange={(e) => setSelectedCircleId(e.target.value)}
-              className="w-full rounded-xl border px-4 py-2.5 text-sm bg-white dark:bg-surface-dark-elevated border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+              className="w-full rounded-xl border px-4 py-2.5 text-sm bg-rp-card border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
             >
               {circles.map((c) => (
                 <option key={c.id} value={c.id}>

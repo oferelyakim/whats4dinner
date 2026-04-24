@@ -33,7 +33,7 @@ export function Header({ title, onCircleSelect }: HeaderProps) {
       <div className="flex items-center justify-between h-12 px-4">
         <div className="flex items-center gap-2">
           <img src="/logo-icon.png" alt="Replanish" className="h-6 w-6" />
-          <h1 className="text-base font-bold text-slate-900 dark:text-white">
+          <h1 className="text-base font-bold text-rp-ink">
             {title ?? 'Replanish'}
           </h1>
         </div>

@@ -63,7 +63,7 @@ function Chip({ label, selected, onClick }: ChipProps) {
         'active:scale-[0.96] min-h-[36px]',
         selected
           ? 'bg-brand-500 text-white border-brand-500'
-          : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-brand-400'
+          : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft border-rp-hairline hover:border-brand-400'
       )}
     >
       {label}
@@ -77,7 +77,7 @@ interface SectionLabelProps {
 
 function SectionLabel({ children }: SectionLabelProps) {
   return (
-    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+    <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wide mb-2">
       {children}
     </p>
   )
@@ -184,13 +184,13 @@ export function MealPlanPreferencesDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
         <Dialog.Content
-          className="fixed bottom-0 start-0 end-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[88vh] overflow-y-auto focus:outline-none"
+          className="fixed bottom-0 start-0 end-0 z-50 bg-rp-card rounded-t-3xl p-6 max-w-lg mx-auto max-h-[88vh] overflow-y-auto focus:outline-none"
           aria-describedby="prefs-desc"
         >
           {/* Drag handle */}
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
 
-          <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+          <Dialog.Title className="text-lg font-bold text-rp-ink mb-1">
             {t('plan.prefs.title')}
           </Dialog.Title>
           <p id="prefs-desc" className="text-sm text-slate-500 mb-5">

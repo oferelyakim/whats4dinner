@@ -348,10 +348,10 @@ export function ActivitiesPage() {
     return (
       <div className="px-4 py-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated">
-            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft">
+            <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
           </button>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('activity.activities')}</h2>
+          <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('activity.activities')}</h2>
         </div>
         <EmptyState
           icon={<Calendar className="h-12 w-12" />}
@@ -368,11 +368,11 @@ export function ActivitiesPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">{t('activity.activities')}</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">{t('activity.activities')}</h2>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           {t('common.add')}
@@ -389,7 +389,7 @@ export function ActivitiesPage() {
               className={cn(
                 'flex-1 py-1.5 rounded-md text-xs font-medium transition-all text-center',
                 calendarView === view
-                  ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                  ? 'bg-rp-card text-rp-ink shadow-sm'
                   : 'text-slate-500'
               )}
             >
@@ -476,7 +476,7 @@ export function ActivitiesPage() {
                       ? 'bg-brand-500 text-white'
                       : isToday
                         ? 'bg-brand-50 dark:bg-brand-900/30'
-                        : 'bg-slate-50 dark:bg-surface-dark-overlay',
+                        : 'bg-rp-bg-soft',
                   )}
                 >
                   <span className={cn('text-[10px] font-medium', isSelected ? 'text-white/80' : 'text-slate-400')}>
@@ -512,7 +512,7 @@ export function ActivitiesPage() {
           >
             <ChevronLeft className="h-3.5 w-3.5 text-slate-500 rtl-flip" />
           </button>
-          <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <span className="text-sm font-semibold text-rp-ink">
             {new Date(calendarDate + 'T12:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
               weekday: 'long',
               month: 'short',
@@ -578,7 +578,7 @@ export function ActivitiesPage() {
                             <div className="flex items-start gap-3">
                               <span className="text-xl mt-0.5">{cat?.emoji ?? '📌'}</span>
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm text-slate-900 dark:text-white">
+                                <p className="font-semibold text-sm text-rp-ink">
                                   {activity.name}
                                 </p>
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
@@ -754,8 +754,8 @@ export function ActivitiesPage() {
       <Dialog.Root open={showDialog} onOpenChange={(open) => { if (!open) closeDialog() }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               {editingActivity ? t('activity.edit') : t('activity.newActivity')}
             </Dialog.Title>
             <div className="space-y-3">
@@ -767,7 +767,7 @@ export function ActivitiesPage() {
               />
 
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                   {t('activity.forWhom')}
                 </label>
                 <AutocompleteInput
@@ -780,7 +780,7 @@ export function ActivitiesPage() {
 
               {/* Category */}
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                   {t('activity.category')}
                 </label>
                 <div className="flex gap-1.5 flex-wrap">
@@ -792,7 +792,7 @@ export function ActivitiesPage() {
                         'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
                         category === cat.value
                           ? 'bg-brand-500 text-white'
-                          : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400',
+                          : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft',
                       )}
                     >
                       {cat.emoji} {t(cat.label)}
@@ -810,7 +810,7 @@ export function ActivitiesPage() {
 
               {/* Recurrence */}
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                   {t('activity.repeats')}
                 </label>
                 <div className="flex gap-1.5 flex-wrap">
@@ -829,7 +829,7 @@ export function ActivitiesPage() {
                         'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
                         recurrenceType === r.value
                           ? 'bg-brand-500 text-white'
-                          : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400',
+                          : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft',
                       )}
                     >
                       {r.label}
@@ -841,7 +841,7 @@ export function ActivitiesPage() {
               {/* Day selector */}
               {(recurrenceType === 'weekly' || recurrenceType === 'biweekly' || recurrenceType === 'custom') && (
                 <div>
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                     {t('activity.onDays')}
                   </label>
                   <div className="flex gap-1.5">
@@ -853,7 +853,7 @@ export function ActivitiesPage() {
                           'h-11 w-11 rounded-full text-xs font-medium transition-colors',
                           recurrenceDays.includes(day.value)
                             ? 'bg-brand-500 text-white'
-                            : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400',
+                            : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft',
                         )}
                       >
                         {t(day.label)}
@@ -881,7 +881,7 @@ export function ActivitiesPage() {
                   onChange={(e) => setExcludeHolidays(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
                 />
-                <span className="text-sm text-slate-700 dark:text-slate-300">{t('activity.skipHolidays')}</span>
+                <span className="text-sm text-rp-ink-soft">{t('activity.skipHolidays')}</span>
               </label>
 
               {/* Share with other circles */}
@@ -889,11 +889,11 @@ export function ActivitiesPage() {
                 <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
                   <div className="flex items-center gap-2 mb-2">
                     <Share2 className="h-4 w-4 text-slate-500" />
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <p className="text-sm font-semibold text-rp-ink-soft">
                       {t('activity.shareWithCircles')}
                     </p>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                  <p className="text-xs text-rp-ink-mute mb-2">
                     {t('activity.shareWithCirclesHint')}
                   </p>
                   <div className="space-y-1">
@@ -911,7 +911,7 @@ export function ActivitiesPage() {
                           }}
                           className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
                         />
-                        <span className="text-sm text-slate-700 dark:text-slate-300">{c.name}</span>
+                        <span className="text-sm text-rp-ink-soft">{c.name}</span>
                       </label>
                     ))}
                   </div>
@@ -927,7 +927,7 @@ export function ActivitiesPage() {
 
               {/* Reminders Section */}
               <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <p className="text-sm font-semibold text-rp-ink-soft mb-2">
                   {t('reminder.reminders')}
                 </p>
                 {reminders.length > 0 && (
@@ -953,12 +953,12 @@ export function ActivitiesPage() {
                     min="1"
                     value={newReminderAmount}
                     onChange={(e) => setNewReminderAmount(e.target.value)}
-                    className="w-16 px-2 py-1.5 rounded-lg text-xs bg-white dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                    className="w-16 px-2 py-1.5 rounded-lg text-xs bg-white dark:bg-surface-dark-overlay border border-rp-hairline text-slate-900 dark:text-slate-100"
                   />
                   <select
                     value={newReminderUnit}
                     onChange={(e) => setNewReminderUnit(e.target.value as Reminder['unit'])}
-                    className="flex-1 px-2 py-1.5 rounded-lg text-xs bg-white dark:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                    className="flex-1 px-2 py-1.5 rounded-lg text-xs bg-white dark:bg-surface-dark-overlay border border-rp-hairline text-slate-900 dark:text-slate-100"
                   >
                     <option value="minutes">{t('reminder.minutes')}</option>
                     <option value="hours">{t('reminder.hours')}</option>
@@ -983,7 +983,7 @@ export function ActivitiesPage() {
 
               {/* Participants Section */}
               <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <p className="text-sm font-semibold text-rp-ink-soft mb-2">
                   {t('activity.participants')}
                 </p>
                 {participants.length > 0 && (
@@ -991,7 +991,7 @@ export function ActivitiesPage() {
                     {participants.map((p, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-2 bg-slate-50 dark:bg-surface-dark-overlay rounded-lg px-2 py-1"
+                        className="flex items-center gap-2 bg-rp-bg-soft rounded-lg px-2 py-1"
                       >
                         <span className="text-xs text-slate-600 dark:text-slate-300 flex-1">
                           {p.name}
@@ -1018,7 +1018,7 @@ export function ActivitiesPage() {
                   <select
                     value={newParticipantRole}
                     onChange={(e) => setNewParticipantRole(e.target.value as Participant['role'])}
-                    className="h-9 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-surface-dark-overlay text-xs px-2 text-slate-700 dark:text-slate-300"
+                    className="h-9 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-surface-dark-overlay text-xs px-2 text-rp-ink-soft"
                   >
                     {PARTICIPANT_ROLES.map((r) => (
                       <option key={r.value} value={r.value}>
@@ -1034,7 +1034,7 @@ export function ActivitiesPage() {
 
               {/* Bring Items Section */}
               <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <p className="text-sm font-semibold text-rp-ink-soft mb-2">
                   {t('activity.whatToBring')}
                 </p>
                 {bringItems.length > 0 && (
@@ -1042,7 +1042,7 @@ export function ActivitiesPage() {
                     {bringItems.map((item, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-2 bg-slate-50 dark:bg-surface-dark-overlay rounded-lg px-2 py-1"
+                        className="flex items-center gap-2 bg-rp-bg-soft rounded-lg px-2 py-1"
                       >
                         <span className="text-xs text-slate-600 dark:text-slate-300 flex-1">
                           {item.name}
@@ -1070,7 +1070,7 @@ export function ActivitiesPage() {
               </div>
 
             </div>
-            <div className="sticky bottom-0 bg-white dark:bg-surface-dark-elevated pt-3 pb-4 -mx-6 px-6 border-t border-slate-200 dark:border-slate-700 mt-3">
+            <div className="sticky bottom-0 bg-rp-card pt-3 pb-4 -mx-6 px-6 border-t border-rp-hairline mt-3">
               <div className="flex gap-3">
                 <Button variant="secondary" className="flex-1" onClick={closeDialog}>
                   {t('common.cancel')}

@@ -77,7 +77,7 @@ export function FoodHubPage() {
     >
       {/* Header */}
       <motion.div variants={fadeUp} className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">
           {t('food.title')}
         </h2>
       </motion.div>
@@ -92,7 +92,7 @@ export function FoodHubPage() {
               'flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0 min-h-[44px]',
               activeTab === key
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+                : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
             )}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -114,7 +114,7 @@ export function FoodHubPage() {
               <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center mb-2">
                 <BookOpen className="h-4.5 w-4.5 text-blue-500" />
               </div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.addRecipe')}</p>
+              <p className="text-sm font-semibold text-rp-ink">{t('action.addRecipe')}</p>
             </Card>
             <Card
               variant="elevated"
@@ -124,14 +124,14 @@ export function FoodHubPage() {
               <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">
                 <ShoppingCart className="h-4.5 w-4.5 text-emerald-500" />
               </div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('action.newList')}</p>
+              <p className="text-sm font-semibold text-rp-ink">{t('action.newList')}</p>
             </Card>
           </motion.div>
 
           {/* This Week meal plan preview */}
           <motion.section variants={fadeUp}>
             <div className="flex items-center justify-between mb-2.5">
-              <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              <h3 className="text-base font-semibold text-rp-ink">
                 {t('food.thisWeek')}
               </h3>
               <button
@@ -178,7 +178,7 @@ export function FoodHubPage() {
                           <div className="text-sm">{date.split('-')[2]}</div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                          <p className="text-sm text-rp-ink-soft truncate">
                             {dayMeals.map((mp: MealPlan) => (mp as any).recipe?.title || mp.recipe_id).join(', ')}
                           </p>
                         </div>
@@ -194,7 +194,7 @@ export function FoodHubPage() {
           {activeLists.length > 0 && (
             <motion.section variants={fadeUp}>
               <div className="flex items-center justify-between mb-2.5">
-                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                <h3 className="text-base font-semibold text-rp-ink">
                   {t('food.activeLists')}
                 </h3>
                 <button
@@ -213,7 +213,7 @@ export function FoodHubPage() {
                         <ShoppingCart className="h-4 w-4 text-emerald-500" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{list.name}</p>
+                        <p className="text-sm font-medium text-rp-ink truncate">{list.name}</p>
                         <p className="text-xs text-slate-400">{list.item_count ?? 0} {t('common.items')} {/* TODO: add i18n key */}</p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 rtl-flip" />
@@ -233,7 +233,7 @@ export function FoodHubPage() {
               <div className="flex items-center gap-2.5">
                 <UtensilsCrossed className="h-4.5 w-4.5 text-brand-500 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{t('more.mealTemplates')}</p>
+                  <p className="text-sm font-medium text-rp-ink">{t('more.mealTemplates')}</p>
                   <p className="text-xs text-slate-400">
                     {templates.length} {t('food.templates')}                  </p>
                 </div>
@@ -246,7 +246,7 @@ export function FoodHubPage() {
               <div className="flex items-center gap-2.5">
                 <Store className="h-4.5 w-4.5 text-brand-500 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{t('more.myStores')}</p>
+                  <p className="text-sm font-medium text-rp-ink">{t('more.myStores')}</p>
                   <p className="text-xs text-slate-400">
                     {t('food.sortByAisle')}                  </p>
                 </div>

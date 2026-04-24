@@ -62,7 +62,7 @@ export function MorePage() {
 
   return (
     <div className="px-4 py-4 space-y-4">
-      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('more.profile')}</h2>
+      <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('more.profile')}</h2>
 
       {/* Profile card */}
       <Card variant="elevated" className="p-4 flex items-center gap-3">
@@ -70,7 +70,7 @@ export function MorePage() {
           {profile?.display_name?.[0]?.toUpperCase() ?? '?'}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-900 dark:text-white truncate">
+          <p className="font-semibold text-rp-ink truncate">
             {profile?.display_name ?? 'User'}
           </p>
           <p className="text-sm text-slate-500 truncate">
@@ -87,9 +87,9 @@ export function MorePage() {
             onClick={onClick}
             className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 dark:active:bg-surface-dark-overlay transition-colors"
           >
-            <Icon className="h-5 w-5 text-slate-500 dark:text-slate-400 shrink-0" />
+            <Icon className="h-5 w-5 text-rp-ink-mute shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</p>
+              <p className="text-sm font-medium text-rp-ink">{label}</p>
               <p className="text-xs text-slate-400 truncate">{description}</p>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
@@ -103,7 +103,7 @@ export function MorePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-brand-500" />
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">
+              <span className="text-sm font-semibold text-rp-ink">
                 {t('ai.plan')}
               </span>
               <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
@@ -141,7 +141,7 @@ export function MorePage() {
           <div className="flex items-center gap-3">
             <Sparkles className="h-6 w-6 text-brand-500" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">{t('ai.upgradeToAI')}</p>
+              <p className="text-sm font-semibold text-rp-ink">{t('ai.upgradeToAI')}</p>
               <p className="text-xs text-slate-500">{t('ai.upgradeDesc')}</p>
             </div>
             <ChevronRight className="h-4 w-4 text-brand-500 rtl-flip" />
@@ -161,7 +161,7 @@ export function MorePage() {
             ) : (
               <Sun className="h-5 w-5 text-slate-500" />
             )}
-            <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            <span className="text-sm font-medium text-rp-ink">
               {t('more.theme')}
             </span>
           </div>
@@ -173,7 +173,7 @@ export function MorePage() {
                 className={cn(
                   'px-4 py-3 rounded-md text-sm font-medium transition-colors capitalize min-h-[44px]',
                   theme === themeOption
-                    ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-rp-card text-rp-ink shadow-sm'
                     : 'text-slate-500'
                 )}
               >
@@ -189,7 +189,7 @@ export function MorePage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Type className="h-5 w-5 text-slate-500 shrink-0" />
-            <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+            <span className="text-sm font-medium text-rp-ink truncate">
               {t('more.fontSize')}
             </span>
           </div>
@@ -207,7 +207,7 @@ export function MorePage() {
                   'px-3 py-3 rounded-md font-medium transition-colors min-h-[44px]',
                   opt.size,
                   fontSize === opt.code
-                    ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-rp-card text-rp-ink shadow-sm'
                     : 'text-slate-500'
                 )}
               >
@@ -224,10 +224,10 @@ export function MorePage() {
           <div className="flex items-center gap-3 min-w-0">
             <MonitorSmartphone className="h-5 w-5 text-slate-500 shrink-0" />
             <div className="min-w-0">
-              <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+              <div className="text-sm font-medium text-rp-ink truncate">
                 {t('more.keepScreenOn')}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              <div className="text-xs text-rp-ink-mute truncate">
                 {t('more.keepScreenOnHint')}
               </div>
             </div>
@@ -244,7 +244,7 @@ export function MorePage() {
                 className={cn(
                   'px-3 py-3 rounded-md text-sm font-medium transition-colors min-h-[44px]',
                   keepScreenOn === opt.value
-                    ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-rp-card text-rp-ink shadow-sm'
                     : 'text-slate-500'
                 )}
               >
@@ -260,7 +260,7 @@ export function MorePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-lg">🌐</span>
-            <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            <span className="text-sm font-medium text-rp-ink">
               {t('more.language')}
             </span>
           </div>
@@ -272,7 +272,7 @@ export function MorePage() {
                 className={cn(
                   'px-3 py-3 rounded-md text-sm font-medium transition-colors min-h-[44px]',
                   locale === lang.code
-                    ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-rp-card text-rp-ink shadow-sm'
                     : 'text-slate-500'
                 )}
               >

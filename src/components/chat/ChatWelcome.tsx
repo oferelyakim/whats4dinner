@@ -31,16 +31,16 @@ export function ChatWelcome({ isPaid, freeImportsRemaining, freeImportCap, onSug
         <Sparkles className="h-6 w-6 text-brand-500" />
       </div>
 
-      <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-[280px]">
+      <p className="text-sm text-rp-ink-soft mb-6 max-w-[280px]">
         {isPaid ? t('chat.paidWelcome') : t('chat.freeWelcome')}
       </p>
 
-      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+      <p className="text-[10px] text-rp-ink-mute mt-1">
         v{APP_VERSION}
       </p>
 
       {!isPaid && (
-        <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
+        <p className="text-xs text-rp-ink-mute mb-4">
           {freeImportsRemaining}/{freeImportCap} {t('chat.importsRemainingLabel')}
         </p>
       )}
@@ -50,7 +50,7 @@ export function ChatWelcome({ isPaid, freeImportsRemaining, freeImportCap, onSug
           <button
             key={suggestion}
             onClick={() => onSuggestionClick(suggestion)}
-            className="px-3 py-1.5 text-xs rounded-full bg-slate-100 dark:bg-surface-dark-elevated text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-surface-dark-overlay transition-colors"
+            className="px-3 py-1.5 text-xs rounded-full bg-rp-bg-soft text-rp-ink-soft hover:bg-slate-200 dark:hover:bg-surface-dark-overlay transition-colors"
           >
             {suggestion}
           </button>

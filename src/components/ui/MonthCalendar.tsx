@@ -77,9 +77,9 @@ export function MonthCalendar({
           aria-label="Previous month"
           className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
         >
-          <ChevronLeft className="h-4 w-4 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ChevronLeft className="h-4 w-4 text-rp-ink-soft rtl-flip" />
         </button>
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 capitalize">
+        <h3 className="text-sm font-semibold text-rp-ink capitalize">
           {monthName}
         </h3>
         <button
@@ -87,7 +87,7 @@ export function MonthCalendar({
           aria-label="Next month"
           className="h-11 w-11 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-surface-dark-overlay active:scale-90 transition-transform"
         >
-          <ChevronRight className="h-4 w-4 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ChevronRight className="h-4 w-4 text-rp-ink-soft rtl-flip" />
         </button>
       </div>
 
@@ -142,7 +142,7 @@ export function MonthCalendar({
                       ? 'text-white'
                       : isToday
                         ? 'text-brand-600 dark:text-brand-400 font-bold'
-                        : 'text-slate-700 dark:text-slate-300'
+                        : 'text-rp-ink-soft'
                   )}
                 >
                   {day}

@@ -44,13 +44,13 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-3xl p-6 max-w-lg mx-auto">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
             <div className="flex flex-col items-center text-center">
               <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-3">
                 <AlertTriangle className="h-6 w-6 text-red-500" />
               </div>
-              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+              <Dialog.Title className="text-lg font-bold text-rp-ink mb-1">
                 {t('ai.limitReached')}
               </Dialog.Title>
               <p className="text-sm text-slate-500 mb-4">
@@ -75,7 +75,7 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
+        <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-3xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
 
           {showPaymentStep ? (
@@ -84,7 +84,7 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
               <div className="h-14 w-14 rounded-2xl bg-brand-500/10 flex items-center justify-center mb-4">
                 <CreditCard className="h-7 w-7 text-brand-500" />
               </div>
-              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+              <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
                 {t('ai.paymentTitle')}
               </Dialog.Title>
               <p className="text-sm text-slate-500 mb-1">
@@ -97,7 +97,7 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
               </p>
 
               {/* Fake CC form placeholder */}
-              <div className="w-full rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 p-5 mb-5">
+              <div className="w-full rounded-xl border-2 border-dashed border-rp-hairline p-5 mb-5">
                 <div className="space-y-3 opacity-40 pointer-events-none">
                   <div className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
                   <div className="flex gap-3">
@@ -129,7 +129,7 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
           ) : (
             /* Plan selection step */
             <>
-              <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white text-center mb-1">
+              <Dialog.Title className="text-lg font-bold text-rp-ink text-center mb-1">
                 {t('ai.unlockAI')}
               </Dialog.Title>
               <p className="text-sm text-slate-500 text-center mb-5">
@@ -200,12 +200,12 @@ function PlanCard({
         'w-full text-left p-4 rounded-xl border-2 transition-all',
         selected
           ? 'border-brand-500 bg-brand-500/5'
-          : 'border-slate-200 dark:border-slate-700'
+          : 'border-rp-hairline'
       )}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-900 dark:text-white">{name}</span>
+          <span className="font-bold text-rp-ink">{name}</span>
           {badge && (
             <span className="text-[10px] bg-brand-500 text-white px-1.5 py-0.5 rounded-full font-medium">
               {badge}
@@ -213,13 +213,13 @@ function PlanCard({
           )}
         </div>
         <div className="text-right">
-          <span className="text-lg font-bold text-slate-900 dark:text-white">${price.toFixed(2)}</span>
+          <span className="text-lg font-bold text-rp-ink">${price.toFixed(2)}</span>
           <span className="text-xs text-slate-400">/mo</span>
         </div>
       </div>
       <div className="space-y-1">
         {features.map((f) => (
-          <div key={f} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+          <div key={f} className="flex items-center gap-2 text-xs text-rp-ink-soft">
             <Check className="h-3 w-3 text-success shrink-0" />
             {f}
           </div>
@@ -255,10 +255,10 @@ export function UsageMeter({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-slate-600 dark:text-slate-400">{t('ai.usageThisMonth')}</span>
+        <span className="text-rp-ink-soft">{t('ai.usageThisMonth')}</span>
         <span className={cn(
           'font-medium',
-          isLimitReached ? 'text-red-500' : isWarning ? 'text-orange-500' : 'text-slate-600 dark:text-slate-400'
+          isLimitReached ? 'text-red-500' : isWarning ? 'text-orange-500' : 'text-rp-ink-soft'
         )}>
           {Math.round(percentUsed)}%
         </span>

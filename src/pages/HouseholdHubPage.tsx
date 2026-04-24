@@ -65,7 +65,7 @@ export function HouseholdHubPage() {
     >
       {/* Header */}
       <motion.div variants={fadeUp} className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">
           {t('household.title')}
         </h2>
       </motion.div>
@@ -82,7 +82,7 @@ export function HouseholdHubPage() {
           )}
         >
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            <h3 className="text-sm font-semibold text-rp-ink">
               {t('household.today')}
             </h3>
             <span className="text-xs text-slate-400">
@@ -102,7 +102,7 @@ export function HouseholdHubPage() {
                 >
                   <span className="text-sm">{CATEGORIES_EMOJI[activity.category] || '📌'}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{activity.name}</p>
+                    <p className="text-sm text-rp-ink-soft truncate">{activity.name}</p>
                   </div>
                   {formatTimeRange(activity) && (
                     <span className="text-xs text-slate-400 shrink-0">{formatTimeRange(activity)}</span>
@@ -117,7 +117,7 @@ export function HouseholdHubPage() {
                 >
                   <span className="text-sm">{chore.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{chore.name}</p>
+                    <p className="text-sm text-rp-ink-soft truncate">{chore.name}</p>
                   </div>
                   {chore.points > 0 && (
                     <span className="text-xs text-brand-500 font-medium shrink-0">{chore.points} pts</span>
@@ -137,7 +137,7 @@ export function HouseholdHubPage() {
             className={cn(
               'flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all min-h-[44px]',
               activeTab === 'chores'
-                ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                ? 'bg-rp-card text-rp-ink shadow-sm'
                 : 'text-slate-500'
             )}
           >
@@ -149,7 +149,7 @@ export function HouseholdHubPage() {
             className={cn(
               'flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all min-h-[44px]',
               activeTab === 'activities'
-                ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm'
+                ? 'bg-rp-card text-rp-ink shadow-sm'
                 : 'text-slate-500'
             )}
           >
@@ -163,7 +163,7 @@ export function HouseholdHubPage() {
       {activeTab === 'chores' && (
         <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
           <motion.div variants={fadeUp} className="flex items-center justify-between">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('chore.myChores')}</p>
+            <p className="text-sm font-medium text-rp-ink-soft">{t('chore.myChores')}</p>
             <button
               onClick={() => navigate('/household/chores')}
               className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
@@ -201,7 +201,7 @@ export function HouseholdHubPage() {
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{chore.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{chore.name}</p>
+                      <p className="text-sm font-medium text-rp-ink truncate">{chore.name}</p>
                       <div className="flex items-center gap-2 text-xs text-slate-400">
                         {chore.assigned_name && <span>{chore.assigned_name}</span>}
                         <span className="capitalize">{chore.frequency}</span>
@@ -266,7 +266,7 @@ export function HouseholdHubPage() {
                       {CATEGORIES_EMOJI[activity.category] || '📌'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{activity.name}</p>
+                      <p className="text-sm font-medium text-rp-ink truncate">{activity.name}</p>
                       <div className="flex items-center gap-2 text-xs text-slate-400">
                         {activity.assigned_name && <span>{activity.assigned_name}</span>}
                         {activity.location && <span>• {activity.location}</span>}

@@ -64,7 +64,7 @@ export function KrogerConnectionCard({ connection, onDisconnected, onStoreChange
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">Kroger</p>
+              <p className="text-sm font-semibold text-rp-ink">Kroger</p>
               <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
                 {t('grocer.connected')}
               </span>
@@ -103,7 +103,7 @@ export function KrogerConnectionCard({ connection, onDisconnected, onStoreChange
         {error && <p className="text-xs text-danger">{error}</p>}
 
         {showDisconnectConfirm && (
-          <div className="rounded-xl bg-slate-50 dark:bg-surface-dark-overlay p-3 space-y-2">
+          <div className="rounded-xl bg-rp-bg-soft p-3 space-y-2">
             <p className="text-xs text-slate-600 dark:text-slate-300">{t('grocer.disconnectConfirm')}</p>
             <div className="flex gap-2">
               <Button

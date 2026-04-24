@@ -90,7 +90,7 @@ export function ResetPasswordPage() {
               <KeyRound className="h-9 w-9 text-brand-500" />
             )}
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white text-center">
+          <h1 className="text-2xl font-bold text-rp-ink text-center">
             {success ? t('auth.passwordUpdated') : t('auth.forgotTitle')}
           </h1>
         </div>

@@ -166,11 +166,11 @@ export function RecipeFormPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">
           {isEdit ? (existingRecipe?.type === 'supply_kit' ? t('essentials.editEssentials') : t('recipe.edit')) : t('recipe.new')}
         </h2>
       </div>
@@ -237,7 +237,7 @@ export function RecipeFormPage() {
       {/* Ingredients */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+          <h3 className="text-base font-semibold text-rp-ink">
             {t('recipe.ingredients')}
           </h3>
           <Button size="sm" variant="ghost" onClick={addIngredient}>
@@ -275,17 +275,17 @@ export function RecipeFormPage() {
                         value={ing.quantity}
                         onChange={(e) => updateIngredient(ing.id, 'quantity', e.target.value)}
                         inputMode="decimal"
-                        className="w-16 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
+                        className="w-16 text-sm bg-transparent border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
                       />
                       <label className="sr-only" htmlFor={`unit-${ing.id}`}>{t('recipe.unit')}</label>
                       <select
                         id={`unit-${ing.id}`}
                         value={ing.unit}
                         onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)}
-                        className="min-w-[4rem] text-sm border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 bg-white dark:bg-surface-dark-elevated rounded focus:outline-none focus:border-brand-500"
+                        className="min-w-[4rem] text-sm border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 bg-rp-card rounded focus:outline-none focus:border-brand-500"
                       >
                         {UNITS.map((u) => (
-                          <option key={u} value={u} className="bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-slate-100">
+                          <option key={u} value={u} className="bg-rp-card text-slate-900 dark:text-slate-100">
                             {u || 'Unit'}
                           </option>
                         ))}
@@ -295,10 +295,10 @@ export function RecipeFormPage() {
                         id={`cat-${ing.id}`}
                         value={ing.category}
                         onChange={(e) => updateIngredient(ing.id, 'category', e.target.value)}
-                        className="flex-1 text-sm border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 bg-white dark:bg-surface-dark-elevated rounded focus:outline-none focus:border-brand-500"
+                        className="flex-1 text-sm border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 bg-rp-card rounded focus:outline-none focus:border-brand-500"
                       >
                         {DEPARTMENTS.map((d) => (
-                          <option key={d} value={d} className="bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-slate-100">
+                          <option key={d} value={d} className="bg-rp-card text-slate-900 dark:text-slate-100">
                             {d}
                           </option>
                         ))}
@@ -323,7 +323,7 @@ export function RecipeFormPage() {
       {/* Instructions (recipes only) */}
       {!isKit && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-rp-ink-soft">
             {t('recipe.instructions')}
           </label>
           <textarea

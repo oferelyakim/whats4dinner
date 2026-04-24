@@ -3,7 +3,7 @@ import { cn } from '@/lib/cn'
 import { Loader2 } from 'lucide-react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
 }
@@ -17,18 +17,20 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={isDisabled}
         className={cn(
-          'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-150',
-          'active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2',
+          'inline-flex items-center justify-center gap-2 rounded-rp-sm font-medium transition-all duration-150',
+          'active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-rp-brand focus-visible:ring-offset-2',
           'disabled:opacity-50 disabled:pointer-events-none',
           {
             primary:
-              'bg-brand-500 text-white hover:bg-brand-600 shadow-sm hover:shadow-md',
+              'bg-rp-brand text-rp-card hover:bg-rp-brand-deep shadow-sm hover:shadow-md',
             secondary:
-              'bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-surface-dark-elevated dark:text-slate-100 dark:hover:bg-surface-dark-overlay border border-slate-200 dark:border-slate-700/50',
+              'bg-rp-bg-soft text-rp-ink hover:bg-rp-brand-soft/60 border border-rp-hairline',
+            outline:
+              'bg-transparent text-rp-ink border border-rp-hairline hover:bg-rp-bg-soft',
             ghost:
-              'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-dark-elevated',
+              'text-rp-ink-soft hover:bg-rp-bg-soft',
             danger:
-              'bg-danger text-white hover:bg-red-600 shadow-sm',
+              'bg-rp-brand-deep text-rp-card hover:brightness-110 shadow-sm',
           }[variant],
           {
             sm: 'h-8 px-3 text-sm',

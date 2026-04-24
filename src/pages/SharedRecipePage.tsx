@@ -35,7 +35,7 @@ export function SharedRecipePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-surface-light dark:bg-surface-dark text-center">
         <BookOpen className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-4" />
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+        <h1 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink mb-2">
           Recipe not found
         </h1>
         <p className="text-sm text-slate-500">
@@ -56,11 +56,11 @@ export function SharedRecipePage() {
 
         {/* Recipe title */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-rp-ink">
             {recipe.title}
           </h1>
           {recipe.description && (
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+            <p className="text-sm text-rp-ink-mute mt-2">
               {recipe.description}
             </p>
           )}
@@ -114,14 +114,14 @@ export function SharedRecipePage() {
         {/* Ingredients */}
         {recipe.ingredients && recipe.ingredients.length > 0 && (
           <section>
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
+            <h2 className="text-base font-semibold text-rp-ink mb-3">
               Ingredients ({recipe.ingredients.length})
             </h2>
             <Card className="divide-y divide-slate-100 dark:divide-slate-800">
               {recipe.ingredients.map((ing) => (
                 <div key={ing.id} className="px-4 py-2.5 flex items-center gap-3">
                   <div className="h-1.5 w-1.5 rounded-full bg-brand-500 shrink-0" />
-                  <span className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="text-sm text-rp-ink-soft">
                     {ing.quantity && <strong>{formatQuantity(ing.quantity)}</strong>}
                     {ing.unit && ` ${ing.unit}`}
                     {' '}{ing.name}
@@ -136,11 +136,11 @@ export function SharedRecipePage() {
         {/* Instructions */}
         {recipe.instructions && (
           <section>
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">
+            <h2 className="text-base font-semibold text-rp-ink mb-3">
               Instructions
             </h2>
             <Card className="p-4">
-              <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+              <div className="text-sm text-rp-ink-soft whitespace-pre-wrap leading-relaxed">
                 {recipe.instructions}
               </div>
             </Card>
@@ -149,7 +149,7 @@ export function SharedRecipePage() {
 
         {/* CTA */}
         <Card variant="elevated" className="p-4 text-center space-y-3">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-rp-ink-soft">
             {session ? 'Save this recipe to your collection' : 'Sign up to save recipes, plan meals, and build shopping lists'}
           </p>
           <Button

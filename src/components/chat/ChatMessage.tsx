@@ -108,10 +108,10 @@ export function ChatMessage({
   if (isLoading) {
     return (
       <div className="flex justify-start">
-        <div className="bg-slate-100 dark:bg-surface-dark-elevated rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%]">
+        <div className="bg-rp-bg-soft rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%]">
           <div className="flex items-center gap-1.5">
             <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
-            <span className="text-sm text-slate-500 dark:text-slate-400">
+            <span className="text-sm text-rp-ink-mute">
               {t('chat.typing')}
             </span>
           </div>
@@ -127,7 +127,7 @@ export function ChatMessage({
           'rounded-2xl px-4 py-2.5 max-w-[85%] text-sm',
           role === 'user'
             ? 'bg-brand-500 text-white rounded-br-md whitespace-pre-wrap leading-relaxed'
-            : 'bg-slate-100 dark:bg-surface-dark-elevated text-slate-900 dark:text-slate-100 rounded-bl-md',
+            : 'bg-rp-bg-soft text-slate-900 dark:text-slate-100 rounded-bl-md',
         )}
       >
         {role === 'user' ? (

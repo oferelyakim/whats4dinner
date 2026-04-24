@@ -87,12 +87,12 @@ export function StoreRoutePage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">
+          <h2 className="text-lg font-bold text-rp-ink truncate">
             {store?.name ?? 'Store'} Route
           </h2>
           <p className="text-xs text-slate-400">Drag to reorder departments</p>
@@ -109,7 +109,7 @@ export function StoreRoutePage() {
         )}
       </div>
 
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-rp-ink-mute">
         Arrange departments in the order you walk through this store. Your shopping list will sort items to match.
       </p>
 
@@ -148,7 +148,7 @@ function SortableDepartment({ id, index }: { id: string; index: number }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 px-3 py-3 bg-white dark:bg-surface-dark-elevated"
+      className="flex items-center gap-3 px-3 py-3 bg-rp-card"
     >
       <button
         {...attributes}
@@ -158,7 +158,7 @@ function SortableDepartment({ id, index }: { id: string; index: number }) {
         <GripVertical className="h-5 w-5 text-slate-300 dark:text-slate-600" />
       </button>
       <span className="text-xs font-mono text-slate-400 w-5 text-right">{index + 1}</span>
-      <span className="text-sm text-slate-800 dark:text-slate-200">{id}</span>
+      <span className="text-sm text-rp-ink">{id}</span>
     </div>
   )
 }

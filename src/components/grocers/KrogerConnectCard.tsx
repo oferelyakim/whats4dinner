@@ -34,7 +34,7 @@ export function KrogerConnectCard() {
           <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          <p className="text-sm font-semibold text-rp-ink">
             {t('grocer.connectKroger')}
           </p>
           <p className="text-xs text-slate-500 truncate">{t('grocer.connectKrogerDesc')}</p>

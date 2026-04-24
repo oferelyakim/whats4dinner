@@ -111,8 +111,8 @@ export function CircleDetailPage() {
   if (!circle) {
     return (
       <div className="px-4 py-4">
-        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated mb-4">
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft mb-4">
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <p className="text-center text-slate-500">{t('circle.notFound')}</p>
       </div>
@@ -125,12 +125,12 @@ export function CircleDetailPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-9 w-9 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <span className="text-2xl">{circle.icon}</span>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1 truncate">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1 truncate">
           {circle.name}
         </h2>
       </div>
@@ -139,7 +139,7 @@ export function CircleDetailPage() {
       <Card className="p-4">
         <p className="text-xs text-slate-400 mb-2">{t('circle.shareCodeHint')}</p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 bg-slate-100 dark:bg-surface-dark-overlay px-3 py-2 rounded-lg text-sm font-mono text-slate-700 dark:text-slate-300">
+          <code className="flex-1 bg-slate-100 dark:bg-surface-dark-overlay px-3 py-2 rounded-lg text-sm font-mono text-rp-ink-soft">
             {circle.invite_code}
           </code>
           <Button size="sm" variant="secondary" onClick={copyInviteCode}>
@@ -151,7 +151,7 @@ export function CircleDetailPage() {
       {/* Members */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+          <h3 className="text-base font-semibold text-rp-ink">
             {t('circle.members')} ({members.length})
           </h3>
           <Button size="sm" onClick={() => { setShowInvite(true); setError('') }}>
@@ -177,7 +177,7 @@ export function CircleDetailPage() {
                     {profile?.display_name?.[0]?.toUpperCase() ?? '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                    <p className="text-sm font-medium text-rp-ink truncate">
                       {profile?.display_name || 'Unknown'}
                     </p>
                     <p className="text-xs text-slate-400 truncate">
@@ -198,7 +198,7 @@ export function CircleDetailPage() {
       {/* Circle Events */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+          <h3 className="text-base font-semibold text-rp-ink flex items-center gap-2">
             <PartyPopper className="h-4 w-4" />
             {t('event.events')}
           </h3>
@@ -219,7 +219,7 @@ export function CircleDetailPage() {
                 className="p-3 cursor-pointer active:scale-[0.98] transition-transform"
                 onClick={() => navigate(`/events/${event.id}`)}
               >
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{event.name}</p>
+                <p className="text-sm font-medium text-rp-ink">{event.name}</p>
                 {event.event_date && (
                   <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                     <CalendarDays className="h-3 w-3" />
@@ -236,18 +236,18 @@ export function CircleDetailPage() {
       <Dialog.Root open={showInvite} onOpenChange={setShowInvite}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
               {t('circle.inviteMember')}
             </Dialog.Title>
             <div className="space-y-4">
               {/* Share invite link */}
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                <label className="text-sm font-medium text-rp-ink-soft mb-1.5 block">
                   {t('circle.shareInviteLink')}
                 </label>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-slate-100 dark:bg-surface-dark-overlay px-3 py-2 rounded-lg text-xs font-mono text-slate-600 dark:text-slate-400 truncate">
+                  <code className="flex-1 bg-slate-100 dark:bg-surface-dark-overlay px-3 py-2 rounded-lg text-xs font-mono text-rp-ink-soft truncate">
                     {window.location.origin}/join/{circle.invite_code}
                   </code>
                   <Button
@@ -317,11 +317,11 @@ export function CircleDetailPage() {
       <Dialog.Root open={showLeave} onOpenChange={setShowLeave}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
               {isOwner ? t('circle.delete') : t('circle.leave')}
             </Dialog.Title>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-rp-ink-mute mb-4">
               {isOwner
                 ? <>{t('circle.deleteConfirm')} <strong>{circle.name}</strong>? {t('circle.deleteWarning')}</>
                 : <>{t('circle.leaveConfirm')} <strong>{circle.name}</strong>? {t('circle.leaveWarning')}</>

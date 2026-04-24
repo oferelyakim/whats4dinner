@@ -87,12 +87,12 @@ export function SupplyKitFormPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <Package className="h-5 w-5 text-brand-500" />
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('essentials.newEssentials')}</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('essentials.newEssentials')}</h2>
       </div>
 
       {/* Basic Info */}
@@ -113,7 +113,7 @@ export function SupplyKitFormPage() {
 
         {/* Category */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Category</label>
+          <label className="mb-1.5 block text-sm font-medium text-rp-ink-soft">Category</label>
           <div className="flex gap-1.5 flex-wrap">
             {KIT_CATEGORIES.map((cat) => (
               <button
@@ -121,7 +121,7 @@ export function SupplyKitFormPage() {
                 onClick={() => setKitCategory(cat)}
                 className={cn(
                   'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
-                  kitCategory === cat ? 'bg-brand-500 text-white' : 'bg-slate-100 dark:bg-surface-dark-overlay text-slate-600 dark:text-slate-400'
+                  kitCategory === cat ? 'bg-brand-500 text-white' : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
                 )}
               >
                 {cat}
@@ -134,7 +134,7 @@ export function SupplyKitFormPage() {
       {/* Items */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">Items</h3>
+          <h3 className="text-base font-semibold text-rp-ink">Items</h3>
           <Button size="sm" variant="ghost" onClick={addItem}>
             <Plus className="h-4 w-4" />
             {t('common.add')}
@@ -162,12 +162,12 @@ export function SupplyKitFormPage() {
                         placeholder="Qty"
                         value={item.quantity}
                         onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                        className="w-16 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
+                        className="w-16 text-sm bg-transparent border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
                       />
                       <select
                         value={item.unit}
                         onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
-                        className="text-sm border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 bg-white dark:bg-surface-dark-elevated rounded focus:outline-none focus:border-brand-500"
+                        className="text-sm border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 bg-rp-card rounded focus:outline-none focus:border-brand-500"
                       >
                         {UNITS.map((u) => (
                           <option key={u} value={u}>{u || 'Unit'}</option>
@@ -177,7 +177,7 @@ export function SupplyKitFormPage() {
                         placeholder="Notes"
                         value={item.notes}
                         onChange={(e) => updateItem(item.id, 'notes', e.target.value)}
-                        className="flex-1 text-sm bg-transparent border-b border-slate-200 dark:border-slate-700 pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
+                        className="flex-1 text-sm bg-transparent border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500"
                       />
                     </div>
                   </div>

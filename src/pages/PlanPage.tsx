@@ -479,7 +479,7 @@ export function PlanPage() {
   if (!activeCircle) {
     return (
       <div className="px-4 sm:px-6 py-4 space-y-4 animate-page-enter">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('plan.mealPlan')}</h2>
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('plan.mealPlan')}</h2>
         {allCircles.length === 0 ? (
           <EmptyState
             icon={<CalendarDays className="h-12 w-12" />}
@@ -502,7 +502,7 @@ export function PlanPage() {
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{circle.icon}</span>
-                  <p className="font-semibold text-slate-900 dark:text-white">{circle.name}</p>
+                  <p className="font-semibold text-rp-ink">{circle.name}</p>
                 </div>
               </Card>
             ))}
@@ -519,11 +519,11 @@ export function PlanPage() {
         <button
           onClick={() => navigate(-1)}
           aria-label="Go back"
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
         >
-          <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex-1">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">
           {t('plan.mealPlan')}
         </h2>
       </div>
@@ -533,12 +533,12 @@ export function PlanPage() {
         <button
           onClick={() => setWeekOffset((w) => w - 1)}
           aria-label="Previous week"
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform"
         >
-          <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ChevronLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
         <div className="text-center">
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{weekLabel}</h2>
+          <h2 className="text-sm font-semibold text-rp-ink-soft">{weekLabel}</h2>
           {weekOffset !== 0 && (
             <button
               onClick={() => setWeekOffset(0)}
@@ -551,9 +551,9 @@ export function PlanPage() {
         <button
           onClick={() => setWeekOffset((w) => w + 1)}
           aria-label="Next week"
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-surface-dark-elevated active:scale-90 transition-transform"
+          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform"
         >
-          <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400 rtl-flip" />
+          <ChevronRight className="h-5 w-5 text-rp-ink-soft rtl-flip" />
         </button>
       </div>
 
@@ -610,9 +610,9 @@ export function PlanPage() {
       <Dialog.Root open={showAiReview} onOpenChange={setShowAiReview}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 start-0 end-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-3xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto focus:outline-none">
+          <Dialog.Content className="fixed bottom-0 start-0 end-0 z-50 bg-rp-card rounded-t-3xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto focus:outline-none">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-1">
               {t('plan.aiPlanTitle')}
             </Dialog.Title>
             <p className="text-sm text-slate-500 mb-4">{t('plan.aiPlanReviewDesc')}</p>
@@ -644,12 +644,12 @@ export function PlanPage() {
             {/* Meal list */}
             <div className="space-y-2 mb-4">
               {aiPlan.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-surface-dark-overlay">
+                <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-rp-bg-soft">
                   <div className="w-16 text-xs text-slate-400 shrink-0">
                     <div>{item.date.split('-')[2]}</div>
                     <div className="capitalize">{item.meal_type}</div>
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 flex-1 min-w-0 truncate">{item.recipe_title}</p>
+                  <p className="text-sm text-rp-ink-soft flex-1 min-w-0 truncate">{item.recipe_title}</p>
                   {item.recipe_id ? (
                     <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full shrink-0">
                       {t('plan.saved')}
@@ -667,7 +667,7 @@ export function PlanPage() {
             {aiShoppingSuggestions.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wide">
                     {t('plan.aiShoppingSuggestions')}
                   </p>
                   <div className="flex gap-1">
@@ -694,7 +694,7 @@ export function PlanPage() {
                 </div>
                 <ul className="space-y-1">
                   {aiShoppingSuggestions.map((suggestion, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <li key={i} className="flex items-start gap-2 text-sm text-rp-ink-soft">
                       <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-brand-400 shrink-0" />
                       {suggestion}
                     </li>
@@ -876,8 +876,8 @@ export function PlanPage() {
       <Dialog.Root open={showAddMeal} onOpenChange={setShowAddMeal}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-surface-dark-elevated rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
-            <Dialog.Title className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-1">
               {t('plan.addMeal')} {MEAL_LABELS[selectedMealType]} {/* TODO: add i18n key for addMeal */}
             </Dialog.Title>
             <p className="text-xs text-slate-400 mb-4">
@@ -896,7 +896,7 @@ export function PlanPage() {
                 onClick={() => setAddSource('recipes')}
                 className={cn(
                   'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
-                  addSource === 'recipes' ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                  addSource === 'recipes' ? 'bg-rp-card text-rp-ink shadow-sm' : 'text-slate-500'
                 )}
               >
                 {t('plan.recipes')}              </button>
@@ -904,7 +904,7 @@ export function PlanPage() {
                 onClick={() => setAddSource('templates')}
                 className={cn(
                   'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
-                  addSource === 'templates' ? 'bg-white dark:bg-surface-dark-elevated text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                  addSource === 'templates' ? 'bg-rp-card text-rp-ink shadow-sm' : 'text-slate-500'
                 )}
               >
                 {t('plan.templates')}              </button>
@@ -936,7 +936,7 @@ export function PlanPage() {
                         className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay active:scale-[0.98] transition-all"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                          <p className="text-sm font-medium text-rp-ink truncate">
                             {recipe.title}
                           </p>
                           {recipe.tags?.length > 0 && (
@@ -968,7 +968,7 @@ export function PlanPage() {
                         className="w-full flex items-start gap-3 p-3 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-surface-dark-overlay active:scale-[0.98] transition-all"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          <p className="text-sm font-medium text-rp-ink">
                             {menu.name}
                           </p>
                           {menu.recipes?.length > 0 && (
@@ -1008,8 +1008,8 @@ export function PlanPage() {
       <Dialog.Root open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed top-1/2 start-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-2rem)] max-w-sm bg-white dark:bg-surface-dark-elevated rounded-2xl p-5 shadow-2xl focus:outline-none">
-            <Dialog.Title className="text-base font-bold text-slate-900 dark:text-white mb-2">
+          <Dialog.Content className="fixed top-1/2 start-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-2rem)] max-w-sm bg-rp-card rounded-2xl p-5 shadow-2xl focus:outline-none">
+            <Dialog.Title className="text-base font-bold text-rp-ink mb-2">
               {t('plan.removeDishTitle')}
             </Dialog.Title>
             <Dialog.Description className="text-sm text-slate-600 dark:text-slate-300 mb-5">

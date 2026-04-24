@@ -1,16 +1,21 @@
-# OurTable (whats4dinner)
+# Replanish
 
-Family household management PWA - meals, shopping, events, chores, activities.
+Family household management PWA for the US market — meals, shopping, events, chores, activities. Revenue = retailer cart integrations (Walmart-first affiliate add-to-cart) + AI subscriptions (Individual / Family).
+
+Repo folder is still `Replanish_App/`; legacy Supabase project name is `Whats4dinner`. Live hosting is Vercel with custom domains: **replanish.app** (marketing) and **app.replanish.app** (app). The old `whats4dinner-gamma.vercel.app` URL still resolves.
 
 ## Links
 
 - **GitHub**: https://github.com/oferelyakim/whats4dinner
-- **Live**: https://whats4dinner-gamma.vercel.app
+- **Live (app)**: https://app.replanish.app
+- **Live (site)**: https://replanish.app
+- **Legacy Vercel URL**: https://whats4dinner-gamma.vercel.app (still resolves)
 - **Supabase**: https://zgebzhvbszhqvaryfiwk.supabase.co (project: Whats4dinner)
 
 ## Tech Stack
 
 - **Frontend**: React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + Radix UI + dnd-kit + Framer Motion
+- **Design language**: "Hearth" — warm cream + ember terracotta + sage + candlelight gold. Instrument Serif italic (display) + Geist (sans) + Caveat (hand accent). Full spec in `handoff/DESIGN_SYSTEM.md` + `handoff/SKINS.md`; visual reference `handoff/Replanish Redesign.html`.
 - **Database**: Supabase (PostgreSQL + Auth + Realtime + Edge Functions)
 - **State**: Zustand (UI) + TanStack Query (server)
 - **Hosting**: Vercel (auto-deploys from GitHub `master` branch)
@@ -36,14 +41,17 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 
 ## App Identity
 
-- **Name**: OurTable (Hebrew: השולחן שלנו)
-- **Brand color**: #f97316 (orange)
-- **i18n**: Hebrew/English, 300+ translation keys, full RTL support
+- **Name**: Replanish
+- **Tagline**: Family life, planned & shared — together
+- **Brand color**: `#c4522d` ember terracotta (Hearth `--rp-brand`); sage `#6b7f56` secondary; candlelight gold `#e8a84a` warmth. Old teal `#2bbaa0` and orange `#f97316` are retired — do not use. PWA manifest still references the old teal and needs updating before store submission.
+- **Typography**: Instrument Serif italic for every page title + display moments; Geist for body/UI; Caveat for one handwritten accent per screen.
+- **Primary market**: United States. Hebrew/RTL remains fully supported as a secondary locale.
+- **i18n**: English (primary) / Hebrew, 300+ translation keys, full RTL support
 - **Theme**: Dark / Light / System
 
 ## Navigation
 
-- **Bottom nav**: Home | Food | Events | Household | Profile (5 domain-based tabs, replaced old "More" menu)
+- **Bottom nav**: Home | Food | **Gather** | **House** | **Me** (paths unchanged: `/`, `/food`, `/events`, `/household`, `/profile`; labels renamed in the Hearth redesign). Custom hand-drawn nav icons in `src/components/ui/hearth/NavIcons.tsx` — do not replace with lucide.
 - **Food hub** (`/food`): Pill tabs — Overview | Recipes | Plan | Lists. Quick actions, this week's meals, active lists, templates & stores shortcuts
 - **Household hub** (`/household`): Segmented control — Chores | Activities. Today's summary banner, daily/weekly chores, activity categories
 - **Profile** (`/profile`): Circles, Settings, Theme, Language, Subscription (slim replacement for old MorePage)
@@ -69,7 +77,7 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 /join/:code, /join-event/:code, /r/:code  → Public join/share links
 ```
 
-## Database Migrations (18 total)
+## Database Migrations (24 total)
 
 001-006: Core tables (profiles, circles, items, recipes, shopping lists, stores)
 007: Recipe shares + events
@@ -84,6 +92,12 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 016: Supply kits (type + kit_category on recipes table)
 017: Chores tables + chore_completions + activities participants/bring_items columns (idempotent, `017_chores_and_activity_fields.sql`)
 018: Subscriptions + AI usage tracking (`018_subscriptions_and_ai_usage.sql`) — subscriptions table, ai_usage table, `get_user_monthly_usage()` function, RLS policies
+019: Activity reminders + yearly recurrence (`019_activity_reminders_and_yearly.sql`); AI chat usage logging (`019_ai_chat_usage.sql`)
+020: Onboarding flag on profiles (`020_onboarding_flag.sql`)
+021: Meal + event AI support (`021_meal_event_ai.sql`)
+022: Activity cross-circle sharing (`022_activity_cross_circle_sharing.sql`)
+023: Grocer integrations (`023_grocer_integrations.sql`) — encrypted OAuth token store, product cache, list↔store links, app_config feature flag
+024: Circle skins (`024_circle_skins.sql`) — adds `circles.skin_id text DEFAULT 'hearth'` + `circles.custom_skin jsonb` for the Hearth skin system
 
 Additional SQL fixes applied directly (not in migration files):
 - Events RLS fix: `get_my_event_ids()` security definer function
@@ -100,9 +114,13 @@ Additional SQL fixes applied directly (not in migration files):
 - **Services layer**: Each feature has a service file in `src/services/` (12 service files — supabase queries + helpers)
 - **Pages**: 24+ pages in `src/pages/`, organized by domain (food, household, events, circles, profile)
 - **Hub pages**: FoodHubPage and HouseholdHubPage aggregate related features with internal tab navigation
-- **Subscription tiers**: Free (all features) / AI Individual $4.99/mo / AI Family $6.99/mo (5 members) — Stripe not yet integrated, mock upgrade flow in place
+- **Subscription tiers**: Free (all core coordination) / AI Individual $4.99/mo / AI Family $6.99/mo (5 members). Stripe `create-checkout` + `stripe-webhook` Edge Functions built; needs `STRIPE_*` secrets set in Supabase to go live.
+- **Revenue**: AI subs (live today) + retailer cart integrations (Walmart-first, planned) — affiliate commission on ingredients sent from shopping lists
 - **AI gating**: `useAIAccess` hook checks subscription + usage cap. `AIUpgradeModal` for upgrade/limit-reached. `UsageMeter` progress bar in Profile/Settings
 - **AI usage tracking**: Edge function returns `_ai_usage` metadata (model, tokens, cost). `logAIUsage()` logs to `ai_usage` table. $4.00/mo hard cap, $3.00 warning threshold
+- **Design tokens**: `src/index.css` declares `--rp-*` CSS variables + a Tailwind v4 `@theme` block that exposes them as utilities (`bg-rp-brand`, `text-rp-ink`, `font-display`, `shadow-rp-card`, etc.). Legacy `brand-500` is remapped to Hearth terracotta so not-yet-migrated pages stay on-palette. Hardcoded hex values are banned outside `src/index.css` / `src/lib/skins.ts`.
+- **Skin system**: `src/lib/skins.ts` (9 built-ins) + `src/components/SkinProvider.tsx` (writes `--rp-*` vars onto `<html>` from active circle's `skin_id` / `custom_skin`, toggles `.dark` for dark skins). Custom-skin builder (AI Family tier) is planned but not yet routed.
+- **Hearth primitives**: `src/components/ui/hearth/` exports `Avatar`, `AvatarStack`, `CircleGlyph`, `RingsOrnament`, `PageTitle`, `DisplayTitle`, `MonoLabel`, `HandAccent`, `PhotoPlaceholder`, and the five custom nav icons. Use these for all new screens — do not import shadcn/daisy/Material wholesale.
 
 ## Features
 
@@ -120,6 +138,8 @@ Additional SQL fixes applied directly (not in migration files):
 - **Onboarding**: 3-step first-run flow (Welcome → Create/Join Circle → Done), gated via has_onboarded flag
 - **Notifications**: In-app notification center (bell icon in header), activity reminders + chore nudges, browser Notification API
 - **Subscriptions**: AI Individual/Family plans, Stripe checkout Edge Function (with mock fallback), webhook handler
+- **AI Assistant**: In-app Claude-powered chat (`ai-chat` edge function), gated by subscription + monthly $ cap
+- **Retailer cart (planned)**: Walmart-first affiliate add-to-cart from shopping lists (primary long-term revenue stream, not yet implemented)
 
 ## E2E Tests
 
