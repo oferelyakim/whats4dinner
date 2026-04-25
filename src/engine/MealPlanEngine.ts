@@ -12,10 +12,17 @@ import type {
   MealView,
   DayView,
   PlanView,
+  ErrorStage,
+  SlotEnvelopeSnapshot,
 } from './types'
 import { generateIngredient } from './pipeline/generateIngredient'
 import { generateDish } from './pipeline/generateDish'
 import { findAndFetchRecipe } from './pipeline/fetchRecipe'
+import { buildEnvelope, type SlotEnvelope } from './variety/envelope'
+import { mergeEnvelope, parseUserHint } from './variety/precedence'
+import { AbortedByUserError } from './errors'
+
+export { AbortedByUserError } from './errors'
 
 const uid = () => crypto.randomUUID()
 const now = () => Date.now()
@@ -28,11 +35,24 @@ const DEFAULT_PREFS: UserPreferences = {
   recentDishesWindow: 14,
 }
 
+// ─── Constants for reliability watchdog ────────────────────────────────────
+
+const STUCK_THRESHOLD_MS = 120_000 // 2 minutes — anything older auto-resets
+const MAX_CONCURRENT_GENERATIONS = 2
+
 export class MealPlanEngine {
   bus = new EventBus()
 
+  // Per-slot AbortController — populated while a stage is in flight.
+  private aborts = new Map<string, AbortController>()
+
+  // 2-in-flight queue to keep us under Anthropic rate limits when generating
+  // a whole plan in parallel.
+  private queue: Array<() => Promise<void>> = []
+  private inflight = 0
+
   // Public method for tests/components to subscribe
-  on<K extends 'slot:updated' | 'meal:updated' | 'plan:updated'>(
+  on<K extends 'slot:updated' | 'meal:updated' | 'plan:updated' | 'error'>(
     event: K,
     h: Parameters<EventBus['on']>[1] extends infer F ? F : never,
   ) {
@@ -85,6 +105,7 @@ export class MealPlanEngine {
   async deletePlan(id: string): Promise<void> {
     const days = await db.days.where('planId').equals(id).toArray()
     for (const d of days) await this.removeDay(d.id, { skipEmit: true })
+    await db.dishHistory.where('planId').equals(id).delete()
     await db.plans.delete(id)
   }
 
@@ -130,6 +151,8 @@ export class MealPlanEngine {
   }
 
   async removeMeal(mealId: string, opts?: { skipEmit?: boolean }): Promise<void> {
+    const slots = await db.slots.where('mealId').equals(mealId).toArray()
+    for (const s of slots) await db.dishHistory.where('slotId').equals(s.id).delete()
     await db.slots.where('mealId').equals(mealId).delete()
     const meal = await db.meals.get(mealId)
     await db.meals.delete(mealId)
@@ -159,6 +182,7 @@ export class MealPlanEngine {
   }
 
   async removeSlot(slotId: string): Promise<void> {
+    await db.dishHistory.where('slotId').equals(slotId).delete()
     await db.slots.delete(slotId)
   }
 
@@ -191,6 +215,9 @@ export class MealPlanEngine {
   // ─── Presets (PURE DATA COPY, NO AI) ───────────────────────────────────
 
   private async fillSlotsFromPreset(mealId: string, slots: PresetSlot[]): Promise<void> {
+    // wipe history rows for the slots we're about to delete
+    const existing = await db.slots.where('mealId').equals(mealId).toArray()
+    for (const s of existing) await db.dishHistory.where('slotId').equals(s.id).delete()
     await db.slots.where('mealId').equals(mealId).delete()
     const rows: Slot[] = slots.map((ps, i) => {
       const hasRecipe = !!ps.recipeId
@@ -331,10 +358,17 @@ export class MealPlanEngine {
   }
 
   private async getRecentDishNames(planId: string, windowDays: number): Promise<string[]> {
+    // Cross-plan history takes precedence over current-plan-only.
+    const cutoff = now() - windowDays * 24 * 60 * 60 * 1000
+    const global = await db.dishHistory.orderBy('plannedAt').reverse().limit(50).toArray()
+    const filtered = global.filter((h) => h.plannedAt >= cutoff).map((h) => h.dishName)
+    if (filtered.length > 0) return filtered
+
+    // Fall back to current-plan slot dishNames if dishHistory is empty (e.g. before
+    // first generation completes).
     const days = await db.days.where('planId').equals(planId).toArray()
     const meals = (await Promise.all(days.map((d) => db.meals.where('dayId').equals(d.id).toArray()))).flat()
     const slots = (await Promise.all(meals.map((m) => db.slots.where('mealId').equals(m.id).toArray()))).flat()
-    const cutoff = now() - windowDays * 24 * 60 * 60 * 1000
     return slots
       .filter((s) => s.dishName && s.updatedAt >= cutoff)
       .map((s) => s.dishName!)
@@ -359,110 +393,277 @@ export class MealPlanEngine {
     return { slot, meal, day, siblings }
   }
 
-  /** Idempotent: resumes from current status. */
+  private isWeekend(isoDate: string): boolean {
+    const d = new Date(isoDate + 'T12:00:00')
+    const dow = d.getDay()
+    return dow === 0 || dow === 6
+  }
+
+  private emitError(slotId: string, stage: ErrorStage, message: string, durationMs: number) {
+    try {
+      this.bus.emit('error', { slotId, stage, message, durationMs })
+    } catch {
+      /* never crash the engine on telemetry */
+    }
+  }
+
+  /**
+   * Idempotent: resumes from current status. Per-slot AbortController is
+   * stored in `this.aborts` so `cancelSlot()` can interrupt mid-stage.
+   */
   async generateSlot(slotId: string): Promise<Slot> {
     let slot = await db.slots.get(slotId)
     if (!slot) throw new Error(`Slot ${slotId} not found`)
     if (slot.status === 'ready') return slot
     if (slot.locked) return slot
 
-    const prefs = await this.getPrefs()
-    const { meal, day, siblings } = await this.getMealAndSiblings(slotId)
+    // If a generation is already in flight for this slot, skip — let the
+    // running call complete. (Tests rely on idempotency at the status level
+    // so we don't actually return early on `generating_*`.)
+    const existing = this.aborts.get(slotId)
+    if (existing) {
+      // Clean up any stale controller — caller is starting fresh.
+      this.aborts.delete(slotId)
+    }
+    const ctrl = new AbortController()
+    this.aborts.set(slotId, ctrl)
 
-    // ─── Stage A — Ingredient ────────────────────────────────────
-    if (slot.status === 'empty' || slot.status === 'generating_ingredient') {
-      slot = await this.patchSlot(slotId, { status: 'generating_ingredient', errorMessage: undefined, errorStage: undefined })
-      try {
-        const recentDishes = await this.getRecentDishNames(day.planId, prefs.recentDishesWindow)
-        const result = await generateIngredient({
-          mealType: meal.type,
+    try {
+      const prefs = await this.getPrefs()
+      const { meal, day, siblings } = await this.getMealAndSiblings(slotId)
+
+      // Build the variety envelope ONCE for this generation cycle. It is
+      // stored on the slot so Stage A and B see the same envelope, and so
+      // the UI can display it for debugging.
+      let envelope: SlotEnvelope
+      if (slot.envelope && slot.status !== 'empty') {
+        // Reuse existing envelope when resuming from a partial state
+        envelope = {
+          ...slot.envelope,
+          reasoning: `resumed: ${slot.envelope.cuisineLabel} / ${slot.envelope.styleLabel} / ${slot.envelope.flavorLabel}`,
+        }
+      } else {
+        envelope = await buildEnvelope({
+          slotId: slot.id,
+          mealId: meal.id,
+          dayId: day.id,
+          planId: day.planId,
           slotRole: slot.role,
-          theme: day.theme,
-          dietaryConstraints: prefs.dietaryConstraints,
-          pantryItems: prefs.pantryItems,
-          dislikedIngredients: prefs.dislikedIngredients,
-          recentDishes,
-          notes: slot.notes,
-          siblingSlots: siblings.map((s) => ({ role: s.role, ingredient: s.ingredient })),
+          dietaryTags: prefs.dietaryConstraints,
+          dislikedNames: prefs.dislikedIngredients,
+          isWeekend: this.isWeekend(day.date),
         })
-        slot = await this.patchSlot(slotId, {
-          status: 'ingredient_chosen',
-          ingredient: result.ingredient,
-        })
-      } catch (err) {
-        slot = await this.patchSlot(slotId, {
-          status: 'error',
-          errorStage: 'ingredient',
-          errorMessage: err instanceof Error ? err.message : String(err),
-        })
-        return slot
       }
-    }
 
-    // ─── Stage B — Dish ──────────────────────────────────────────
-    if (slot.status === 'ingredient_chosen' || slot.status === 'generating_dish') {
-      slot = await this.patchSlot(slotId, { status: 'generating_dish' })
-      try {
-        const result = await generateDish({
-          mealType: meal.type,
-          slotRole: slot.role,
-          ingredient: slot.ingredient!,
-          theme: day.theme,
-          dietaryConstraints: prefs.dietaryConstraints,
-          notes: slot.notes,
-        })
-        slot = await this.patchSlot(slotId, {
-          status: 'dish_named',
-          dishName: result.dishName,
-          searchKeywords: result.searchKeywords,
-        })
-      } catch (err) {
-        slot = await this.patchSlot(slotId, {
-          status: 'error',
-          errorStage: 'dish',
-          errorMessage: err instanceof Error ? err.message : String(err),
-        })
-        return slot
+      // Apply user-hint precedence (replaceHint is one-shot; notes is persistent)
+      const userHint = parseUserHint(slot.replaceHint || slot.notes)
+      const finalEnvelope = mergeEnvelope(envelope, userHint)
+
+      const envelopeSnap: SlotEnvelopeSnapshot = {
+        cuisineId: finalEnvelope.cuisineId,
+        cuisineLabel: finalEnvelope.cuisineLabel,
+        cuisineRegion: finalEnvelope.cuisineRegion,
+        proteinName: finalEnvelope.proteinName,
+        proteinFamily: finalEnvelope.proteinFamily,
+        styleId: finalEnvelope.styleId,
+        styleLabel: finalEnvelope.styleLabel,
+        flavorId: finalEnvelope.flavorId,
+        flavorLabel: finalEnvelope.flavorLabel,
       }
-    }
 
-    // ─── Stage C — Recipe ────────────────────────────────────────
-    if (slot.status === 'dish_named' || slot.status === 'fetching_recipe' || slot.status === 'recipe_fetched') {
-      slot = await this.patchSlot(slotId, { status: 'fetching_recipe' })
-      try {
-        const recipeData = await findAndFetchRecipe({
-          dishName: slot.dishName!,
-          searchKeywords: slot.searchKeywords ?? [slot.dishName!],
-          dietaryConstraints: prefs.dietaryConstraints,
-          notes: slot.notes,
-        })
-        const recipe: Recipe = { id: uid(), fetchedAt: now(), ...recipeData }
-        await db.recipes.add(recipe)
-        slot = await this.patchSlot(slotId, { status: 'ready', recipeId: recipe.id })
-      } catch (err) {
+      // ─── Stage A — Ingredient ────────────────────────────────────
+      if (slot.status === 'empty' || slot.status === 'generating_ingredient') {
         slot = await this.patchSlot(slotId, {
-          status: 'error',
-          errorStage: 'recipe',
-          errorMessage: err instanceof Error ? err.message : String(err),
+          status: 'generating_ingredient',
+          envelope: envelopeSnap,
+          generatingStartedAt: now(),
+          errorMessage: undefined,
+          errorStage: undefined,
         })
-        return slot
+        const stageStart = Date.now()
+        try {
+          const recentDishes = await this.getRecentDishNames(day.planId, prefs.recentDishesWindow)
+          const result = await generateIngredient(
+            {
+              mealType: meal.type,
+              slotRole: slot.role,
+              theme: day.theme,
+              dietaryConstraints: prefs.dietaryConstraints,
+              pantryItems: prefs.pantryItems,
+              dislikedIngredients: [...prefs.dislikedIngredients, ...(userHint.hardAvoid ?? [])],
+              recentDishes,
+              notes: slot.replaceHint || slot.notes,
+              siblingSlots: siblings.map((s) => ({ role: s.role, ingredient: s.ingredient })),
+              envelope: envelopeSnap,
+            },
+            ctrl.signal,
+          )
+          slot = await this.patchSlot(slotId, {
+            status: 'ingredient_chosen',
+            ingredient: result.ingredient,
+          })
+        } catch (err) {
+          if (err instanceof AbortedByUserError || ctrl.signal.aborted) {
+            // User cancelled — revert to empty, not error.
+            slot = await this.patchSlot(slotId, {
+              status: 'empty',
+              generatingStartedAt: undefined,
+            })
+            return slot
+          }
+          const message = err instanceof Error ? err.message : String(err)
+          slot = await this.patchSlot(slotId, {
+            status: 'error',
+            errorStage: 'ingredient',
+            errorMessage: message,
+            generatingStartedAt: undefined,
+          })
+          this.emitError(slotId, 'ingredient', message, Date.now() - stageStart)
+          return slot
+        }
       }
-    }
 
-    return slot
+      // ─── Stage B — Dish ──────────────────────────────────────────
+      if (slot.status === 'ingredient_chosen' || slot.status === 'generating_dish') {
+        slot = await this.patchSlot(slotId, {
+          status: 'generating_dish',
+          generatingStartedAt: now(),
+        })
+        const stageStart = Date.now()
+        try {
+          const recentDishes = await this.getRecentDishNames(day.planId, prefs.recentDishesWindow)
+          const result = await generateDish(
+            {
+              mealType: meal.type,
+              slotRole: slot.role,
+              ingredient: slot.ingredient!,
+              theme: day.theme,
+              dietaryConstraints: prefs.dietaryConstraints,
+              notes: slot.replaceHint || slot.notes,
+              recentDishes,
+              envelope: envelopeSnap,
+            },
+            ctrl.signal,
+          )
+          slot = await this.patchSlot(slotId, {
+            status: 'dish_named',
+            dishName: result.dishName,
+            searchKeywords: result.searchKeywords,
+          })
+
+          // Write to dishHistory the moment Stage B succeeds — Stage C
+          // failure shouldn't unwrite the dish identity.
+          await db.dishHistory.add({
+            id: uid(),
+            slotId: slot.id,
+            planId: day.planId,
+            dishName: result.dishName,
+            ingredient: slot.ingredient,
+            proteinName: envelopeSnap.proteinName,
+            proteinFamily: envelopeSnap.proteinFamily,
+            cuisineId: envelopeSnap.cuisineId,
+            styleId: envelopeSnap.styleId,
+            flavorId: envelopeSnap.flavorId,
+            plannedAt: now(),
+          })
+        } catch (err) {
+          if (err instanceof AbortedByUserError || ctrl.signal.aborted) {
+            slot = await this.patchSlot(slotId, {
+              status: 'ingredient_chosen',
+              generatingStartedAt: undefined,
+            })
+            return slot
+          }
+          const message = err instanceof Error ? err.message : String(err)
+          slot = await this.patchSlot(slotId, {
+            status: 'error',
+            errorStage: 'dish',
+            errorMessage: message,
+            generatingStartedAt: undefined,
+          })
+          this.emitError(slotId, 'dish', message, Date.now() - stageStart)
+          return slot
+        }
+      }
+
+      // ─── Stage C — Recipe ────────────────────────────────────────
+      if (
+        slot.status === 'dish_named' ||
+        slot.status === 'fetching_recipe' ||
+        slot.status === 'recipe_fetched'
+      ) {
+        slot = await this.patchSlot(slotId, {
+          status: 'fetching_recipe',
+          generatingStartedAt: now(),
+        })
+        const stageStart = Date.now()
+        try {
+          const recipeData = await findAndFetchRecipe(
+            {
+              dishName: slot.dishName!,
+              searchKeywords: slot.searchKeywords ?? [slot.dishName!],
+              dietaryConstraints: prefs.dietaryConstraints,
+              notes: slot.replaceHint || slot.notes,
+            },
+            ctrl.signal,
+          )
+          const recipe: Recipe = { id: uid(), fetchedAt: now(), ...recipeData }
+          await db.recipes.add(recipe)
+          slot = await this.patchSlot(slotId, {
+            status: 'ready',
+            recipeId: recipe.id,
+            replaceHint: undefined, // one-shot — clear after success
+            generatingStartedAt: undefined,
+          })
+        } catch (err) {
+          if (err instanceof AbortedByUserError || ctrl.signal.aborted) {
+            slot = await this.patchSlot(slotId, {
+              status: 'dish_named',
+              generatingStartedAt: undefined,
+            })
+            return slot
+          }
+          const message = err instanceof Error ? err.message : String(err)
+          slot = await this.patchSlot(slotId, {
+            status: 'error',
+            errorStage: 'recipe',
+            errorMessage: message,
+            generatingStartedAt: undefined,
+          })
+          this.emitError(slotId, 'recipe', message, Date.now() - stageStart)
+          return slot
+        }
+      }
+
+      return slot
+    } finally {
+      // Only delete if this is still the controller we registered.
+      if (this.aborts.get(slotId) === ctrl) this.aborts.delete(slotId)
+    }
+  }
+
+  /** Cancel an in-flight generation. Reverts slot to its last completed state. */
+  async cancelSlot(slotId: string): Promise<void> {
+    const ctrl = this.aborts.get(slotId)
+    if (ctrl) {
+      ctrl.abort()
+      this.aborts.delete(slotId)
+    }
+    // generateSlot's catch block handles the revert; nothing else to do here.
   }
 
   async replaceSlot(slotId: string, hint?: string): Promise<Slot> {
     const slot = await db.slots.get(slotId)
     if (!slot) throw new Error(`Slot ${slotId} not found`)
 
-    // If slot has a recipeId, the recipe persists in Dexie (in case it's referenced elsewhere)
-    // but we reset the slot itself.
-    const newNotes = hint
-      ? slot.notes
-        ? `${slot.notes}; ${hint}`
-        : hint
-      : slot.notes
+    // Pre-cancel any in-flight generation.
+    await this.cancelSlot(slotId)
+
+    // Drop the slot's own dishHistory rows so the anti-repeat picker doesn't
+    // re-suggest the dish we just rejected.
+    await db.dishHistory.where('slotId').equals(slotId).delete()
+
+    const trimmedHint = hint?.trim()
 
     await this.patchSlot(slotId, {
       status: 'empty',
@@ -470,19 +671,50 @@ export class MealPlanEngine {
       dishName: undefined,
       searchKeywords: undefined,
       recipeId: undefined,
+      envelope: undefined,
       errorMessage: undefined,
       errorStage: undefined,
+      generatingStartedAt: undefined,
       locked: false,
-      notes: newNotes,
+      // Overwrite, never append. Hint is one-shot.
+      replaceHint: trimmedHint || undefined,
     })
     return await this.generateSlot(slotId)
   }
 
-  /** Generates all empty/error/intermediate slots in a meal in parallel, skipping locked + ready. */
+  // ─── Concurrency-bounded queue ─────────────────────────────────────────
+
+  private async queueGenerate(slotId: string): Promise<void> {
+    return new Promise((resolve) => {
+      const job = async () => {
+        this.inflight++
+        try {
+          await this.generateSlot(slotId)
+        } catch {
+          /* slot already patched to error inside generateSlot */
+        } finally {
+          this.inflight--
+          resolve()
+          this.pump()
+        }
+      }
+      this.queue.push(job)
+      this.pump()
+    })
+  }
+
+  private pump(): void {
+    while (this.inflight < MAX_CONCURRENT_GENERATIONS && this.queue.length > 0) {
+      const job = this.queue.shift()!
+      void job()
+    }
+  }
+
+  /** Generates all empty/error/intermediate slots in a meal in parallel-with-cap, skipping locked + ready. */
   async generateMeal(mealId: string): Promise<MealView> {
     const slots = await db.slots.where('mealId').equals(mealId).sortBy('position')
     const targets = slots.filter((s) => !s.locked && s.status !== 'ready')
-    await Promise.all(targets.map((s) => this.generateSlot(s.id).catch(() => undefined)))
+    await Promise.all(targets.map((s) => this.queueGenerate(s.id)))
     const meal = await db.meals.get(mealId)
     const fresh = await db.slots.where('mealId').equals(mealId).sortBy('position')
     const view: MealView = { ...meal!, slots: fresh }
@@ -511,6 +743,49 @@ export class MealPlanEngine {
     return view
   }
 
+  /**
+   * Stuck-slot self-heal. Scans the plan for slots in `generating_*` for
+   * longer than STUCK_THRESHOLD_MS (default 2 min) and reverts them to
+   * their last good state, then queues a fresh generation. Idempotent —
+   * safe to call repeatedly (e.g. on visibilitychange).
+   */
+  async resumeStuckSlots(planId: string): Promise<number> {
+    const days = await db.days.where('planId').equals(planId).toArray()
+    const meals = (
+      await Promise.all(days.map((d) => db.meals.where('dayId').equals(d.id).toArray()))
+    ).flat()
+    const slots = (
+      await Promise.all(meals.map((m) => db.slots.where('mealId').equals(m.id).toArray()))
+    ).flat()
+
+    const cutoff = now() - STUCK_THRESHOLD_MS
+    const stuck = slots.filter((s) => {
+      if (!s.status.startsWith('generating_') && s.status !== 'fetching_recipe') return false
+      const started = s.generatingStartedAt ?? s.updatedAt
+      return started < cutoff
+    })
+
+    for (const s of stuck) {
+      const fallback: Slot['status'] =
+        s.status === 'generating_ingredient'
+          ? 'empty'
+          : s.status === 'generating_dish'
+            ? 'ingredient_chosen'
+            : s.status === 'fetching_recipe'
+              ? 'dish_named'
+              : 'empty'
+      // Drop the stale controller so generateSlot makes a fresh one.
+      this.aborts.delete(s.id)
+      await this.patchSlot(s.id, {
+        status: fallback,
+        generatingStartedAt: undefined,
+      })
+      // Resume in the background — don't block the resume sweep.
+      void this.queueGenerate(s.id)
+    }
+    return stuck.length
+  }
+
   // ─── helpers ───────────────────────────────────────────────────────────
 
   private async touchPlan(planId: string): Promise<void> {
@@ -518,9 +793,15 @@ export class MealPlanEngine {
   }
 }
 
-// Singleton
+// Singleton with a default error logger — devs see issues in the console
+// without any setup.
 let engineSingleton: MealPlanEngine | null = null
 export function getEngine(): MealPlanEngine {
-  if (!engineSingleton) engineSingleton = new MealPlanEngine()
+  if (!engineSingleton) {
+    engineSingleton = new MealPlanEngine()
+    engineSingleton.on('error', (e) => {
+      console.warn('[meal-engine]', e)
+    })
+  }
   return engineSingleton
 }

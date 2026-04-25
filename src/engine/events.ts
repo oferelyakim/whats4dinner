@@ -1,9 +1,17 @@
-import type { Slot, MealView, PlanView } from './types'
+import type { Slot, MealView, PlanView, ErrorStage } from './types'
+
+export interface EngineErrorPayload {
+  slotId: string
+  stage: ErrorStage
+  message: string
+  durationMs: number
+}
 
 export type EngineEvents = {
   'slot:updated': Slot
   'meal:updated': MealView
   'plan:updated': PlanView
+  error: EngineErrorPayload
 }
 
 type Handler<T> = (payload: T) => void

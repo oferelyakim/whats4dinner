@@ -30,8 +30,11 @@ export interface FetchRecipeInput {
 
 export type ServerRecipe = z.infer<typeof ServerRecipeSchema>
 
-export async function findAndFetchRecipe(input: FetchRecipeInput): Promise<Omit<Recipe, 'id' | 'fetchedAt'>> {
-  const res = await callOp('find-recipe', input, FetchResponseSchema)
+export async function findAndFetchRecipe(
+  input: FetchRecipeInput,
+  signal?: AbortSignal,
+): Promise<Omit<Recipe, 'id' | 'fetchedAt'>> {
+  const res = await callOp('find-recipe', input, FetchResponseSchema, signal)
   return {
     title: res.recipe.title,
     source: res.recipe.source,

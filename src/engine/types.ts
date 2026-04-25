@@ -47,10 +47,44 @@ export interface Slot {
   recipeId?: string
   locked: boolean
   notes?: string
+  /** One-shot user hint applied to the next generation cycle, then cleared on `ready`. */
+  replaceHint?: string
+  /** Snapshot of the variety envelope used for this slot's last generation. */
+  envelope?: SlotEnvelopeSnapshot
   errorMessage?: string
   errorStage?: ErrorStage
   position: number
   updatedAt: number
+  /** When the current generating_* state began — used by the watchdog. */
+  generatingStartedAt?: number
+}
+
+export interface SlotEnvelopeSnapshot {
+  cuisineId: string
+  cuisineLabel: string
+  cuisineRegion: string
+  proteinName?: string
+  proteinFamily?: string
+  styleId: string
+  styleLabel: string
+  flavorId: string
+  flavorLabel: string
+}
+
+/** Cross-plan history of generated dishes — drives anti-repeat across the user's lifetime. */
+export interface DishHistoryEntry {
+  id: string
+  slotId: string
+  planId: string
+  dishName: string
+  ingredient?: string
+  proteinName?: string
+  proteinFamily?: string
+  cuisineId: string
+  styleId: string
+  flavorId: string
+  plannedAt: number
+  eaten?: boolean
 }
 
 export interface RecipeIngredient {

@@ -35,6 +35,28 @@ export function PlanV2View() {
     })
   }, [engine])
 
+  // Stuck-slot self-heal: on mount + on tab-foreground, sweep any slots that
+  // got stranded in `generating_*` because the user backgrounded the phone
+  // mid-generation. The engine reverts them to their last good state and
+  // queues a fresh generation. Idempotent — safe to call repeatedly.
+  useEffect(() => {
+    if (!activePlanId) return
+    const sweep = () => {
+      void engine
+        .resumeStuckSlots(activePlanId)
+        .then((n) => {
+          if (n > 0) console.info(`[meal-engine] resumed ${n} stuck slot(s)`)
+        })
+        .catch(() => undefined)
+    }
+    sweep()
+    const onVis = () => {
+      if (document.visibilityState === 'visible') sweep()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [activePlanId, engine])
+
   async function addWeek(numDays = 7) {
     if (!activePlanId) return
     const start = isoToday()

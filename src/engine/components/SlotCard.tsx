@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, RefreshCw, Loader2, AlertCircle, Unlock, Sparkles } from 'lucide-react'
+import { Lock, RefreshCw, Loader2, AlertCircle, Unlock, Sparkles, X } from 'lucide-react'
 import type { Slot } from '../types'
 import { useSlot } from '../hooks/useSlot'
 import { getEngine } from '../MealPlanEngine'
@@ -36,6 +36,7 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
     slot.status === 'fetching_recipe'
 
   const onGenerate = () => void engine.generateSlot(slot.id)
+  const onCancel = () => void engine.cancelSlot(slot.id)
   const onReplace = () => {
     void engine.replaceSlot(slot.id, hint.trim() || undefined)
     setShowHint(false)
@@ -56,9 +57,20 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
     >
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-rp-ink-mute font-semibold mb-1">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-rp-ink-mute font-semibold mb-1 flex-wrap">
             <span>{slot.role}</span>
-            {slot.notes && <span className="text-rp-brand normal-case font-normal">· {slot.notes}</span>}
+            {slot.envelope && (
+              <span className="normal-case font-normal text-rp-ink-mute/80">
+                · {slot.envelope.cuisineLabel}
+                {slot.envelope.styleLabel ? ` · ${slot.envelope.styleLabel}` : ''}
+              </span>
+            )}
+            {slot.replaceHint && (
+              <span className="text-rp-brand normal-case font-normal">· {slot.replaceHint}</span>
+            )}
+            {!slot.replaceHint && slot.notes && (
+              <span className="text-rp-brand normal-case font-normal">· {slot.notes}</span>
+            )}
             {slot.locked && <Lock className="h-3 w-3 text-rp-brand" />}
           </div>
 
@@ -76,10 +88,14 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
             <div className="flex items-start gap-1.5 text-sm text-danger">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="font-medium">
-                  Stage {slot.errorStage ?? '?'} failed
-                </p>
+                <p className="font-medium">Stage {slot.errorStage ?? '?'} failed</p>
                 <p className="text-[11px] text-danger/80 break-words">{slot.errorMessage}</p>
+                <button
+                  onClick={onGenerate}
+                  className="mt-1 text-[11px] underline text-danger hover:text-danger/80"
+                >
+                  Retry from this stage
+                </button>
               </div>
             </div>
           )}
@@ -99,13 +115,25 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={onLock}
-            aria-label={slot.locked ? 'Unlock slot' : 'Lock slot'}
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors"
-          >
-            {slot.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-          </button>
+          {isLoading && (
+            <button
+              onClick={onCancel}
+              aria-label="Cancel generation"
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors"
+              title="Cancel"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {!isLoading && (
+            <button
+              onClick={onLock}
+              aria-label={slot.locked ? 'Unlock slot' : 'Lock slot'}
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors"
+            >
+              {slot.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+            </button>
+          )}
           {slot.status === 'empty' && !slot.locked && (
             <button
               onClick={onGenerate}
@@ -132,9 +160,16 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
           <input
             value={hint}
             onChange={(e) => setHint(e.target.value)}
-            placeholder="Optional: e.g. less spicy, use chicken"
+            placeholder="Optional: e.g. less spicy, use chicken, Italian"
             className="flex-1 text-sm bg-rp-bg-soft rounded-lg px-2 py-1.5 text-rp-ink placeholder:text-rp-ink-mute focus:outline-none focus:ring-1 focus:ring-rp-brand"
             autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onReplace()
+              if (e.key === 'Escape') {
+                setShowHint(false)
+                setHint('')
+              }
+            }}
           />
           <button
             onClick={onReplace}

@@ -74,7 +74,8 @@ export function ChatDialog() {
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: "Sorry, I had trouble generating the plan. Please try again.",
+            content:
+              "I couldn't generate that plan from chat. Try the new slot-based planner — it's more reliable and lets you replace dishes one at a time. Open /plan-v2 from the menu.",
             timestamp: Date.now(),
           })
           break
@@ -276,7 +277,8 @@ export function ChatDialog() {
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: "Sorry, I had trouble generating the plan. Please try again — describe the dates and any preferences.",
+            content:
+              "I couldn't generate that plan from chat. Try the new slot-based planner at /plan-v2 — it builds the plan one dish at a time, so failures are isolated and you can replace any single dish without restarting.",
             timestamp: Date.now(),
           })
           return

@@ -1,15 +1,17 @@
 // Replanish meal-planning engine — server-side proxy for the slot-based pipeline.
-// Single Supabase Edge Function dispatching ops. The Anthropic API key never leaves the server.
 //
-// Operations (selected by `op` field on POST body):
-//   - "ingredient" (Stage A): pick an ingredient via Anthropic tool_use
-//   - "dish" (Stage B): name dish + search keywords via Anthropic tool_use
-//   - "find-recipe" (Stage C+D combined):
-//       1. Use Claude with the built-in web_search tool to discover candidate URLs
-//       2. Server-side fetch each URL; parse JSON-LD <script type="application/ld+json"> for @type:Recipe
-//       3. If 2+ candidates have valid JSON-LD: ask Claude to rank (Stage C-rank)
-//       4. If 1: use it directly
-//       5. If 0: send strongest candidate's HTML to Claude for structured extraction (Stage D)
+// v3 changes (2026-04-25):
+//   - Stage A/B prompts consume a variety ENVELOPE (cuisine + protein + style + flavor)
+//     chosen client-side. The model's job shrinks from "imagine a meal" to "fill in
+//     the named slot" — this kills the Mediterranean/Middle-Eastern training-prior bias.
+//   - Anthropic calls retry with backoff on 429/529/5xx (3 attempts, 0/0.5s/1.5s).
+//   - opFindRecipe enforces a 30s budget with graceful AI-fallback short-circuit.
+//   - opDish dedups searchKeywords server-side before returning.
+//
+// Operations:
+//   - "ingredient" (Stage A): pick an ingredient via Anthropic tool_use, envelope-aware
+//   - "dish" (Stage B): name dish + search keywords, envelope-aware
+//   - "find-recipe" (Stage C+D): web_search → fetch HTML → JSON-LD → rank or extract
 //   - "extract" (Stage D direct): explicit fallback extraction from supplied HTML
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -46,22 +48,38 @@ interface AnthropicResponse {
   usage: { input_tokens: number; output_tokens: number }
 }
 
+const RETRY_DELAYS_MS = [0, 500, 1500]
+
 async function anthropic(body: Record<string, unknown>): Promise<AnthropicResponse> {
   if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
-  const res = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Anthropic ${res.status}: ${text}`)
+
+  let lastErr: unknown = null
+  for (let i = 0; i < RETRY_DELAYS_MS.length; i++) {
+    if (RETRY_DELAYS_MS[i] > 0) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[i]))
+    }
+    try {
+      const res = await fetch(ANTHROPIC_URL, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) return (await res.json()) as AnthropicResponse
+      const status = res.status
+      const text = await res.text().catch(() => '')
+      lastErr = new Error(`Anthropic ${status}: ${text}`)
+      // Non-retriable client errors short-circuit.
+      if (status !== 429 && status !== 529 && status < 500) throw lastErr
+    } catch (err) {
+      lastErr = err
+      if (i === RETRY_DELAYS_MS.length - 1) throw err
+    }
   }
-  return (await res.json()) as AnthropicResponse
+  throw lastErr instanceof Error ? lastErr : new Error('Anthropic call failed')
 }
 
 function pickToolUse(resp: AnthropicResponse, name: string): Record<string, unknown> | null {
@@ -71,6 +89,35 @@ function pickToolUse(resp: AnthropicResponse, name: string): Record<string, unkn
     }
   }
   return null
+}
+
+// ─── Envelope helpers ─────────────────────────────────────────────────────
+
+interface Envelope {
+  cuisineId?: string
+  cuisineLabel?: string
+  cuisineRegion?: string
+  proteinName?: string
+  proteinFamily?: string
+  styleId?: string
+  styleLabel?: string
+  flavorId?: string
+  flavorLabel?: string
+}
+
+function envelopeBlock(env: Envelope | undefined): string {
+  if (!env || !env.cuisineLabel) return ''
+  const lines = [
+    `<envelope>`,
+    `cuisine: ${env.cuisineLabel} (id=${env.cuisineId ?? '?'}, region=${env.cuisineRegion ?? '?'})`,
+    env.proteinName ? `protein hint: ${env.proteinName} (family=${env.proteinFamily ?? '?'})` : '',
+    `cooking style: ${env.styleLabel}`,
+    `flavor profile: ${env.flavorLabel}`,
+    `</envelope>`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+  return lines
 }
 
 // ─── Stage A: ingredient ──────────────────────────────────────────────────
@@ -87,42 +134,71 @@ const PICK_INGREDIENT_TOOL: ToolDef = {
       },
       rationale: {
         type: 'string',
-        description: 'One short sentence on why this ingredient suits the meal/slot.',
+        description: 'One short sentence on why this ingredient suits the envelope.',
       },
     },
     required: ['ingredient', 'rationale'],
   },
 }
 
-async function opIngredient(input: Record<string, unknown>): Promise<unknown> {
-  const system = `You pick a single anchor ingredient for one slot in a meal plan.
-Rules:
-- Respect dietary constraints absolutely; never propose a banned ingredient.
-- Avoid the user's disliked ingredients.
-- Avoid repeating an ingredient that already appears in a sibling slot in the same meal.
-- Avoid an ingredient that would lead to a dish in the recent dishes list.
-- If the slot has notes (a constraint like "chicken" or "vegetarian"), honor them.
-- Reply only by calling the pick_ingredient tool.`
+const STAGE_A_SYSTEM = `You pick ONE specific anchor ingredient for a single slot in a meal plan.
 
-  const user = JSON.stringify({
-    mealType: input.mealType,
-    slotRole: input.slotRole,
-    theme: input.theme,
-    dietaryConstraints: input.dietaryConstraints,
-    pantryItems: input.pantryItems,
-    dislikedIngredients: input.dislikedIngredients,
-    recentDishes: input.recentDishes,
-    notes: input.notes,
-    siblingSlots: input.siblingSlots,
+You are working inside a CONSTRAINT ENVELOPE chosen by the planner upstream:
+- cuisine, protein family, cooking style, and flavor profile are FIXED.
+- Your job is to pick the most natural specific ingredient that fits the envelope.
+- You MUST respect the envelope. Do not "drift" toward a different cuisine because
+  it feels more natural to you.
+- The envelope was chosen to maximize variety across the user's plan. Picking a
+  different cuisine defeats the entire system.
+
+CRITICAL DIVERSITY RULES:
+1. Mediterranean and Middle-Eastern dishes are heavily over-represented in your
+   training data. Unless the envelope's cuisine is "greek", "spanish-tapas",
+   "persian", or "israeli", DO NOT propose ingredients that telegraph those
+   cuisines (no shawarma, kabob, shakshuka, hummus, falafel, tahini, za'atar,
+   sumac, labneh, tabbouleh, fattoush, baba ganoush, kibbeh).
+2. The recentDishes list shows what the user has had recently across ALL their
+   plans — not just this one. NEVER propose an ingredient that would lead to a
+   dish similar to anything in recentDishes.
+3. If the envelope provides a "protein hint", your ingredient MUST be that
+   protein verbatim (or its closest direct match).
+4. If the slot role is a veg_side, salad, starch_side, soup, bread, or drink
+   role, pick an ingredient that complements (not duplicates) the cuisine —
+   e.g. Korean → bok choy or sesame greens; Mexican → charred corn or black beans.
+
+Honor dietary constraints absolutely.
+Honor slot notes (user override; takes precedence over envelope flavor/style — but
+NEVER overrides cuisine unless the user explicitly named a different cuisine).
+Reply only by calling the pick_ingredient tool.`
+
+async function opIngredient(input: Record<string, unknown>): Promise<unknown> {
+  const env = (input.envelope ?? {}) as Envelope
+  const userPayload = JSON.stringify({
+    envelope: env,
+    slot: {
+      role: input.slotRole,
+      notes: input.notes,
+      mealType: input.mealType,
+    },
+    diet: input.dietaryConstraints,
+    dislikes: input.dislikedIngredients,
+    pantry: input.pantryItems,
+    recentDishesGlobal: input.recentDishes,
+    siblings: input.siblingSlots,
   })
 
   const resp = await anthropic({
     model: MODEL,
     max_tokens: 400,
-    system,
+    system: STAGE_A_SYSTEM,
     tools: [PICK_INGREDIENT_TOOL],
     tool_choice: { type: 'tool', name: 'pick_ingredient' },
-    messages: [{ role: 'user', content: user }],
+    messages: [
+      {
+        role: 'user',
+        content: `${envelopeBlock(env)}\n\nDETAILS:\n${userPayload}`,
+      },
+    ],
   })
 
   const out = pickToolUse(resp, 'pick_ingredient')
@@ -134,7 +210,7 @@ Rules:
 
 const NAME_DISH_TOOL: ToolDef = {
   name: 'name_dish',
-  description: 'Given an anchor ingredient, name a specific, searchable dish and 2-5 search keywords.',
+  description: 'Given an anchor ingredient + envelope, name a specific, searchable dish and 2-5 search keywords.',
   input_schema: {
     type: 'object',
     properties: {
@@ -154,36 +230,76 @@ const NAME_DISH_TOOL: ToolDef = {
   },
 }
 
-async function opDish(input: Record<string, unknown>): Promise<unknown> {
-  const system = `You name a specific, searchable dish for one slot.
-Rules:
-- The dish must use the supplied ingredient as the anchor.
-- Honor dietary constraints absolutely.
-- Honor slot notes (e.g. "less spicy", "weeknight quick").
-- The first searchKeywords item must be a tight query likely to surface real recipe pages.
-- Reply only by calling the name_dish tool.`
+const STAGE_B_SYSTEM = `You name a specific, searchable dish given (a) an anchor ingredient already
+chosen and (b) a constraint envelope (cuisine + style + flavor profile).
 
-  const user = JSON.stringify({
-    mealType: input.mealType,
-    slotRole: input.slotRole,
+The dish name MUST:
+- Use the supplied ingredient as the anchor.
+- Match the envelope's cuisine. Examples:
+    cuisine=korean,    style=braised,   ingredient=chicken thighs
+      -> "Korean Braised Chicken Thighs (Dakdoritang)" — not "Chicken Marbella"
+    cuisine=mexican,   style=taco-wrap, ingredient=cod
+      -> "Baja-Style Fish Tacos with Cabbage Slaw" — not "Cod Provençal"
+    cuisine=cantonese, style=stir-fry,  ingredient=tofu
+      -> "Cantonese Mapo-Style Tofu" — not "Mediterranean Herb-Crusted Tofu"
+- Match the cooking style verbatim (do not name a stir-fry when the envelope says braised).
+- Match the flavor profile (smoky -> grilled/charred adjectives; bright -> citrus/herb).
+
+CRITICAL DIVERSITY GUARDS:
+- DO NOT default to Mediterranean or Middle-Eastern dish names unless the envelope's
+  cuisine is "greek", "spanish-tapas", "persian", or "israeli".
+- The dish name must be DIFFERENT in core concept from any item in recentDishes.
+  If recentDishes contains "Korean braised chicken thighs", you may not propose
+  another braised chicken thigh dish even with a different cuisine name.
+- The first searchKeywords item should be the tightest possible query for a recipe
+  site (e.g. "korean dakdoritang chicken thighs recipe").
+
+Honor dietary constraints absolutely.
+Honor slot notes — they are the user's override and trump the envelope's flavor/style
+(but never the dietary or cuisine constraints).
+Reply only by calling the name_dish tool.`
+
+async function opDish(input: Record<string, unknown>): Promise<unknown> {
+  const env = (input.envelope ?? {}) as Envelope
+  const userPayload = JSON.stringify({
+    envelope: env,
+    slot: { role: input.slotRole, notes: input.notes, mealType: input.mealType },
     ingredient: input.ingredient,
-    theme: input.theme,
-    dietaryConstraints: input.dietaryConstraints,
-    notes: input.notes,
+    diet: input.dietaryConstraints,
+    recentDishesGlobal: input.recentDishes,
   })
 
   const resp = await anthropic({
     model: MODEL,
     max_tokens: 400,
-    system,
+    system: STAGE_B_SYSTEM,
     tools: [NAME_DISH_TOOL],
     tool_choice: { type: 'tool', name: 'name_dish' },
-    messages: [{ role: 'user', content: user }],
+    messages: [
+      {
+        role: 'user',
+        content: `${envelopeBlock(env)}\n\nDETAILS:\n${userPayload}`,
+      },
+    ],
   })
 
-  const out = pickToolUse(resp, 'name_dish')
-  if (!out) throw new Error('Stage B: model did not call name_dish')
-  return out
+  const out = pickToolUse(resp, 'name_dish') as
+    | { dishName?: string; searchKeywords?: string[] }
+    | null
+  if (!out?.dishName) throw new Error('Stage B: model did not return a dishName')
+
+  // Server-side dedup so the client schema never trips on duplicates.
+  const seen = new Set<string>()
+  const dedup: string[] = []
+  for (const s of out.searchKeywords ?? []) {
+    const trimmed = s.trim()
+    const key = trimmed.toLowerCase()
+    if (!trimmed || seen.has(key)) continue
+    seen.add(key)
+    dedup.push(trimmed)
+  }
+  const keywords = dedup.length > 0 ? dedup.slice(0, 5) : [out.dishName]
+  return { dishName: out.dishName, searchKeywords: keywords }
 }
 
 // ─── Stage C: find-recipe (web search + JSON-LD + rank or fallback) ───────
@@ -209,26 +325,10 @@ interface ExtractedRecipe {
 }
 
 const RECIPE_DOMAIN_HINTS = [
-  'recipe',
-  'cook',
-  'food',
-  'kitchen',
-  'eat',
-  'bake',
-  'meal',
-  'tasty',
-  'gourmet',
-  'bonappetit',
-  'epicurious',
-  'allrecipes',
-  'seriouseats',
-  'simplyrecipes',
-  'nytimes',
-  'foodnetwork',
-  'thekitchn',
-  'budgetbytes',
-  'minimalistbaker',
-  'smittenkitchen',
+  'recipe', 'cook', 'food', 'kitchen', 'eat', 'bake', 'meal',
+  'tasty', 'gourmet', 'bonappetit', 'epicurious', 'allrecipes',
+  'seriouseats', 'simplyrecipes', 'nytimes', 'foodnetwork',
+  'thekitchn', 'budgetbytes', 'minimalistbaker', 'smittenkitchen',
   'half-baked',
 ]
 
@@ -245,8 +345,13 @@ function getDomain(url: string): string {
   }
 }
 
-async function searchUrlsViaClaude(dishName: string, keywords: string[]): Promise<{ title: string; url: string; snippet: string }[]> {
-  // Use Claude's built-in web_search tool. Ask it to return URLs through a return_results tool.
+async function searchUrlsViaClaude(
+  dishName: string,
+  keywords: string[],
+  remainingBudgetMs: number,
+): Promise<{ title: string; url: string; snippet: string }[]> {
+  if (remainingBudgetMs < 4000) return []
+
   const RETURN_TOOL: ToolDef = {
     name: 'return_results',
     description: 'Return up to 8 candidate recipe URLs found via web search.',
@@ -274,7 +379,7 @@ async function searchUrlsViaClaude(dishName: string, keywords: string[]): Promis
   const system = `You search the web for real recipe pages and return their URLs.
 Rules:
 - Use the web_search tool to find pages.
-- Prefer reputable recipe sites that publish JSON-LD (allrecipes, seriouseats, simplyrecipes, bonappetit, nytimes/cooking, foodnetwork, thekitchn, budgetbytes, smittenkitchen, etc.).
+- Prefer reputable recipe sites that publish JSON-LD (allrecipes, seriouseats, simplyrecipes, bonappetit, nytimes/cooking, foodnetwork, thekitchn, budgetbytes, smittenkitchen).
 - Return up to 8 candidate URLs by calling return_results.
 - Prefer specific dish pages over category/listing pages.`
 
@@ -484,7 +589,6 @@ async function rankCandidates(dishName: string, candidates: Candidate[]): Promis
   return idx
 }
 
-// Truncate HTML to roughly 30k chars, prefer body content
 function trimHtmlForExtraction(html: string, max = 30000): string {
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
   let body = bodyMatch ? bodyMatch[1] : html
@@ -555,7 +659,11 @@ const FALLBACK_TOOL: ToolDef = {
   input_schema: EXTRACT_TOOL.input_schema,
 }
 
-async function composeFallbackRecipe(dishName: string, notes?: string, dietary?: string[]): Promise<ExtractedRecipe | null> {
+async function composeFallbackRecipe(
+  dishName: string,
+  notes?: string,
+  dietary?: string[],
+): Promise<ExtractedRecipe | null> {
   try {
     const resp = await anthropic({
       model: MODEL,
@@ -578,14 +686,19 @@ async function composeFallbackRecipe(dishName: string, notes?: string, dietary?:
   }
 }
 
+const FIND_RECIPE_BUDGET_MS = 30_000
+
 async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
   const dishName = String(input.dishName ?? '')
   const keywords = Array.isArray(input.searchKeywords) ? (input.searchKeywords as string[]) : [dishName]
   const dietary = Array.isArray(input.dietaryConstraints) ? (input.dietaryConstraints as string[]) : []
   const notes = typeof input.notes === 'string' ? (input.notes as string) : undefined
 
-  // 1. Search via Claude web_search
-  const rawCandidates = await searchUrlsViaClaude(dishName, keywords)
+  const deadline = Date.now() + FIND_RECIPE_BUDGET_MS
+  const remaining = () => deadline - Date.now()
+
+  // 1. Search via Claude web_search (≤15s realistically)
+  const rawCandidates = await searchUrlsViaClaude(dishName, keywords, remaining())
 
   // 2. Filter to recipe-likely domains, cap at 5
   const filtered: Candidate[] = []
@@ -606,11 +719,19 @@ async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
     if (filtered.length >= 5) break
   }
 
-  // 3. Fetch each in parallel and parse JSON-LD
+  // 3. If we don't have enough budget left to fetch + parse, jump to fallback.
+  if (remaining() < 10_000) {
+    const composed = await composeFallbackRecipe(dishName, notes, dietary)
+    if (composed) return { recipe: { ...composed, source: 'ai-fallback' as const } }
+    throw new Error('Out of time and no fallback could be composed')
+  }
+
+  // 4. Fetch each in parallel and parse JSON-LD
   if (filtered.length > 0) {
+    const fetchTimeout = Math.max(3000, Math.min(8000, Math.floor(remaining() / 2)))
     await Promise.all(
       filtered.map(async (c) => {
-        const html = await fetchHtml(c.url)
+        const html = await fetchHtml(c.url, fetchTimeout)
         if (!html) return
         c.html = html
         const json = extractJsonLdRecipe(html)
@@ -624,8 +745,8 @@ async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
 
   const withJsonLd = filtered.filter((c) => c.hasJsonLd && c.jsonLd)
 
-  // 4. Pick best
-  if (withJsonLd.length >= 2) {
+  // 5. Pick best from JSON-LD candidates
+  if (withJsonLd.length >= 2 && remaining() > 5000) {
     const idx = await rankCandidates(dishName, withJsonLd)
     const best = withJsonLd[idx]
     return {
@@ -638,7 +759,7 @@ async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
     }
   }
 
-  if (withJsonLd.length === 1) {
+  if (withJsonLd.length >= 1) {
     const best = withJsonLd[0]
     return {
       recipe: {
@@ -650,31 +771,28 @@ async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
     }
   }
 
-  // 5. Try Stage D extraction on the strongest candidate's HTML
-  const strongest = filtered.find((c) => c.html)
-  if (strongest && strongest.html) {
-    const extracted = await extractRecipeFromHtml(strongest.url, strongest.html)
-    if (extracted) {
-      return {
-        recipe: {
-          ...extracted,
-          source: 'web' as const,
-          url: strongest.url,
-          sourceDomain: strongest.domain,
-        },
+  // 6. Stage D extraction on the strongest candidate's HTML — only if budget allows
+  if (remaining() > 8000) {
+    const strongest = filtered.find((c) => c.html)
+    if (strongest && strongest.html) {
+      const extracted = await extractRecipeFromHtml(strongest.url, strongest.html)
+      if (extracted) {
+        return {
+          recipe: {
+            ...extracted,
+            source: 'web' as const,
+            url: strongest.url,
+            sourceDomain: strongest.domain,
+          },
+        }
       }
     }
   }
 
-  // 6. Last-resort: AI-composed recipe
+  // 7. Last-resort: AI-composed recipe
   const composed = await composeFallbackRecipe(dishName, notes, dietary)
   if (composed) {
-    return {
-      recipe: {
-        ...composed,
-        source: 'ai-fallback' as const,
-      },
-    }
+    return { recipe: { ...composed, source: 'ai-fallback' as const } }
   }
 
   throw new Error('Could not produce a recipe for this dish')

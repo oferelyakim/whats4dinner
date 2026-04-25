@@ -1,5 +1,6 @@
 import { callOp } from '../ai/client'
 import { IngredientResultSchema, type IngredientResult } from '../ai/schemas'
+import type { SlotEnvelopeSnapshot } from '../types'
 
 export interface IngredientInput {
   mealType: string
@@ -11,8 +12,12 @@ export interface IngredientInput {
   recentDishes: string[]
   notes?: string
   siblingSlots: { role: string; ingredient?: string }[]
+  envelope: SlotEnvelopeSnapshot
 }
 
-export async function generateIngredient(input: IngredientInput): Promise<IngredientResult> {
-  return await callOp('ingredient', input, IngredientResultSchema)
+export async function generateIngredient(
+  input: IngredientInput,
+  signal?: AbortSignal,
+): Promise<IngredientResult> {
+  return await callOp('ingredient', input, IngredientResultSchema, signal)
 }

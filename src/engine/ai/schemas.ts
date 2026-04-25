@@ -6,10 +6,25 @@ export const IngredientResultSchema = z.object({
 })
 export type IngredientResult = z.infer<typeof IngredientResultSchema>
 
-export const DishResultSchema = z.object({
-  dishName: z.string().min(1),
-  searchKeywords: z.array(z.string().min(1)).min(1).max(8),
-})
+// Lenient: dedup + fall back to dishName if zero keywords. Server-side
+// edge function also dedups — this is belt-and-braces.
+export const DishResultSchema = z
+  .object({
+    dishName: z.string().min(1),
+    searchKeywords: z.array(z.string().min(1)).default([]),
+  })
+  .transform(({ dishName, searchKeywords }) => {
+    const seen = new Set<string>()
+    const dedup: string[] = []
+    for (const s of searchKeywords) {
+      const k = s.trim().toLowerCase()
+      if (!k || seen.has(k)) continue
+      seen.add(k)
+      dedup.push(s.trim())
+    }
+    const finalKeywords = dedup.length > 0 ? dedup.slice(0, 5) : [dishName]
+    return { dishName, searchKeywords: finalKeywords }
+  })
 export type DishResult = z.infer<typeof DishResultSchema>
 
 export const RankResultSchema = z.object({
