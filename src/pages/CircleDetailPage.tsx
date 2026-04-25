@@ -9,6 +9,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle, deleteCircle } from '@/services/circles'
 import { getEvents, type Event } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
+import { useAuth } from '@/hooks/useAuth'
 import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/components/ui/Toast'
 import type { CircleMember } from '@/types'
@@ -35,6 +36,7 @@ export function CircleDetailPage() {
   const [copied, setCopied] = useState(false)
   const [showLeave, setShowLeave] = useState(false)
   const { activeCircle, setActiveCircle } = useAppStore()
+  const { session } = useAuth()
   const { t, locale } = useI18n()
   const toast = useToast()
 
@@ -87,8 +89,8 @@ export function CircleDetailPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
-  // Check if current user is owner
-  const isOwner = circle?.created_by === members.find((m) => m.role === 'owner')?.user_id
+  // Check if current user is the circle creator
+  const isOwner = !!session?.user?.id && circle?.created_by === session.user.id
 
   async function copyInviteCode() {
     if (!circle) return

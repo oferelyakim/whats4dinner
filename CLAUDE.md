@@ -99,6 +99,7 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 023: Grocer integrations (`023_grocer_integrations.sql`) — encrypted OAuth token store, product cache, list↔store links, app_config feature flag
 024: Circle skins (`024_circle_skins.sql`) — adds `circles.skin_id text DEFAULT 'hearth'` + `circles.custom_skin jsonb` for the Hearth skin system
 025: Onboarding prefs + Family seat roster (`025_onboarding_prefs_and_seats.sql`) — adds `profiles.diet text[]`, `profiles.meal_preferences jsonb`, `subscription_seats` table (AI Family 4-seat cap), `has_active_family_seat()` security definer function. Owner of any `ai_family` subscription is backfilled as an `owner` seat. Diet + meal prefs are captured during onboarding (steps 2 + 3); `useAIAccess` calls `has_active_family_seat` so users on a shared seat unlock AI without their own subscription row.
+026: Circle delete policy (`026_circle_delete_policy.sql`) — adds the missing `DELETE` policy on `public.circles` (`created_by = auth.uid()`). Migrations 002+008 only set up SELECT/INSERT/UPDATE, so RLS silently dropped every DELETE. Child tables already CASCADE, so no further cleanup needed.
 
 Additional SQL fixes applied directly (not in migration files):
 - Events RLS fix: `get_my_event_ids()` security definer function

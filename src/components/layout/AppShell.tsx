@@ -19,7 +19,7 @@ export function AppShell() {
   const showBanner = !dismissed && ai.hasAI && (ai.isWarning || ai.isLimitReached)
 
   return (
-    <div className="min-h-dvh flex flex-col max-w-lg mx-auto relative bg-rp-bg text-rp-ink">
+    <div className="min-h-dvh flex flex-col max-w-lg mx-auto relative bg-rp-bg text-rp-ink overflow-x-hidden">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-rp-card focus:text-rp-ink focus:rounded-rp-sm focus:shadow-rp-card"
@@ -45,7 +45,7 @@ export function AppShell() {
       )}
       <main
         id="main-content"
-        className="flex-1 animate-page-enter"
+        className="flex-1 animate-page-enter overflow-x-hidden"
         style={{ paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' }}
       >
         <Outlet />
