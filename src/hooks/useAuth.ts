@@ -69,7 +69,7 @@ export function useAuth() {
   }
 
   async function signUpWithEmail(email: string, password: string, displayName: string) {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -77,7 +77,12 @@ export function useAuth() {
         emailRedirectTo: getAuthRedirectUrl(),
       },
     })
-    return { error }
+    // Supabase anti-enumeration: when the email is already registered, signUp returns
+    // a non-error response with an empty `user.identities` array and sends no email.
+    // Surface this to callers so they can prompt the user to sign in or reset their password
+    // instead of showing a misleading "check your email" screen.
+    const isDuplicate = !error && !!data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0
+    return { data, error, isDuplicate }
   }
 
   async function signInWithGoogle() {

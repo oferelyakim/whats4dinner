@@ -47,6 +47,9 @@ const translations: Record<string, Record<Locale, string>> = {
   'auth.passwordMismatch': { en: 'Passwords do not match', he: 'הסיסמאות אינן תואמות', es: 'Las contraseñas no coinciden' },
   'auth.updatePassword': { en: 'Update password', he: 'עדכן סיסמה', es: 'Actualizar contraseña' },
   'auth.passwordUpdated': { en: 'Password updated successfully', he: 'הסיסמה עודכנה בהצלחה', es: 'Contraseña actualizada' },
+  'auth.emailAlreadyRegistered': { en: 'This email already has an account.', he: 'כבר קיים חשבון עם האימייל הזה.', es: 'Esta dirección ya tiene una cuenta.' },
+  'auth.signInInstead': { en: 'Sign in', he: 'התחברות', es: 'Iniciar sesión' },
+  'auth.resetPasswordInstead': { en: 'Reset password', he: 'איפוס סיסמה', es: 'Restablecer contraseña' },
   'auth.resetLinkInvalid': { en: 'This reset link is invalid or has expired.', he: 'קישור האיפוס אינו תקף או שפג תוקפו.', es: 'Este enlace no es válido o ha expirado.' },
 
   // Home

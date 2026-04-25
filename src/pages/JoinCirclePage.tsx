@@ -7,12 +7,14 @@ import { supabase, isSupabaseConfigured } from '@/services/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { joinCircleByInviteCode } from '@/services/circles'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 
 export function JoinCirclePage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
   const { session, loading: authLoading, signInWithEmail, signUpWithEmail, sendPasswordReset } = useAuth()
   const { setActiveCircle } = useAppStore()
+  const { t } = useI18n()
 
   const [circleName, setCircleName] = useState<string | null>(null)
   const [circleIcon, setCircleIcon] = useState<string>('👨‍👩‍👧‍👦')
@@ -91,17 +93,23 @@ export function JoinCirclePage() {
       return
     }
 
-    const result =
-      authMode === 'login'
-        ? await signInWithEmail(email, password)
-        : await signUpWithEmail(email, password, displayName)
+    if (authMode === 'login') {
+      const { error: signInError } = await signInWithEmail(email, password)
+      if (signInError) setError(signInError.message)
+      // If login succeeds, the useEffect above will auto-join
+      setAuthLoading2(false)
+      return
+    }
 
-    if (result.error) {
-      setError(result.error.message)
-    } else if (authMode === 'signup') {
+    const { error: signUpError, isDuplicate } = await signUpWithEmail(email, password, displayName)
+    if (signUpError) {
+      setError(signUpError.message)
+    } else if (isDuplicate) {
+      // Supabase silently no-ops duplicate signups (anti-enumeration). Tell the user clearly.
+      setError('DUPLICATE_EMAIL')
+    } else {
       setEmailSent(true)
     }
-    // If login succeeds, the useEffect above will auto-join
     setAuthLoading2(false)
   }
 
@@ -221,9 +229,29 @@ export function JoinCirclePage() {
             </div>
           )}
 
-          {error && (
+          {error === 'DUPLICATE_EMAIL' ? (
+            <div className="text-sm bg-rp-brand/10 border border-rp-brand/30 rounded-lg px-3 py-2 space-y-2">
+              <p className="text-rp-ink">{t('auth.emailAlreadyRegistered')}</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('login'); setError('') }}
+                  className="flex-1 text-sm font-medium text-white bg-rp-brand rounded-md px-3 py-1.5 hover:opacity-90"
+                >
+                  {t('auth.signInInstead')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('forgot'); setError('') }}
+                  className="flex-1 text-sm font-medium text-rp-brand border border-rp-brand rounded-md px-3 py-1.5 hover:bg-rp-brand/10"
+                >
+                  {t('auth.resetPasswordInstead')}
+                </button>
+              </div>
+            </div>
+          ) : error ? (
             <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
-          )}
+          ) : null}
 
           <Button type="submit" size="lg" className="w-full" disabled={authLoading2 || joining}>
             {authLoading2

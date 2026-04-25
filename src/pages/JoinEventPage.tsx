@@ -80,11 +80,16 @@ export function JoinEventPage() {
       setAuthLoading2(false)
       return
     }
-    const result = authMode === 'login'
-      ? await signInWithEmail(email, password)
-      : await signUpWithEmail(email, password, displayName)
-    if (result.error) setError(result.error.message)
-    else if (authMode === 'signup') setEmailSent(true)
+    if (authMode === 'login') {
+      const { error: signInError } = await signInWithEmail(email, password)
+      if (signInError) setError(signInError.message)
+      setAuthLoading2(false)
+      return
+    }
+    const { error: signUpError, isDuplicate } = await signUpWithEmail(email, password, displayName)
+    if (signUpError) setError(signUpError.message)
+    else if (isDuplicate) setError('DUPLICATE_EMAIL')
+    else setEmailSent(true)
     setAuthLoading2(false)
   }
 
@@ -181,7 +186,29 @@ export function JoinEventPage() {
                 </button>
               </div>
             )}
-            {error && <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>}
+            {error === 'DUPLICATE_EMAIL' ? (
+              <div className="text-sm bg-rp-brand/10 border border-rp-brand/30 rounded-lg px-3 py-2 space-y-2">
+                <p className="text-rp-ink">{t('auth.emailAlreadyRegistered')}</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setError('') }}
+                    className="flex-1 text-sm font-medium text-white bg-rp-brand rounded-md px-3 py-1.5 hover:opacity-90"
+                  >
+                    {t('auth.signInInstead')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('forgot'); setError('') }}
+                    className="flex-1 text-sm font-medium text-rp-brand border border-rp-brand rounded-md px-3 py-1.5 hover:bg-rp-brand/10"
+                  >
+                    {t('auth.resetPasswordInstead')}
+                  </button>
+                </div>
+              </div>
+            ) : error ? (
+              <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
+            ) : null}
             <Button type="submit" size="lg" className="w-full" disabled={authLoading2 || joining}>
               {authLoading2
                 ? 'Please wait...'
