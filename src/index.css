@@ -159,8 +159,8 @@
   --z-overlay: 70;
 }
 
-/* Load Hearth type families + skin-specific families (Nordic / Studio / Bloom / Citrus) */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Caveat:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;1,400;1,500;1,600&display=swap');
+/* Load Hearth type families + Skins v2 families (Citrus / Brooklyn / Meadow / Studio / Night Market) */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Caveat:wght@400;600&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600;700;800&family=Domine:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=Quicksand:wght@400;500;600;700&family=Patrick+Hand&family=JetBrains+Mono:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap');
 
 html {
   -webkit-tap-highlight-color: transparent;
@@ -213,8 +213,8 @@ body {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ─── Per-feel structural overrides ──────────────────────────────────────── */
-/* Keyed off [data-feel="…"] on <html>, set by applySkin(). Hearth + the
-   original 8 skins do not set data-feel and keep their existing chrome. */
+/* Keyed off [data-feel="…"] on <html>, set by applySkin(). Hearth has no
+   data-feel — it uses the editorial-default chrome below. */
 :root {
   --rp-radius-card: 20px;
   --rp-radius-pill: 999px;
@@ -222,30 +222,85 @@ body {
   --rp-card-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
 }
 
-/* Editorial (Nordic) */
-[data-feel="editorial"] {
-  --rp-radius-card: 0px;
-  --rp-radius-pill: 2px;
-  --rp-card-border: 1px solid var(--rp-ink);
-  --rp-card-shadow: none;
+/* Sticker (Citrus) — chunky drop-shadow, fully rounded */
+[data-feel="sticker"] {
+  --rp-radius-card: 24px;
+  --rp-radius-pill: 999px;
+  --rp-card-border: 2px solid var(--rp-ink);
+  --rp-card-shadow: 0 4px 0 color-mix(in srgb, var(--rp-ink) 20%, transparent);
 }
-[data-feel="editorial"] body { font-family: var(--rp-ff-sans); }
-[data-feel="editorial"] h1,
-[data-feel="editorial"] h2,
-[data-feel="editorial"] .rp-display,
-[data-feel="editorial"] .display,
-[data-feel="editorial"] .font-display {
+[data-feel="sticker"] body { font-family: var(--rp-ff-sans); }
+[data-feel="sticker"] h1,
+[data-feel="sticker"] h2,
+[data-feel="sticker"] .rp-display,
+[data-feel="sticker"] .font-display {
   font-family: var(--rp-ff-display);
-  font-weight: 400;
+  font-weight: 700;
   font-style: normal;
   letter-spacing: -0.01em;
 }
+[data-feel="sticker"] .rp-card,
+[data-feel="sticker"] [data-rp-card] {
+  border-radius: 24px;
+  border: 2px solid var(--rp-ink);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--rp-ink) 20%, transparent);
+}
 
-/* Terminal (Studio) */
-[data-feel="terminal"] {
+/* Magazine (Brooklyn) — sharp 4px corners, hairline rules, no shadow */
+[data-feel="magazine"] {
   --rp-radius-card: 4px;
   --rp-radius-pill: 4px;
   --rp-card-border: 1px solid var(--rp-hairline);
+  --rp-card-shadow: none;
+}
+[data-feel="magazine"] body { font-family: var(--rp-ff-sans); }
+[data-feel="magazine"] h1,
+[data-feel="magazine"] h2,
+[data-feel="magazine"] .rp-display,
+[data-feel="magazine"] .font-display {
+  font-family: var(--rp-ff-display);
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: -0.005em;
+}
+[data-feel="magazine"] .rp-card,
+[data-feel="magazine"] [data-rp-card] {
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+/* Pillow (Meadow) — fat radii, soft shadow, no harsh borders */
+[data-feel="pillow"] {
+  --rp-radius-card: 28px;
+  --rp-radius-pill: 999px;
+  --rp-card-border: none;
+  --rp-card-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 8px 24px color-mix(in srgb, var(--rp-ink) 6%, transparent),
+    0 24px 60px color-mix(in srgb, var(--rp-ink) 4%, transparent);
+}
+[data-feel="pillow"] body { font-family: var(--rp-ff-sans); font-weight: 500; }
+[data-feel="pillow"] h1,
+[data-feel="pillow"] h2,
+[data-feel="pillow"] .rp-display,
+[data-feel="pillow"] .font-display {
+  font-family: var(--rp-ff-display);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: -0.005em;
+}
+[data-feel="pillow"] .rp-card,
+[data-feel="pillow"] [data-rp-card] {
+  border-radius: 28px;
+  border-color: transparent;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--rp-ink) 6%, transparent);
+}
+
+/* Terminal (Studio) — dashed borders, scanline overlay, mono everywhere */
+[data-feel="terminal"] {
+  --rp-radius-card: 6px;
+  --rp-radius-pill: 4px;
+  --rp-card-border: 1px dashed var(--rp-hairline);
   --rp-card-shadow: 0 0 0 1px rgba(62,215,238,0.06), 0 12px 28px rgba(0,0,0,0.5);
 }
 [data-feel="terminal"] body,
@@ -255,6 +310,11 @@ body {
 }
 [data-feel="terminal"] .rp-display,
 [data-feel="terminal"] .font-display { font-style: normal; }
+[data-feel="terminal"] .rp-card,
+[data-feel="terminal"] [data-rp-card] {
+  border-radius: 6px;
+  border-style: dashed;
+}
 [data-feel="terminal"] body::before,
 [data-feel="terminal"] body::after {
   content: '';
@@ -286,43 +346,31 @@ body {
 }
 @keyframes rp-blink { to { visibility: hidden; } }
 
-/* Pillow (Bloom) */
-[data-feel="pillow"] {
-  --rp-radius-card: 28px;
+/* Lantern (Night Market) — subtle glow rim, softened corners */
+[data-feel="lantern"] {
+  --rp-radius-card: 14px;
   --rp-radius-pill: 999px;
-  --rp-card-border: none;
+  --rp-card-border: 1px solid var(--rp-hairline);
   --rp-card-shadow:
-    0 1px 0 rgba(255,255,255,0.7) inset,
-    0 8px 24px rgba(196,96,122,0.10),
-    0 24px 60px rgba(196,96,122,0.06);
+    0 0 0 1px color-mix(in srgb, var(--rp-glow) 12%, transparent),
+    0 12px 40px rgba(0,0,0,0.4);
 }
-[data-feel="pillow"] body { font-family: var(--rp-ff-sans); font-weight: 500; }
-[data-feel="pillow"] h1,
-[data-feel="pillow"] h2,
-[data-feel="pillow"] .rp-display,
-[data-feel="pillow"] .font-display {
-  font-family: var(--rp-ff-display);
-  font-weight: 600;
-  font-style: normal;
-  letter-spacing: -0.005em;
-}
-
-/* Sticker (Citrus) */
-[data-feel="sticker"] {
-  --rp-radius-card: 16px;
-  --rp-radius-pill: 999px;
-  --rp-card-border: 1.5px solid var(--rp-ink);
-  --rp-card-shadow: 3px 3px 0 var(--rp-ink);
-}
-[data-feel="sticker"] body { font-family: var(--rp-ff-sans); }
-[data-feel="sticker"] h1,
-[data-feel="sticker"] h2,
-[data-feel="sticker"] .rp-display,
-[data-feel="sticker"] .font-display {
+[data-feel="lantern"] body { font-family: var(--rp-ff-sans); }
+[data-feel="lantern"] h1,
+[data-feel="lantern"] h2,
+[data-feel="lantern"] .rp-display,
+[data-feel="lantern"] .font-display {
   font-family: var(--rp-ff-display);
   font-weight: 500;
   font-style: italic;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
+}
+[data-feel="lantern"] .rp-card,
+[data-feel="lantern"] [data-rp-card] {
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--rp-glow) 12%, transparent),
+    0 12px 40px rgba(0,0,0,0.4);
 }
 
 .pb-safe { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
