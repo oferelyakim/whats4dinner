@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { loadCircleContext } from '../_shared/circle-context.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -184,6 +185,9 @@ User: "Plan meals for next week"
 User: "I want to plan a dinner party"
 → Ask: "Fun! When's the dinner party, and roughly how many guests? Any dietary restrictions to plan around?"
 
+## Revising an existing meal plan
+If the user already received a meal plan and wants to swap dishes, find real recipes online for them, or otherwise refine it, ALWAYS call **plan_meals** again with the SAME dates from the existing plan and apply their feedback to recipe_title / description. For dishes the user wants pulled from real online recipes, set source_preference: "web" — the app fetches the actual recipes after planning. Do NOT refuse with "I can't search the web" — plan_meals already drives the web-fetch path; your job is to name the dish and mark its source.
+
 Always respond in the user's language (English or Hebrew).`
 
 const PAID_TOOLS = [
@@ -311,7 +315,7 @@ serve(async (req) => {
       )
     }
 
-    const { messages, circleId, locale } = await req.json()
+    const { messages, circleId, locale, forcePlanMeals } = await req.json()
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
         JSON.stringify({ error: 'messages array is required' }),
@@ -337,7 +341,15 @@ serve(async (req) => {
     const basePrompt = isPaid
       ? PAID_SYSTEM_PROMPT
       : (locale === 'he' ? FREE_SYSTEM_PROMPT_HE : FREE_SYSTEM_PROMPT_EN)
-    const systemPrompt = `${dateContext}\n${basePrompt}`
+
+    // Inject the active circle's purpose + structured context (diet, household,
+    // event details, etc.) so the assistant doesn't have to ask repeatedly.
+    let circleBlock = ''
+    if (circleId) {
+      const { block } = await loadCircleContext(supabase, circleId)
+      circleBlock = block
+    }
+    const systemPrompt = `${dateContext}\n${basePrompt}${circleBlock ? `\n\n${circleBlock}\n\nUse the circle context above to ground answers. Don't re-ask the user for info that's already there.` : ''}`
 
     // Build API request
     const apiBody: Record<string, unknown> = {
@@ -352,6 +364,12 @@ serve(async (req) => {
 
     if (isPaid) {
       apiBody.tools = PAID_TOOLS
+      // Force a structured meal plan when the client is in plan-revision mode.
+      // Without this, the model sometimes replies with a conversational list of
+      // dishes and the UI has no actionable plan to render.
+      if (forcePlanMeals) {
+        apiBody.tool_choice = { type: 'tool', name: 'plan_meals' }
+      }
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {

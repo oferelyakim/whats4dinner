@@ -28,11 +28,12 @@ export async function sendChatMessage(
   messages: ChatApiMessage[],
   circleId: string | undefined,
   locale: string,
+  forcePlanMeals = false,
 ): Promise<ChatResponse> {
   const trimmed = messages.slice(-CHAT_MAX_HISTORY)
 
   const { data, error } = await supabase.functions.invoke('ai-chat', {
-    body: { messages: trimmed, circleId, locale },
+    body: { messages: trimmed, circleId, locale, forcePlanMeals },
   })
 
   if (error) {

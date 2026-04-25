@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { loadCircleContext } from '../_shared/circle-context.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -257,6 +258,10 @@ serve(async (req) => {
     // Determine season from the first requested date
     const season = getSeason(dates[0])
 
+    // Load circle purpose + structured context (diet, household, cooking style, etc.)
+    // This grounds the AI in what the user told us during onboarding/setup.
+    const { block: circleContextBlock } = await loadCircleContext(supabase, circleId)
+
     // Build structured preferences block
     const prefsBlock = `User preferences:
 - Dietary restrictions: ${preferences?.dietary_restrictions || 'none specified'}
@@ -282,7 +287,7 @@ serve(async (req) => {
     const userMessage = `Plan meals for these dates: ${dates.join(', ')}
 Current season: ${season}
 
-${prefsBlock}
+${circleContextBlock ? `${circleContextBlock}\n\nThe circle context above is the source of truth — when it conflicts with anything else, follow the circle context.\n\n` : ''}${prefsBlock}
 
 ${recipeList ? `Family's saved recipes (use recipe_id when suggesting these):\n${recipeList}` : 'No saved recipes yet — suggest popular family-friendly meals with full details.'}
 

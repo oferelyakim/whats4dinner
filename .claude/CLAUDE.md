@@ -29,7 +29,7 @@ A mobile-first Progressive Web App for US households to coordinate family life �
 - Shopping lists are the daily-habit retention hook (2-3x/week usage) and the surface for retailer cart integrations (the main long-term revenue lever)
 - US market focus — English-first, prices in USD, Walmart as the first retailer integration
 - Hebrew/RTL remains fully supported (bilingual product), but new copy and flows are designed for US users first
-- Circles are the foundation — everything (events, lists, meals, chores, activities) is scoped to a circle
+- Circles are the foundation — everything (events, lists, meals, chores, activities) is scoped to a circle. As of migration 027, each circle also carries `purpose` + `circle_type` (`family|event|roommates|friends|other`) + `context jsonb` captured during the v2 setup wizard (`src/components/circle/CircleSetupWizard.tsx`). AI edge functions ground prompts on this via the shared `supabase/functions/_shared/circle-context.ts` helper.
 
 ## Conventions
 - TypeScript strict mode, no `any` unless justified with comment

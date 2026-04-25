@@ -50,10 +50,12 @@ type PlanItemWithKey = MealPlanItem & { _key: number }
 interface ChatPlanReviewProps {
   plan: GeneratedPlan
   isAccepting: boolean
+  isRevising?: boolean
   fetchError?: string | null
   onApprove: (selectedItems: MealPlanItem[]) => void
   onAccept: (selectedItems: MealPlanItem[]) => void
   onRequestChanges: (request: string) => void
+  onCancelRevision?: () => void
   onDismiss: () => void
   onNavigateToRecipe?: (recipeId: string) => void
   onAddToShoppingList?: (items: MealPlanItem[]) => void
@@ -80,10 +82,12 @@ function formatPlanDate(dateStr: string, locale: string): string {
 export function ChatPlanReview({
   plan,
   isAccepting,
+  isRevising = false,
   fetchError,
   onApprove,
   onAccept,
   onRequestChanges,
+  onCancelRevision,
   onDismiss,
   onNavigateToRecipe,
   onAddToShoppingList,
@@ -178,6 +182,7 @@ export function ChatPlanReview({
   }
 
   const handleRequestReplacements = () => {
+    if (isRevising) return
     const feedback = uncheckedItems
       .map((item) => {
         const comment = itemComments[item._key]
@@ -192,9 +197,12 @@ export function ChatPlanReview({
   }
 
   const handleStartOver = () => {
-    if (startOverRequest.trim()) {
-      onRequestChanges(startOverRequest.trim())
-    }
+    if (isRevising) return
+    const trimmed = startOverRequest.trim()
+    if (!trimmed) return
+    onRequestChanges(trimmed)
+    setStartOverRequest('')
+    setShowStartOverInput(false)
   }
 
   const itemsByDate = visibleItems.reduce<Record<string, PlanItemWithKey[]>>((acc, item) => {
@@ -454,6 +462,35 @@ export function ChatPlanReview({
           </>
         )}
       </div>
+
+      <AnimatePresence>
+        {isRevising && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-[65] rounded-t-3xl bg-rp-card/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 p-6"
+          >
+            <div className="h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-medium text-rp-ink text-center">
+              Revising your plan...
+            </p>
+            <p className="text-xs text-rp-ink-mute text-center max-w-xs">
+              I&apos;m updating the dishes based on your request. This usually takes a few seconds.
+            </p>
+            {onCancelRevision && (
+              <button
+                type="button"
+                onClick={onCancelRevision}
+                className="mt-2 h-10 px-5 rounded-xl border border-rp-hairline text-sm font-medium text-rp-ink bg-rp-card hover:bg-slate-50 dark:hover:bg-surface-dark-overlay active:scale-[0.98] transition-all"
+              >
+                {t('common.cancel')}
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {confirmRemoveKey !== null && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center p-4">

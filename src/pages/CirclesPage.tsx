@@ -8,11 +8,11 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
-import { getMyCircles, createCircle, joinCircleByInviteCode } from '@/services/circles'
+import { getMyCircles, joinCircleByInviteCode } from '@/services/circles'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
-
-const CIRCLE_ICONS = ['👨‍👩‍👧‍👦', '👪', '🏠', '❤️', '🍽️', '👫', '🫂', '✨']
+import { CircleSetupWizard } from '@/components/circle/CircleSetupWizard'
+import type { Circle } from '@/types'
 
 export function CirclesPage() {
   const navigate = useNavigate()
@@ -21,8 +21,6 @@ export function CirclesPage() {
   const { t } = useI18n()
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [selectedIcon, setSelectedIcon] = useState('👨‍👩‍👧‍👦')
   const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -32,17 +30,13 @@ export function CirclesPage() {
     queryFn: getMyCircles,
   })
 
-  const createMutation = useMutation({
-    mutationFn: () => createCircle(newName.trim(), selectedIcon),
-    onSuccess: (circle) => {
+  function handleCreated(circle: Circle | null) {
+    if (circle) {
       queryClient.invalidateQueries({ queryKey: ['circles'] })
       setActiveCircle(circle)
-      setShowCreate(false)
-      setNewName('')
-      setError('')
-    },
-    onError: (err: Error) => setError(err.message),
-  })
+    }
+    setShowCreate(false)
+  }
 
   const joinMutation = useMutation({
     mutationFn: () => joinCircleByInviteCode(inviteCode),
@@ -145,58 +139,20 @@ export function CirclesPage() {
         </div>
       )}
 
-      {/* Create Circle Dialog */}
+      {/* Create Circle — full wizard */}
       <Dialog.Root open={showCreate} onOpenChange={setShowCreate}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
-            <Dialog.Title className="text-lg font-bold text-rp-ink mb-4">
-              {t('circle.create')}
-            </Dialog.Title>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-rp-ink-soft mb-2 block">
-                  {t('circle.chooseIcon')}
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {CIRCLE_ICONS.map((icon) => (
-                    <button
-                      key={icon}
-                      onClick={() => setSelectedIcon(icon)}
-                      className={cn(
-                        'h-10 w-10 rounded-xl flex items-center justify-center text-xl transition-all',
-                        selectedIcon === icon
-                          ? 'bg-brand-500/20 ring-2 ring-brand-500 scale-110'
-                          : 'bg-slate-100 dark:bg-surface-dark-overlay hover:bg-slate-200 dark:hover:bg-slate-600'
-                      )}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Input
-                label={t('circle.circleName')}
-                placeholder={t('circle.circleNamePlaceholder')}
-                value={newName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
-              />
-              {error && (
-                <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
-              )}
-              <div className="flex gap-3 pt-2">
-                <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => createMutation.mutate()}
-                  disabled={!newName.trim() || createMutation.isPending}
-                >
-                  {createMutation.isPending ? t('common.loading') : t('common.create')}
-                </Button>
-              </div>
-            </div>
+          <Dialog.Content
+            className="fixed inset-0 z-50 bg-rp-bg overflow-hidden"
+            aria-describedby={undefined}
+          >
+            <Dialog.Title className="sr-only">{t('circle.create')}</Dialog.Title>
+            <CircleSetupWizard
+              variant="optional"
+              onDone={handleCreated}
+              onClose={() => setShowCreate(false)}
+            />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

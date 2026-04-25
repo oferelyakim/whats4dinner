@@ -25,6 +25,45 @@ export interface MealPreferences {
   disliked_ingredients?: string[]
 }
 
+export type CircleType = 'family' | 'event' | 'roommates' | 'friends' | 'other'
+
+export interface CircleContext {
+  // Shared
+  diet?: string[]
+  allergies?: string[]
+  dislikes?: string[]
+  notes?: string
+
+  // Family / household
+  household?: {
+    adults?: number
+    kids_ages?: number[]
+  }
+  cooking?: {
+    skill?: 1 | 2 | 3 | 4 | 5
+    time_pref?: CookTimePref
+    spice?: 1 | 2 | 3 | 4 | 5
+    cuisines?: string[]
+  }
+
+  // Event
+  event?: {
+    date?: string
+    location?: string
+    venue?: 'indoor' | 'outdoor' | 'mixed'
+    headcount?: number
+    age_mix?: 'kids' | 'adults' | 'mixed' | 'seniors'
+    style?: 'potluck' | 'host_cooks' | 'catered' | 'mixed'
+    vibe?: string
+    needs_meal?: boolean
+  }
+
+  // Roommates / friends
+  cadence?: 'daily' | 'weekly' | 'monthly' | 'occasional'
+
+  [key: string]: unknown
+}
+
 export interface Circle {
   id: string
   name: string
@@ -36,6 +75,9 @@ export interface Circle {
   updated_at: string
   skin_id?: string | null
   custom_skin?: Record<string, unknown> | null
+  purpose?: string | null
+  circle_type?: CircleType | null
+  context?: CircleContext | null
 }
 
 export interface CircleMember {

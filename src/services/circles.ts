@@ -1,5 +1,13 @@
 import { supabase } from './supabase'
-import type { Circle, CircleMember } from '@/types'
+import type { Circle, CircleContext, CircleMember, CircleType } from '@/types'
+
+export interface CreateCircleInput {
+  name: string
+  icon: string
+  purpose?: string | null
+  circle_type?: CircleType | null
+  context?: CircleContext | null
+}
 
 export async function getMyCircles(): Promise<Circle[]> {
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,12 +32,33 @@ export async function getCircleMembers(circleId: string): Promise<CircleMember[]
   return data as CircleMember[]
 }
 
-export async function createCircle(name: string, icon: string): Promise<Circle> {
+export async function createCircle(input: CreateCircleInput | string, icon?: string): Promise<Circle> {
+  // Backwards-compatible: callers used to pass (name, icon).
+  const payload: CreateCircleInput =
+    typeof input === 'string' ? { name: input, icon: icon ?? '👨‍👩‍👧‍👦' } : input
+
   const { data, error } = await supabase
-    .rpc('create_circle_with_owner', { p_name: name, p_icon: icon })
+    .rpc('create_circle_with_owner', {
+      p_name: payload.name,
+      p_icon: payload.icon,
+      p_purpose: payload.purpose ?? null,
+      p_circle_type: payload.circle_type ?? null,
+      p_context: payload.context ?? {},
+    })
 
   if (error) throw error
   return data as Circle
+}
+
+export async function updateCircleContext(
+  circleId: string,
+  patch: { purpose?: string | null; circle_type?: CircleType | null; context?: CircleContext | null },
+): Promise<void> {
+  const { error } = await supabase
+    .from('circles')
+    .update(patch)
+    .eq('id', circleId)
+  if (error) throw error
 }
 
 export async function joinCircleByInviteCode(inviteCode: string): Promise<Circle> {

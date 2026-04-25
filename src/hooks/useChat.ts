@@ -6,7 +6,7 @@ import { useAIAccess } from './useAIAccess'
 import { useAuth } from './useAuth'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
-import { sendChatMessage, getFreeRecipeImportCount, logChatUsage } from '@/services/ai-chat'
+import { sendChatMessage, getFreeRecipeImportCount, logChatUsage, type ChatApiMessage } from '@/services/ai-chat'
 import { importRecipeFromUrl } from '@/services/recipeImport'
 import { FREE_RECIPE_IMPORT_CAP } from '@/lib/constants'
 import { createActivity } from '@/services/activities'
@@ -305,6 +305,65 @@ export function useChat() {
     [userId, messages, activeCircle?.id, locale, ai.hasAI, freeImportCount, addMessage, updateMessage, setLoading, queryClient],
   )
 
+  // Revise an existing meal plan in-place. Injects the current plan as context
+  // and forces the model to call plan_meals so we always get structured data
+  // back — never a conversational refusal that leaves the UI stuck.
+  const revisePlan = useCallback(
+    async (currentPlan: GeneratedPlan, request: string, signal?: AbortSignal): Promise<GeneratedPlan | null> => {
+      if (!userId) return null
+      const trimmed = request.trim()
+      if (!trimmed) return null
+
+      // Surface the request in the chat transcript so the user can see what was asked.
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: trimmed,
+        timestamp: Date.now(),
+      })
+      setLoading(true)
+      try {
+        const planSummary = currentPlan.plan
+          .map((p) => `- ${p.date} ${p.meal_type}: "${p.recipe_title}"${p.description ? ' — ' + p.description : ''}`)
+          .join('\n')
+        const dates = Array.from(new Set(currentPlan.plan.map((p) => p.date)))
+
+        const wrappedRevisionMessage =
+          `Current meal plan you previously generated:\n${planSummary}\n\n` +
+          `Dates: ${dates.join(', ')}\n\n` +
+          `User revision request: "${trimmed}"\n\n` +
+          `Call plan_meals with these same dates to return a revised plan that applies the user's feedback. ` +
+          `For any dish the user wants from a real recipe online, set source_preference: "web". ` +
+          `Keep dishes that the user did not ask to change.`
+
+        const apiMessages: ChatApiMessage[] = [...messages]
+          .filter((m) => !m.isLoading && m.content.trim())
+          .map((m) => ({ role: m.role, content: m.content }))
+        apiMessages.push({ role: 'user', content: wrappedRevisionMessage })
+
+        if (signal?.aborted) return null
+        const response = await sendChatMessage(apiMessages, activeCircle?.id, locale, true)
+        if (signal?.aborted) return null
+
+        logChatUsage(userId, 'chat', response._ai_usage)
+        if (ai.hasAI) {
+          queryClient.invalidateQueries({ queryKey: ['ai-usage'] })
+        }
+
+        const planData = response.action?.params?.planData as GeneratedPlan | undefined
+        if (planData?.plan?.length) {
+          return planData
+        }
+        return null
+      } catch {
+        return null
+      } finally {
+        setLoading(false)
+      }
+    },
+    [userId, messages, activeCircle?.id, locale, ai.hasAI, queryClient, addMessage, setLoading],
+  )
+
   return {
     messages,
     isOpen,
@@ -318,6 +377,7 @@ export function useChat() {
     toggleChat,
     sendMessage,
     applyAction,
+    revisePlan,
     addMessage,
     updateMessage,
     clearMessages,

@@ -33,6 +33,7 @@ export function ChatDialog() {
     closeChat,
     sendMessage,
     applyAction,
+    revisePlan,
     addMessage,
     updateMessage,
     clearMessages,
@@ -45,6 +46,8 @@ export function ChatDialog() {
   const [isAcceptingPlan, setIsAcceptingPlan] = useState(false)
   const [shoppingItems, setShoppingItems] = useState<MealPlanItem[] | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [isRevisingPlan, setIsRevisingPlan] = useState(false)
+  const reviseAbortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const shownPlanMessageIds = useRef<Set<string>>(new Set())
@@ -320,6 +323,52 @@ export function ChatDialog() {
     navigate(`/recipes/${recipeId}`)
   }, [navigate, closeChat])
 
+  const handleRevisePlan = useCallback(
+    async (request: string) => {
+      if (!pendingPlan || isRevisingPlan) return
+      // Abort any previous in-flight revision
+      reviseAbortRef.current?.abort()
+      const controller = new AbortController()
+      reviseAbortRef.current = controller
+
+      setFetchError(null)
+      setIsRevisingPlan(true)
+      try {
+        const newPlan = await revisePlan(pendingPlan, request, controller.signal)
+        if (controller.signal.aborted) return
+        if (newPlan?.plan?.length) {
+          // Replace plan in place — back to selecting stage so user can review.
+          setPendingPlan({ ...newPlan, _stage: 'selecting' })
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: "Here's the revised plan — review and approve when you're happy with it.",
+            timestamp: Date.now(),
+          })
+        } else {
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content:
+              "I couldn't generate a revised plan. Try rephrasing the change, or close this and start a new plan from the chat.",
+            timestamp: Date.now(),
+          })
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsRevisingPlan(false)
+        }
+      }
+    },
+    [pendingPlan, isRevisingPlan, revisePlan, addMessage],
+  )
+
+  const handleCancelRevision = useCallback(() => {
+    reviseAbortRef.current?.abort()
+    reviseAbortRef.current = null
+    setIsRevisingPlan(false)
+  }, [])
+
   const handleAcceptPlan = async (selectedItems: MealPlanItem[]) => {
     if (!activeCircle) return
     setIsAcceptingPlan(true)
@@ -500,15 +549,16 @@ export function ChatDialog() {
             <ChatPlanReview
               plan={pendingPlan}
               isAccepting={isAcceptingPlan}
+              isRevising={isRevisingPlan}
               fetchError={fetchError}
               onApprove={handleApproveAndFetchRecipes}
               onAccept={handleAcceptPlan}
-              onRequestChanges={(request) => {
-                setPendingPlan(null)
-                setFetchError(null)
-                sendMessage(request)
-              }}
+              onRequestChanges={handleRevisePlan}
+              onCancelRevision={handleCancelRevision}
               onDismiss={() => {
+                reviseAbortRef.current?.abort()
+                reviseAbortRef.current = null
+                setIsRevisingPlan(false)
                 setPendingPlan(null)
                 setFetchError(null)
               }}

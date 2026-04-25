@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { loadCircleContext } from '../_shared/circle-context.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -151,10 +152,13 @@ serve(async (req) => {
       .eq('id', eventId)
       .single()
 
+    // Load circle purpose + structured context (event details captured at setup, diet, etc.)
+    const { block: circleContextBlock } = await loadCircleContext(supabase, circleId)
+
     // Build user message
     const totalHeadcount = (headcountAdults || event?.headcount_adults || 0) + (headcountKids || event?.headcount_kids || 0)
 
-    const userMessage = `Plan this event:
+    const userMessage = `${circleContextBlock ? `${circleContextBlock}\n\nThe circle context above is the source of truth — use it to ground date/venue/style/diet decisions when this event prompt is silent.\n\n` : ''}Plan this event:
 Event: ${event?.title || 'Unknown event'}
 Date: ${event?.date ? new Date(event.date).toLocaleDateString() : 'TBD'}
 Location: ${event?.location || 'Not specified'}
