@@ -83,19 +83,18 @@ export function FoodHubPage() {
       </motion.div>
 
       {/* Tab pills */}
-      <motion.div variants={fadeUp} className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
-        {TABS.map(({ key, icon: Icon, labelKey, ...rest }) => (
+      <motion.div variants={fadeUp} className="flex gap-1 pb-1">
+        {TABS.map(({ key, labelKey, ...rest }) => (
           <button
             key={key}
             onClick={() => 'href' in rest && rest.href ? navigate(rest.href) : setActiveTab(key)}
             className={cn(
-              'flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0 min-h-[44px]',
+              'flex-1 min-w-0 flex items-center justify-center px-1.5 py-2.5 rounded-full text-[11px] font-medium transition-all min-h-[44px] truncate',
               activeTab === key
                 ? 'bg-brand-500 text-white shadow-sm'
                 : 'bg-slate-100 dark:bg-surface-dark-overlay text-rp-ink-soft'
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
             {t(labelKey)}
           </button>
         ))}

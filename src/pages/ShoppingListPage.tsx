@@ -18,14 +18,14 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus, GripVertical, X, Store,
+  ArrowLeft, Plus, Trash2, Square, CheckSquare, ShoppingCart, Share2, Check, UserPlus, GripVertical, X, Store, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { formatQuantity } from '@/lib/format'
-import { getShoppingList, addListItem, toggleListItem, removeListItem, shareListWithUser, deleteShoppingList } from '@/services/shoppingLists'
+import { getShoppingList, addListItem, toggleListItem, removeListItem, updateListItem, shareListWithUser, deleteShoppingList } from '@/services/shoppingLists'
 import { getIngredientSuggestions } from '@/services/recipes'
 import { getStores, getStoreRoutes } from '@/services/stores'
 import { getCircleMembers } from '@/services/circles'
@@ -63,6 +63,9 @@ export function ShoppingListPage() {
   const [showDeleteList, setShowDeleteList] = useState(false)
   const [showStoreLinker, setShowStoreLinker] = useState(false)
   const [showCartPreview, setShowCartPreview] = useState(false)
+  const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null)
+  const [editDraft, setEditDraft] = useState<{ name: string; quantity: string; category: Department }>({ name: '', quantity: '', category: 'Other' })
+  const [editError, setEditError] = useState('')
   const [draftRows, setDraftRows] = useState<DraftRow[]>([])
   const [addError, setAddError] = useState('')
   const [sortBy, setSortBy] = useState<'default' | 'department' | 'route'>('default')
@@ -203,6 +206,27 @@ export function ShoppingListPage() {
     },
     onError: (err: Error) => setMutationError(err.message),
   })
+
+  const editMutation = useMutation({
+    mutationFn: ({ itemId, patch }: { itemId: string; patch: { name?: string; quantity?: number | null; category?: string } }) =>
+      updateListItem(itemId, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
+      setEditingItem(null)
+      setEditError('')
+    },
+    onError: (err: Error) => setEditError(err.message),
+  })
+
+  const openEditItem = useCallback((item: ShoppingListItem) => {
+    setEditingItem(item)
+    setEditDraft({
+      name: item.name,
+      quantity: item.quantity != null ? String(item.quantity) : '',
+      category: (item.category as Department) || 'Other',
+    })
+    setEditError('')
+  }, [])
 
   const removeMutation = useMutation({
     mutationFn: (itemId: string) => removeListItem(itemId),
@@ -471,6 +495,7 @@ export function ShoppingListPage() {
                         item={item}
                         onToggle={() => toggleMutation.mutate({ itemId: item.id, checked: true })}
                         onRemove={() => removeMutation.mutate(item.id)}
+                        onEdit={() => openEditItem(item)}
                       />
                     </div>
                   ))}
@@ -488,6 +513,7 @@ export function ShoppingListPage() {
                       item={item}
                       onToggle={() => toggleMutation.mutate({ itemId: item.id, checked: true })}
                       onRemove={() => removeMutation.mutate(item.id)}
+                      onEdit={() => openEditItem(item)}
                     />
                   ))}
                 </Card>
@@ -529,6 +555,97 @@ export function ShoppingListPage() {
           )}
         </>
       )}
+
+      {/* Edit Item Modal */}
+      <Dialog.Root
+        open={!!editingItem}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingItem(null)
+            setEditError('')
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content
+            className="fixed inset-x-4 top-[15%] z-50 bg-rp-card rounded-2xl p-5 shadow-xl sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md focus:outline-none"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <Dialog.Title className="text-base font-bold text-rp-ink mb-4">
+              {t('list.editItem') || 'Edit item'}
+            </Dialog.Title>
+
+            <div className="space-y-3">
+              <AutocompleteInput
+                placeholder={t('lists.itemName')}
+                value={editDraft.name}
+                onChange={(val) => setEditDraft((d) => ({ ...d, name: val }))}
+                suggestions={ingredientSuggestions}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <input
+                  placeholder={t('lists.quantity')}
+                  value={editDraft.quantity}
+                  onChange={(e) => setEditDraft((d) => ({ ...d, quantity: e.target.value }))}
+                  inputMode="decimal"
+                  aria-label={t('lists.quantity')}
+                  className="w-20 text-sm bg-transparent border-b border-rp-hairline pb-1 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 text-center"
+                />
+                <select
+                  value={editDraft.category}
+                  onChange={(e) => setEditDraft((d) => ({ ...d, category: e.target.value as Department }))}
+                  aria-label="Department"
+                  className="flex-1 text-xs bg-white dark:bg-surface-dark-overlay border border-rp-hairline rounded-lg px-2 py-1.5 text-rp-ink-soft"
+                >
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {editError && <p className="mt-2 text-sm text-danger">{editError}</p>}
+
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setEditingItem(null)
+                  setEditError('')
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  if (!editingItem) return
+                  const trimmed = editDraft.name.trim()
+                  if (!trimmed) {
+                    setEditError(t('lists.itemName'))
+                    return
+                  }
+                  const qty = editDraft.quantity.trim() === '' ? null : parseFloat(editDraft.quantity)
+                  editMutation.mutate({
+                    itemId: editingItem.id,
+                    patch: {
+                      name: trimmed,
+                      quantity: qty != null && !isNaN(qty) ? qty : null,
+                      category: editDraft.category,
+                    },
+                  })
+                }}
+                disabled={editMutation.isPending}
+              >
+                {editMutation.isPending ? t('common.loading') : t('common.save')}
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Add Items Modal */}
       <Dialog.Root
@@ -757,10 +874,12 @@ function SortableListItem({
   item,
   onToggle,
   onRemove,
+  onEdit,
 }: {
   item: ShoppingListItem
   onToggle: () => void
   onRemove: () => void
+  onEdit?: () => void
 }) {
   const {
     attributes,
@@ -787,7 +906,7 @@ function SortableListItem({
       >
         <GripVertical className="h-4 w-4 text-slate-300 dark:text-slate-600" />
       </button>
-      <ListItemRow item={item} onToggle={onToggle} onRemove={onRemove} />
+      <ListItemRow item={item} onToggle={onToggle} onRemove={onRemove} onEdit={onEdit} />
     </div>
   )
 }
@@ -796,10 +915,12 @@ function ListItemRow({
   item,
   onToggle,
   onRemove,
+  onEdit,
 }: {
   item: ShoppingListItem
   onToggle: () => void
   onRemove: () => void
+  onEdit?: () => void
 }) {
   return (
     <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -810,7 +931,11 @@ function ListItemRow({
           <Square className="h-6 w-6 text-slate-300 dark:text-slate-600" />
         )}
       </button>
-      <div className="flex-1 min-w-0" onClick={onToggle}>
+      <button
+        type="button"
+        onClick={onEdit ?? onToggle}
+        className="flex-1 min-w-0 text-start"
+      >
         <p
           className={cn(
             'text-sm transition-colors',
@@ -833,7 +958,16 @@ function ListItemRow({
         {item.category && item.category !== 'Other' && !item.notes?.startsWith('From:') && (
           <p className="text-[10px] text-slate-400">{item.category}</p>
         )}
-      </div>
+      </button>
+      {onEdit && !item.is_checked && (
+        <button
+          onClick={onEdit}
+          aria-label="Edit item"
+          className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-rp-ink-mute hover:text-brand-500 hover:bg-brand-500/10 active:text-brand-500 active:bg-brand-500/10 transition-colors"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
       <button
         onClick={onRemove}
         aria-label="Remove item"

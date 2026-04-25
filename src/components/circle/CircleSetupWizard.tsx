@@ -235,7 +235,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
   const showBack = stepIdx > 0
 
   return (
-    <div className="min-h-full flex flex-col bg-gradient-to-b from-rp-bg to-rp-card">
+    <div className="h-full min-h-screen flex flex-col bg-gradient-to-b from-rp-bg to-rp-card">
       {/* Header: progress + close */}
       <div className="flex items-center justify-between pt-6 px-6 pb-2 gap-4">
         <div className="flex gap-1.5 flex-1">
