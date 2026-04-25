@@ -11,7 +11,7 @@ import { useAppStore } from '@/stores/appStore'
 export function JoinCirclePage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
-  const { session, loading: authLoading, signInWithEmail, signUpWithEmail } = useAuth()
+  const { session, loading: authLoading, signInWithEmail, signUpWithEmail, sendPasswordReset } = useAuth()
   const { setActiveCircle } = useAppStore()
 
   const [circleName, setCircleName] = useState<string | null>(null)
@@ -22,12 +22,13 @@ export function JoinCirclePage() {
   const [joined, setJoined] = useState(false)
 
   // Auth form state
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup')
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [authLoading2, setAuthLoading2] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   // Fetch circle info by invite code (public-ish query)
   useEffect(() => {
@@ -82,6 +83,14 @@ export function JoinCirclePage() {
     setError('')
     setAuthLoading2(true)
 
+    if (authMode === 'forgot') {
+      const { error: resetError } = await sendPasswordReset(email, code ? `/join/${code}` : undefined)
+      if (resetError) setError(resetError.message)
+      else setResetSent(true)
+      setAuthLoading2(false)
+      return
+    }
+
     const result =
       authMode === 'login'
         ? await signInWithEmail(email, password)
@@ -118,7 +127,7 @@ export function JoinCirclePage() {
     )
   }
 
-  if (emailSent) {
+  if (emailSent || resetSent) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-surface-light dark:bg-surface-dark text-center">
         <div className="h-16 w-16 rounded-2xl bg-success/20 flex items-center justify-center mb-4">
@@ -128,12 +137,14 @@ export function JoinCirclePage() {
           Check your email
         </h1>
         <p className="text-sm text-rp-ink-mute mb-1">
-          We sent a confirmation link to <strong>{email}</strong>
+          {resetSent ? 'We sent a password reset link to' : 'We sent a confirmation link to'} <strong>{email}</strong>
         </p>
         <p className="text-xs text-rp-ink-mute mb-6">
-          After confirming, come back to this link to join {circleName ?? 'the circle'}.
+          {resetSent
+            ? `After resetting, you'll come back here to join ${circleName ?? 'the circle'}.`
+            : `After confirming, come back to this link to join ${circleName ?? 'the circle'}.`}
         </p>
-        <Button variant="secondary" onClick={() => { setEmailSent(false); setAuthMode('login') }}>
+        <Button variant="secondary" onClick={() => { setEmailSent(false); setResetSent(false); setAuthMode('login') }}>
           Back to Sign In
         </Button>
       </div>
@@ -159,7 +170,11 @@ export function JoinCirclePage() {
             </>
           )}
           <p className="text-xs text-slate-400 mt-2">
-            {authMode === 'signup' ? 'Create an account to join' : 'Sign in to join'}
+            {authMode === 'signup'
+              ? 'Create an account to join'
+              : authMode === 'forgot'
+                ? 'Reset your password to sign in'
+                : 'Sign in to join'}
           </p>
         </div>
 
@@ -182,15 +197,29 @@ export function JoinCirclePage() {
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             required
           />
-          <Input
-            label="Password"
-            type="password"
-            placeholder="Min 6 characters"
-            value={password}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
+          {authMode !== 'forgot' && (
+            <Input
+              label="Password"
+              type="password"
+              placeholder="Min 6 characters"
+              value={password}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          )}
+
+          {authMode === 'login' && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('forgot'); setError('') }}
+                className="text-sm text-brand-500 hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           {error && (
             <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>
@@ -203,18 +232,31 @@ export function JoinCirclePage() {
                 ? 'Joining...'
                 : authMode === 'signup'
                   ? 'Sign Up & Join'
-                  : 'Sign In & Join'}
+                  : authMode === 'forgot'
+                    ? 'Send reset link'
+                    : 'Sign In & Join'}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          {authMode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
-          <button
-            onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setError('') }}
-            className="text-brand-500 font-medium hover:underline"
-          >
-            {authMode === 'signup' ? 'Sign In' : 'Sign Up'}
-          </button>
+          {authMode === 'forgot' ? (
+            <button
+              onClick={() => { setAuthMode('login'); setError('') }}
+              className="text-brand-500 font-medium hover:underline"
+            >
+              Back to Sign In
+            </button>
+          ) : (
+            <>
+              {authMode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+              <button
+                onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setError('') }}
+                className="text-brand-500 font-medium hover:underline"
+              >
+                {authMode === 'signup' ? 'Sign In' : 'Sign Up'}
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>

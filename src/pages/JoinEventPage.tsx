@@ -14,7 +14,7 @@ import { maybeRequestReview } from '@/lib/reviewPrompt'
 export function JoinEventPage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
-  const { session, loading: authLoading, signInWithEmail, signUpWithEmail } = useAuth()
+  const { session, loading: authLoading, signInWithEmail, signUpWithEmail, sendPasswordReset } = useAuth()
   const { t, locale } = useI18n()
 
   const [eventName, setEventName] = useState<string | null>(null)
@@ -26,12 +26,13 @@ export function JoinEventPage() {
   const [joining, setJoining] = useState(false)
   const [joined, setJoined] = useState(false)
 
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup')
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [authLoading2, setAuthLoading2] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   useEffect(() => {
     if (!code) { setLoadingEvent(false); return }
@@ -72,6 +73,13 @@ export function JoinEventPage() {
     e.preventDefault()
     setError('')
     setAuthLoading2(true)
+    if (authMode === 'forgot') {
+      const { error: resetError } = await sendPasswordReset(email, code ? `/join-event/${code}` : undefined)
+      if (resetError) setError(resetError.message)
+      else setResetSent(true)
+      setAuthLoading2(false)
+      return
+    }
     const result = authMode === 'login'
       ? await signInWithEmail(email, password)
       : await signUpWithEmail(email, password, displayName)
@@ -98,13 +106,13 @@ export function JoinEventPage() {
     )
   }
 
-  if (emailSent) {
+  if (emailSent || resetSent) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-rp-bg text-center">
         <h1 className="text-2xl font-bold text-rp-ink mb-2">{t('auth.checkEmail')}</h1>
-        <p className="text-sm text-rp-ink-soft mb-1">{t('auth.emailSent')} <strong>{email}</strong></p>
+        <p className="text-sm text-rp-ink-soft mb-1">{resetSent ? t('auth.resetEmailSent') : t('auth.emailSent')} <strong>{email}</strong></p>
         <p className="text-xs text-rp-ink-mute mb-6">{t('auth.checkSpam')}</p>
-        <Button variant="secondary" onClick={() => { setEmailSent(false); setAuthMode('login') }}>{t('auth.backToSignIn')}</Button>
+        <Button variant="secondary" onClick={() => { setEmailSent(false); setResetSent(false); setAuthMode('login') }}>{t('auth.backToSignIn')}</Button>
       </div>
     )
   }
@@ -159,18 +167,47 @@ export function JoinEventPage() {
               <Input label={t('auth.name')} placeholder="How others see you" value={displayName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)} required />
             )}
             <Input label={t('auth.email')} type="email" placeholder="you@example.com" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} required />
-            <Input label={t('auth.password')} type="password" placeholder="Min 6 characters" value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} required minLength={6} />
+            {authMode !== 'forgot' && (
+              <Input label={t('auth.password')} type="password" placeholder="Min 6 characters" value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} required minLength={6} />
+            )}
+            {authMode === 'login' && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('forgot'); setError('') }}
+                  className="text-sm text-rp-brand hover:underline"
+                >
+                  {t('auth.forgotPassword')}
+                </button>
+              </div>
+            )}
             {error && <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>}
             <Button type="submit" size="lg" className="w-full" disabled={authLoading2 || joining}>
-              {authLoading2 ? 'Please wait...' : joining ? 'Joining...' : authMode === 'signup' ? t('join.claimCta') : t('join.signinClaimCta')}
+              {authLoading2
+                ? 'Please wait...'
+                : joining
+                  ? 'Joining...'
+                  : authMode === 'signup'
+                    ? t('join.claimCta')
+                    : authMode === 'forgot'
+                      ? t('auth.sendResetLink')
+                      : t('join.signinClaimCta')}
             </Button>
           </form>
 
           <p className="mt-5 text-center text-sm text-rp-ink-soft">
-            {authMode === 'signup' ? t('auth.hasAccount') + ' ' : t('auth.noAccount') + ' '}
-            <button onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setError('') }} className="text-rp-brand font-medium hover:underline">
-              {authMode === 'signup' ? t('auth.signIn') : t('auth.signUp')}
-            </button>
+            {authMode === 'forgot' ? (
+              <button onClick={() => { setAuthMode('login'); setError('') }} className="text-rp-brand font-medium hover:underline">
+                {t('auth.backToSignIn')}
+              </button>
+            ) : (
+              <>
+                {authMode === 'signup' ? t('auth.hasAccount') + ' ' : t('auth.noAccount') + ' '}
+                <button onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setError('') }} className="text-rp-brand font-medium hover:underline">
+                  {authMode === 'signup' ? t('auth.signIn') : t('auth.signUp')}
+                </button>
+              </>
+            )}
           </p>
         </div>
       </div>

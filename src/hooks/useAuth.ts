@@ -90,10 +90,10 @@ export function useAuth() {
     return { error }
   }
 
-  async function sendPasswordReset(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${getAuthRedirectUrl()}/reset-password`,
-    })
+  async function sendPasswordReset(email: string, nextPath?: string) {
+    const base = `${getAuthRedirectUrl()}/reset-password`
+    const redirectTo = nextPath ? `${base}?next=${encodeURIComponent(nextPath)}` : base
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
     return { error }
   }
 

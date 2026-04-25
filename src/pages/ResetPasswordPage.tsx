@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -19,6 +19,14 @@ export function ResetPasswordPage() {
   const { updatePassword } = useAuth()
   const { t } = useI18n()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const nextPath = useMemo(() => {
+    const raw = searchParams.get('next')
+    if (!raw) return null
+    // Only allow same-origin relative paths to prevent open redirects
+    if (!raw.startsWith('/') || raw.startsWith('//')) return null
+    return raw
+  }, [searchParams])
 
   useEffect(() => {
     let mounted = true
@@ -76,7 +84,7 @@ export function ResetPasswordPage() {
     }
 
     setSuccess(true)
-    window.setTimeout(() => navigate('/', { replace: true }), 1500)
+    window.setTimeout(() => navigate(nextPath ?? '/', { replace: true }), 1500)
   }
 
   return (
@@ -103,7 +111,7 @@ export function ResetPasswordPage() {
             <Button
               variant="secondary"
               className="w-full"
-              onClick={() => navigate('/', { replace: true })}
+              onClick={() => navigate(nextPath ?? '/', { replace: true })}
             >
               {t('auth.backToSignIn')}
             </Button>
