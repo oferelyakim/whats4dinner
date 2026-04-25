@@ -2,8 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
-  Sun,
-  Moon,
   LogOut,
   ChevronRight,
   User,
@@ -458,7 +456,7 @@ function UpgradeCard({ onOpenModal }: { onOpenModal: () => void }) {
 
 export function MorePage() {
   const navigate = useNavigate()
-  const { theme, setTheme, fontSize, setFontSize, keepScreenOn, setKeepScreenOn, profile, activeCircle, personalSkinId, setPersonalSkinId } = useAppStore()
+  const { fontSize, setFontSize, keepScreenOn, setKeepScreenOn, profile, activeCircle, personalSkinId, setPersonalSkinId } = useAppStore()
   const [showSkinPicker, setShowSkinPicker] = useState(false)
   const { session, signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
@@ -594,38 +592,6 @@ export function MorePage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
-
-      {/* Theme toggle */}
-      <Card className="px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {theme === 'dark' ? (
-              <Moon className="h-5 w-5 text-slate-500" />
-            ) : (
-              <Sun className="h-5 w-5 text-slate-500" />
-            )}
-            <span className="text-sm font-medium text-rp-ink">
-              {t('more.theme')}
-            </span>
-          </div>
-          <div className="flex bg-slate-100 dark:bg-surface-dark-overlay rounded-lg p-0.5">
-            {(['light', 'dark', 'system'] as const).map((themeOption) => (
-              <button
-                key={themeOption}
-                onClick={() => setTheme(themeOption)}
-                className={cn(
-                  'px-4 py-3 rounded-md text-sm font-medium transition-colors capitalize min-h-[44px]',
-                  theme === themeOption
-                    ? 'bg-rp-card text-rp-ink shadow-sm'
-                    : 'text-slate-500'
-                )}
-              >
-                {t(`more.${themeOption}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
 
       {/* Font size */}
       <Card className="px-4 py-3">

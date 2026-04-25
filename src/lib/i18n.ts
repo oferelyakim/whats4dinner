@@ -16,7 +16,7 @@ const translations: Record<string, Record<Locale, string>> = {
   'app.tagline': { en: 'Family life, planned & shared', he: 'החיים המשפחתיים, מתוכננים ומשותפים', es: 'La vida familiar, planificada y compartida' },
 
   // Navigation
-  'nav.home': { en: 'Home', he: 'בית', es: 'Inicio' },
+  'nav.home': { en: 'Home', he: 'ראשי', es: 'Inicio' },
   'nav.recipes': { en: 'Recipes', he: 'מתכונים', es: 'Recetas' },
   'nav.lists': { en: 'Lists', he: 'רשימות', es: 'Listas' },
   'nav.plan': { en: 'Plan', he: 'תכנון', es: 'Plan' },
@@ -319,7 +319,7 @@ const translations: Record<string, Record<Locale, string>> = {
   // Hearth redesign — warmer labels
   'nav.gather': { en: 'Gather', he: 'אירועים', es: 'Reunir' },
   'nav.house':  { en: 'House',  he: 'הבית',    es: 'Casa' },
-  'nav.me':     { en: 'Me',     he: 'אני',     es: 'Yo' },
+  'nav.me':     { en: 'Me',     he: 'פרופיל',  es: 'Yo' },
 
   // Food Hub
   'food.title': { en: 'Food & Meals', he: 'אוכל וארוחות', es: 'Comida y comidas' },

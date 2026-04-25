@@ -11,7 +11,7 @@
 // leaves protein/style alone.
 
 import type { SlotEnvelope } from './envelope'
-import { CUISINES, FLAVORS, STYLES, findCuisine, findFlavor, findStyle } from './taxonomy'
+import { CUISINES, STYLES, findCuisine, findFlavor, findStyle } from './taxonomy'
 import { resolveProteinHint } from './envelope'
 
 export interface UserHint {
