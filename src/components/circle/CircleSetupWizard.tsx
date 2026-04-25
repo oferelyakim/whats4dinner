@@ -21,51 +21,58 @@ interface Props {
 
 const CIRCLE_ICONS = ['🏠', '👨‍👩‍👧‍👦', '🍽️', '❤️', '🌟', '🏡', '👪', '🫶', '🎉', '🎂', '🏕️', '🔥']
 
-const TYPE_OPTIONS: { value: CircleType; label: string; sub: string; icon: typeof Home }[] = [
-  { value: 'family', label: 'Family', sub: 'Daily meals, chores, household life', icon: Home },
-  { value: 'event', label: 'Event', sub: 'Party, potluck, gathering', icon: CalendarDays },
-  { value: 'roommates', label: 'Roommates', sub: 'Shared groceries & chores', icon: Users },
-  { value: 'friends', label: 'Friends', sub: 'Recurring hangouts & dinners', icon: Heart },
-  { value: 'other', label: 'Other', sub: 'Something else', icon: MoreHorizontal },
+const TYPE_OPTIONS: { value: CircleType; labelKey: string; subKey: string; icon: typeof Home }[] = [
+  { value: 'family', labelKey: 'onboard.v2.type.family', subKey: 'onboard.v2.type.familySub', icon: Home },
+  { value: 'event', labelKey: 'onboard.v2.type.event', subKey: 'onboard.v2.type.eventSub', icon: CalendarDays },
+  { value: 'roommates', labelKey: 'onboard.v2.type.roommates', subKey: 'onboard.v2.type.roommatesSub', icon: Users },
+  { value: 'friends', labelKey: 'onboard.v2.type.friends', subKey: 'onboard.v2.type.friendsSub', icon: Heart },
+  { value: 'other', labelKey: 'onboard.v2.type.other', subKey: 'onboard.v2.type.otherSub', icon: MoreHorizontal },
 ]
 
-const DIET_OPTIONS = [
-  { value: 'none', label: 'No restrictions', emoji: '🍽️' },
-  { value: 'vegetarian', label: 'Vegetarian', emoji: '🥗' },
-  { value: 'vegan', label: 'Vegan', emoji: '🌱' },
-  { value: 'pescatarian', label: 'Pescatarian', emoji: '🐟' },
-  { value: 'kosher', label: 'Kosher', emoji: '✡️' },
-  { value: 'halal', label: 'Halal', emoji: '☪️' },
-  { value: 'gluten-free', label: 'Gluten-free', emoji: '🌾' },
-  { value: 'dairy-free', label: 'Dairy-free', emoji: '🥛' },
-  { value: 'nut-free', label: 'Nut-free', emoji: '🥜' },
-  { value: 'low-carb', label: 'Low-carb', emoji: '🥩' },
+const DIET_OPTIONS: { value: string; labelKey: string; emoji: string }[] = [
+  { value: 'none', labelKey: 'diet.none', emoji: '🍽️' },
+  { value: 'vegetarian', labelKey: 'diet.vegetarian', emoji: '🥗' },
+  { value: 'vegan', labelKey: 'diet.vegan', emoji: '🌱' },
+  { value: 'pescatarian', labelKey: 'diet.pescatarian', emoji: '🐟' },
+  { value: 'kosher', labelKey: 'diet.kosher', emoji: '✡️' },
+  { value: 'halal', labelKey: 'diet.halal', emoji: '☪️' },
+  { value: 'gluten-free', labelKey: 'diet.glutenFree', emoji: '🌾' },
+  { value: 'dairy-free', labelKey: 'diet.dairyFree', emoji: '🥛' },
+  { value: 'nut-free', labelKey: 'diet.nutFree', emoji: '🥜' },
+  { value: 'low-carb', labelKey: 'diet.lowCarb', emoji: '🥩' },
 ]
 
-const COOK_TIME_OPTIONS: { value: CookTimePref; label: string; sub: string }[] = [
-  { value: 'quick', label: 'Quick', sub: '< 20m' },
-  { value: 'medium', label: 'Medium', sub: '20–45m' },
-  { value: 'project', label: 'Project', sub: '45m+' },
+const COOK_TIME_OPTIONS: { value: CookTimePref; labelKey: string; subKey: string }[] = [
+  { value: 'quick', labelKey: 'cookTime.quick', subKey: 'cookTime.quickSub' },
+  { value: 'medium', labelKey: 'cookTime.medium', subKey: 'cookTime.mediumSub' },
+  { value: 'project', labelKey: 'cookTime.project', subKey: 'cookTime.projectSub' },
 ]
 
-const VENUE_OPTIONS: { value: 'indoor' | 'outdoor' | 'mixed'; label: string; emoji: string }[] = [
-  { value: 'indoor', label: 'Indoor', emoji: '🏠' },
-  { value: 'outdoor', label: 'Outdoor', emoji: '🌳' },
-  { value: 'mixed', label: 'Both', emoji: '🌤️' },
+const VENUE_OPTIONS: { value: 'indoor' | 'outdoor' | 'mixed'; labelKey: string; emoji: string }[] = [
+  { value: 'indoor', labelKey: 'onboard.v2.indoor', emoji: '🏠' },
+  { value: 'outdoor', labelKey: 'onboard.v2.outdoor', emoji: '🌳' },
+  { value: 'mixed', labelKey: 'onboard.v2.both', emoji: '🌤️' },
 ]
 
-const STYLE_OPTIONS: { value: 'potluck' | 'host_cooks' | 'catered' | 'mixed'; label: string; sub: string }[] = [
-  { value: 'potluck', label: 'Potluck', sub: 'Everyone brings a dish' },
-  { value: 'host_cooks', label: 'Host cooks', sub: 'I’ll handle the food' },
-  { value: 'catered', label: 'Catered', sub: 'Order in or hire' },
-  { value: 'mixed', label: 'Mix', sub: 'Some of each' },
+const STYLE_OPTIONS: { value: 'potluck' | 'host_cooks' | 'catered' | 'mixed'; labelKey: string; subKey: string }[] = [
+  { value: 'potluck', labelKey: 'onboard.v2.style.potluck', subKey: 'onboard.v2.style.potluckSub' },
+  { value: 'host_cooks', labelKey: 'onboard.v2.style.host', subKey: 'onboard.v2.style.hostSub' },
+  { value: 'catered', labelKey: 'onboard.v2.style.catered', subKey: 'onboard.v2.style.cateredSub' },
+  { value: 'mixed', labelKey: 'onboard.v2.style.mixed', subKey: 'onboard.v2.style.mixedSub' },
 ]
 
-const AGE_MIX_OPTIONS: { value: 'kids' | 'adults' | 'mixed' | 'seniors'; label: string }[] = [
-  { value: 'kids', label: 'Mostly kids' },
-  { value: 'adults', label: 'Mostly adults' },
-  { value: 'mixed', label: 'Mixed ages' },
-  { value: 'seniors', label: 'Mostly seniors' },
+const AGE_MIX_OPTIONS: { value: 'kids' | 'adults' | 'mixed' | 'seniors'; labelKey: string }[] = [
+  { value: 'kids', labelKey: 'onboard.v2.ageMix.kids' },
+  { value: 'adults', labelKey: 'onboard.v2.ageMix.adults' },
+  { value: 'mixed', labelKey: 'onboard.v2.ageMix.mixed' },
+  { value: 'seniors', labelKey: 'onboard.v2.ageMix.seniors' },
+]
+
+const CADENCE_OPTIONS: { value: 'daily' | 'weekly' | 'monthly' | 'occasional'; labelKey: string }[] = [
+  { value: 'daily', labelKey: 'onboard.v2.cadence.daily' },
+  { value: 'weekly', labelKey: 'onboard.v2.cadence.weekly' },
+  { value: 'monthly', labelKey: 'onboard.v2.cadence.monthly' },
+  { value: 'occasional', labelKey: 'onboard.v2.cadence.occasional' },
 ]
 
 const slide = {
@@ -253,7 +260,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                 mode === 'create' ? 'bg-rp-card text-rp-ink shadow-sm' : 'text-rp-ink-mute',
               )}
             >
-              Create new
+              {t('onboard.v2.modeCreate')}
             </button>
             <button
               onClick={() => { setMode('join'); setStepIdx(0); setError('') }}
@@ -262,7 +269,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                 mode === 'join' ? 'bg-rp-card text-rp-ink shadow-sm' : 'text-rp-ink-mute',
               )}
             >
-              Join existing
+              {t('onboard.v2.modeJoin')}
             </button>
           </div>
         </div>
@@ -284,17 +291,17 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
             {stepKey === 'join' && (
               <Section
                 icon={<Users className="h-7 w-7 text-rp-brand" />}
-                title="Join a circle"
-                desc="Enter the invite code a member shared with you."
+                title={t('onboard.v2.joinTitle')}
+                desc={t('onboard.v2.joinDesc')}
               >
                 <Input
-                  label="Invite code"
-                  placeholder="e.g. a1b2c3"
+                  label={t('onboard.inviteCode')}
+                  placeholder={t('onboard.inviteCodePlaceholder')}
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
                 />
                 <Button className="w-full" onClick={handleJoin} disabled={!inviteCode.trim() || loading}>
-                  {loading ? t('common.loading') : 'Join'}
+                  {loading ? t('common.loading') : t('onboard.join')}
                 </Button>
               </Section>
             )}
@@ -302,18 +309,18 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
             {stepKey === 'identity' && mode === 'create' && (
               <Section
                 icon={<Sparkles className="h-7 w-7 text-rp-brand" />}
-                title="Let’s set up your circle"
-                desc="A circle is your shared space — for a family, an event, or a group of friends."
+                title={t('onboard.v2.identityTitle')}
+                desc={t('onboard.v2.identityDesc')}
               >
                 <Input
-                  label="Circle name"
-                  placeholder="The Smiths, Sarah’s 40th, etc."
+                  label={t('onboard.v2.circleNameLabel')}
+                  placeholder={t('onboard.v2.circleNamePh')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-rp-ink-soft">Icon</label>
+                  <label className="mb-1.5 block text-sm font-medium text-rp-ink-soft">{t('onboard.v2.iconLabel')}</label>
                   <div className="flex gap-2 flex-wrap">
                     {CIRCLE_ICONS.map((emoji) => (
                       <button
@@ -333,7 +340,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-rp-ink-soft">What kind of circle?</label>
+                  <label className="mb-2 block text-sm font-medium text-rp-ink-soft">{t('onboard.v2.typeLabel')}</label>
                   <div className="grid gap-2">
                     {TYPE_OPTIONS.map((opt) => {
                       const Icon = opt.icon
@@ -353,8 +360,8 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                             <Icon className="h-4.5 w-4.5" />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-medium text-rp-ink">{opt.label}</div>
-                            <div className="text-xs text-rp-ink-mute truncate">{opt.sub}</div>
+                            <div className="text-sm font-medium text-rp-ink">{t(opt.labelKey)}</div>
+                            <div className="text-xs text-rp-ink-mute truncate">{t(opt.subKey)}</div>
                           </div>
                         </button>
                       )
@@ -363,7 +370,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                 </div>
 
                 <Button className="w-full" onClick={() => go(1)} disabled={!name.trim() || !type}>
-                  Continue
+                  {t('onboard.continue')}
                   <ArrowRight className="h-4 w-4 ms-1 rtl-flip" />
                 </Button>
               </Section>
@@ -372,42 +379,42 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
             {stepKey === 'purpose' && (
               <Section
                 icon={<Sparkles className="h-7 w-7 text-rp-glow" />}
-                title="What’s this circle about?"
-                desc="One sentence helps the AI plan meals, events, and lists that actually fit."
+                title={t('onboard.v2.purposeTitle')}
+                desc={t('onboard.v2.purposeDesc')}
               >
                 <Input
-                  label="Purpose"
+                  label={t('onboard.v2.purposeLabel')}
                   placeholder={
                     type === 'event'
-                      ? 'e.g. Sarah’s 40th — backyard BBQ for ~20 friends'
+                      ? t('onboard.v2.purposePhEvent')
                       : type === 'family'
-                        ? 'e.g. Weekly dinners for two parents + two kids'
-                        : 'e.g. Roommates sharing groceries Sun–Thu'
+                        ? t('onboard.v2.purposePhFamily')
+                        : t('onboard.v2.purposePhOther')
                   }
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                 />
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} skipLabel="Skip" onSkip={() => go(1)} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} onSkip={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'household' && (
               <Section
                 icon={<Home className="h-7 w-7 text-rp-brand" />}
-                title="Who’s in the household?"
-                desc="So the AI sizes meal plans and lists right."
+                title={t('onboard.v2.householdTitle')}
+                desc={t('onboard.v2.householdDesc')}
               >
-                <NumberStepper label="Adults" value={adults} onChange={setAdults} min={1} max={12} />
-                <KidsAgesEditor ages={kidsAges} onChange={setKidsAges} />
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} />
+                <NumberStepper label={t('onboard.v2.adults')} value={adults} onChange={setAdults} min={1} max={12} />
+                <KidsAgesEditor ages={kidsAges} onChange={setKidsAges} kidsLabel={t('onboard.v2.kidsAges')} addLabel={t('onboard.v2.addKid')} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'diet' && (
               <Section
                 icon={<Salad className="h-7 w-7 text-rp-accent" />}
-                title="Any dietary needs?"
-                desc="Pick all that apply — the AI will respect them in every recipe and plan."
+                title={t('onboard.v2.dietTitle')}
+                desc={t('onboard.v2.dietDesc')}
               >
                 <div className="flex flex-wrap gap-2 justify-center">
                   {DIET_OPTIONS.map((opt) => {
@@ -424,32 +431,32 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                         )}
                       >
                         <span className="me-1">{opt.emoji}</span>
-                        {opt.label}
+                        {t(opt.labelKey)}
                       </button>
                     )
                   })}
                 </div>
                 {type === 'family' && (
                   <Input
-                    label="Anything to avoid? (comma separated, optional)"
-                    placeholder="cilantro, mushrooms, very spicy"
+                    label={t('onboard.v2.avoidLabel')}
+                    placeholder={t('onboard.v2.avoidPh')}
                     value={dislikes}
                     onChange={(e) => setDislikes(e.target.value)}
                   />
                 )}
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} skipLabel="Skip" onSkip={() => go(1)} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} onSkip={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'cooking' && (
               <Section
                 icon={<ChefHat className="h-7 w-7 text-rp-glow" />}
-                title="Cooking style"
-                desc="So suggested recipes match what you actually want to cook."
+                title={t('onboard.v2.cookingTitle')}
+                desc={t('onboard.v2.cookingDesc')}
               >
-                <SegmentedScale label="Skill" value={skill} onChange={(n) => setSkill(n as 1 | 2 | 3 | 4 | 5)} />
+                <SegmentedScale label={t('onboard.v2.skillLabel')} value={skill} onChange={(n) => setSkill(n as 1 | 2 | 3 | 4 | 5)} />
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-rp-ink-soft">Cook time</label>
+                  <label className="block mb-2 text-sm font-medium text-rp-ink-soft">{t('onboard.v2.cookTimeLabel')}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {COOK_TIME_OPTIONS.map((opt) => (
                       <button
@@ -460,37 +467,37 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                           cookTime === opt.value ? 'bg-rp-brand text-white' : 'bg-rp-bg-soft text-rp-ink hover:bg-rp-hairline',
                         )}
                       >
-                        <div>{opt.label}</div>
-                        <div className="text-[11px] opacity-75 mt-0.5">{opt.sub}</div>
+                        <div>{t(opt.labelKey)}</div>
+                        <div className="text-[11px] opacity-75 mt-0.5">{t(opt.subKey)}</div>
                       </button>
                     ))}
                   </div>
                 </div>
-                <SegmentedScale label="Spice" value={spice} onChange={(n) => setSpice(n as 1 | 2 | 3 | 4 | 5)} suffix={'🌶️'.repeat(spice)} />
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} />
+                <SegmentedScale label={t('onboard.v2.spiceLabel')} value={spice} onChange={(n) => setSpice(n as 1 | 2 | 3 | 4 | 5)} suffix={'🌶️'.repeat(spice)} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'event_when_where' && (
               <Section
                 icon={<CalendarDays className="h-7 w-7 text-rp-brand" />}
-                title="When & where?"
-                desc="Helps the AI plan around weather, season, and venue."
+                title={t('onboard.v2.eventWhereTitle')}
+                desc={t('onboard.v2.eventWhereDesc')}
               >
                 <Input
-                  label="Date"
+                  label={t('onboard.v2.eventDate')}
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
                 />
                 <Input
-                  label="Location (optional)"
-                  placeholder="Backyard, our place, the park…"
+                  label={t('onboard.v2.eventLocation')}
+                  placeholder={t('onboard.v2.eventLocationPh')}
                   value={eventLocation}
                   onChange={(e) => setEventLocation(e.target.value)}
                 />
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-rp-ink-soft">Indoor or outdoor?</label>
+                  <label className="block mb-2 text-sm font-medium text-rp-ink-soft">{t('onboard.v2.indoorOutdoor')}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {VENUE_OPTIONS.map((opt) => (
                       <button
@@ -502,24 +509,24 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                         )}
                       >
                         <div>{opt.emoji}</div>
-                        <div className="text-[11px] mt-0.5">{opt.label}</div>
+                        <div className="text-[11px] mt-0.5">{t(opt.labelKey)}</div>
                       </button>
                     ))}
                   </div>
                 </div>
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'event_who' && (
               <Section
                 icon={<Users className="h-7 w-7 text-rp-accent" />}
-                title="Who’s coming?"
-                desc="Rough numbers are fine."
+                title={t('onboard.v2.eventWhoTitle')}
+                desc={t('onboard.v2.eventWhoDesc')}
               >
-                <NumberStepper label="Headcount" value={headcount} onChange={setHeadcount} min={1} max={500} step={1} />
+                <NumberStepper label={t('onboard.v2.headcount')} value={headcount} onChange={setHeadcount} min={1} max={500} step={1} />
                 <div>
-                  <label className="block mb-2 text-sm font-medium text-rp-ink-soft">Age mix</label>
+                  <label className="block mb-2 text-sm font-medium text-rp-ink-soft">{t('onboard.v2.ageMix')}</label>
                   <div className="grid grid-cols-2 gap-2">
                     {AGE_MIX_OPTIONS.map((opt) => (
                       <button
@@ -530,20 +537,20 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                           ageMix === opt.value ? 'bg-rp-brand text-white' : 'bg-rp-bg-soft text-rp-ink hover:bg-rp-hairline',
                         )}
                       >
-                        {opt.label}
+                        {t(opt.labelKey)}
                       </button>
                     ))}
                   </div>
                 </div>
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'event_food' && (
               <Section
                 icon={<Salad className="h-7 w-7 text-rp-accent" />}
-                title="How’s the food handled?"
-                desc="And any vibe / theme to keep in mind?"
+                title={t('onboard.v2.eventFoodTitle')}
+                desc={t('onboard.v2.eventFoodDesc')}
               >
                 <div className="grid gap-2">
                   {STYLE_OPTIONS.map((opt) => {
@@ -557,57 +564,57 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                           active ? 'bg-rp-brand/10 border-rp-brand ring-1 ring-rp-brand/40' : 'bg-rp-card border-rp-hairline hover:border-rp-brand/40',
                         )}
                       >
-                        <div className="text-sm font-medium text-rp-ink">{opt.label}</div>
-                        <div className="text-xs text-rp-ink-mute">{opt.sub}</div>
+                        <div className="text-sm font-medium text-rp-ink">{t(opt.labelKey)}</div>
+                        <div className="text-xs text-rp-ink-mute">{t(opt.subKey)}</div>
                       </button>
                     )
                   })}
                 </div>
                 <Input
-                  label="Vibe / theme (optional)"
-                  placeholder="Mediterranean, kid-friendly, casual…"
+                  label={t('onboard.v2.vibe')}
+                  placeholder={t('onboard.v2.vibePh')}
                   value={vibe}
                   onChange={(e) => setVibe(e.target.value)}
                 />
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'cadence' && (
               <Section
                 icon={<CalendarDays className="h-7 w-7 text-rp-brand" />}
-                title="How often do you get together?"
-                desc="Tunes how aggressively the AI plans ahead."
+                title={t('onboard.v2.cadenceTitle')}
+                desc={t('onboard.v2.cadenceDesc')}
               >
                 <div className="grid grid-cols-2 gap-2">
-                  {(['daily', 'weekly', 'monthly', 'occasional'] as const).map((c) => (
+                  {CADENCE_OPTIONS.map((opt) => (
                     <button
-                      key={c}
-                      onClick={() => setCadence(c)}
+                      key={opt.value}
+                      onClick={() => setCadence(opt.value)}
                       className={cn(
-                        'py-2.5 rounded-lg text-sm font-medium transition-all capitalize',
-                        cadence === c ? 'bg-rp-brand text-white' : 'bg-rp-bg-soft text-rp-ink hover:bg-rp-hairline',
+                        'py-2.5 rounded-lg text-sm font-medium transition-all',
+                        cadence === opt.value ? 'bg-rp-brand text-white' : 'bg-rp-bg-soft text-rp-ink hover:bg-rp-hairline',
                       )}
                     >
-                      {c}
+                      {t(opt.labelKey)}
                     </button>
                   ))}
                 </div>
-                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} />
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
               </Section>
             )}
 
             {stepKey === 'review' && (
               <Section
                 icon={<Check className="h-7 w-7 text-rp-accent" />}
-                title="Ready to go"
-                desc="You can always update this later from circle settings."
+                title={t('onboard.v2.reviewTitle')}
+                desc={t('onboard.v2.reviewDesc')}
               >
                 <Card variant="elevated" className="p-4 space-y-2">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-rp-bg-soft flex items-center justify-center text-xl">{icon}</div>
                     <div className="min-w-0">
-                      <div className="font-medium text-rp-ink truncate">{name || 'Your circle'}</div>
+                      <div className="font-medium text-rp-ink truncate">{name || t('onboard.v2.yourCircle')}</div>
                       <div className="text-xs text-rp-ink-mute capitalize">{type ?? '—'}</div>
                     </div>
                   </div>
@@ -617,7 +624,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                 {error && <p className="text-sm text-danger bg-danger/10 rounded-lg px-3 py-2">{error}</p>}
 
                 <Button className="w-full" onClick={handleCreate} disabled={loading || !name.trim() || !type}>
-                  {loading ? t('common.loading') : 'Create circle'}
+                  {loading ? t('common.loading') : t('onboard.v2.createBtn')}
                   <ArrowRight className="h-4 w-4 ms-1 rtl-flip" />
                 </Button>
                 {showBack && (
@@ -626,7 +633,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                     className="w-full text-sm text-rp-ink-mute hover:text-rp-ink min-h-[44px]"
                   >
                     <ArrowLeft className="h-3.5 w-3.5 me-1 inline rtl-flip" />
-                    Back
+                    {t('onboard.back')}
                   </button>
                 )}
               </Section>
@@ -641,7 +648,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                 onClick={onSkip}
                 className="block mx-auto text-xs text-rp-ink-mute hover:text-rp-ink min-h-[44px]"
               >
-                Skip onboarding
+                {t('onboard.v2.skipAll')}
               </button>
             )}
           </motion.div>
@@ -664,11 +671,11 @@ function Section({ icon, title, desc, children }: { icon: React.ReactNode; title
   )
 }
 
-function NavRow({ onBack, onContinue, onSkip, skipLabel }: { onBack: () => void; onContinue: () => void; onSkip?: () => void; skipLabel?: string }) {
+function NavRow({ onBack, onContinue, onSkip, t }: { onBack: () => void; onContinue: () => void; onSkip?: () => void; t: (k: string) => string }) {
   return (
     <>
       <Button className="w-full" onClick={onContinue}>
-        Continue
+        {t('onboard.continue')}
         <ArrowRight className="h-4 w-4 ms-1 rtl-flip" />
       </Button>
       <div className="flex justify-between">
@@ -677,11 +684,11 @@ function NavRow({ onBack, onContinue, onSkip, skipLabel }: { onBack: () => void;
           className="flex items-center gap-1 text-sm text-rp-ink-mute hover:text-rp-ink min-h-[44px]"
         >
           <ArrowLeft className="h-3.5 w-3.5 rtl-flip" />
-          Back
+          {t('onboard.back')}
         </button>
         {onSkip && (
           <button onClick={onSkip} className="text-sm text-rp-ink-mute hover:text-rp-ink min-h-[44px]">
-            {skipLabel ?? 'Skip'}
+            {t('onboard.skip')}
           </button>
         )}
       </div>
@@ -714,17 +721,16 @@ function NumberStepper({ label, value, onChange, min = 0, max = 99, step = 1 }: 
   )
 }
 
-function KidsAgesEditor({ ages, onChange }: { ages: number[]; onChange: (next: number[]) => void }) {
+function KidsAgesEditor({ ages, onChange, kidsLabel, addLabel }: { ages: number[]; onChange: (next: number[]) => void; kidsLabel: string; addLabel: string }) {
   return (
     <div>
-      <label className="block mb-2 text-sm font-medium text-rp-ink-soft">Kids&apos; ages (optional)</label>
+      <label className="block mb-2 text-sm font-medium text-rp-ink-soft">{kidsLabel}</label>
       <div className="flex flex-wrap gap-2 items-center">
         {ages.map((age, i) => (
           <button
             key={i}
             onClick={() => onChange(ages.filter((_, j) => j !== i))}
             className="px-3 py-1.5 rounded-full bg-rp-brand text-white text-sm flex items-center gap-1"
-            title="Tap to remove"
           >
             {age} <span className="opacity-70">✕</span>
           </button>
@@ -733,7 +739,7 @@ function KidsAgesEditor({ ages, onChange }: { ages: number[]; onChange: (next: n
           onClick={() => onChange([...ages, 8])}
           className="px-3 py-1.5 rounded-full bg-rp-bg-soft text-rp-ink text-sm hover:bg-rp-hairline"
         >
-          + Add a kid
+          {addLabel}
         </button>
       </div>
       {ages.length > 0 && (

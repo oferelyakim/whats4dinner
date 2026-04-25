@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User, LogOut, PartyPopper, CalendarDays, Plus } from 'lucide-react'
+import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User, LogOut, PartyPopper, CalendarDays, Plus, Pencil, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
+import { CircleContextEditor } from '@/components/circle/CircleContextEditor'
 import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle, deleteCircle } from '@/services/circles'
 import { getEvents, type Event } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
@@ -35,6 +36,7 @@ export function CircleDetailPage() {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [showLeave, setShowLeave] = useState(false)
+  const [showContextEdit, setShowContextEdit] = useState(false)
   const { activeCircle, setActiveCircle } = useAppStore()
   const { session } = useAuth()
   const { t, locale } = useI18n()
@@ -149,6 +151,54 @@ export function CircleDetailPage() {
           </Button>
         </div>
       </Card>
+
+      {/* AI context — purpose, type, diet, notes */}
+      {(circle.purpose || circle.circle_type || (circle.context && Object.keys(circle.context).length > 0) || isOwner) && (
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="h-4 w-4 text-rp-brand shrink-0" />
+              <h3 className="text-sm font-semibold text-rp-ink truncate">{t('circle.context.aboutTitle')}</h3>
+            </div>
+            {isOwner && (
+              <button
+                onClick={() => setShowContextEdit(true)}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft hover:text-rp-ink transition-colors shrink-0"
+                aria-label="Edit"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {circle.circle_type && (
+            <div className="text-xs text-rp-ink-mute mb-1.5 capitalize">{circle.circle_type}</div>
+          )}
+          {circle.purpose ? (
+            <p className="text-sm text-rp-ink-soft mb-2">{circle.purpose}</p>
+          ) : isOwner ? (
+            <p className="text-xs text-rp-ink-mute italic mb-2">{t('circle.context.noPurpose')}</p>
+          ) : null}
+          {(() => {
+            const ctx = (circle.context ?? {}) as Record<string, unknown>
+            const diet = ctx.diet as string[] | undefined
+            return diet && diet.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {diet.map((d) => (
+                  <span key={d} className="px-2 py-0.5 rounded-full bg-rp-bg-soft text-xs text-rp-ink-soft capitalize">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            ) : null
+          })()}
+          {(() => {
+            const ctx = (circle.context ?? {}) as Record<string, unknown>
+            return typeof ctx.notes === 'string' && ctx.notes ? (
+              <p className="text-xs text-rp-ink-mute mt-2 italic">“{ctx.notes}”</p>
+            ) : null
+          })()}
+        </Card>
+      )}
 
       {/* Members */}
       <section>
@@ -305,6 +355,11 @@ export function CircleDetailPage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {/* Context editor (owner) */}
+      {isOwner && (
+        <CircleContextEditor open={showContextEdit} onOpenChange={setShowContextEdit} circle={circle} />
+      )}
 
       {/* Leave / Delete button */}
       <button

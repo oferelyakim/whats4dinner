@@ -3,6 +3,8 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
 import { useI18n } from '@/lib/i18n'
+import { useAppStore } from '@/stores/appStore'
+import type { CircleContext } from '@/types'
 
 const PREFERENCES_STORAGE_KEY = 'meal-plan-preferences'
 
@@ -29,13 +31,31 @@ const DEFAULT_PREFERENCES: MealPlanPreferences = {
   specialRequests: '',
 }
 
-function loadSavedPreferences(): MealPlanPreferences {
+function loadSavedPreferences(): MealPlanPreferences | null {
   try {
     const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY)
-    if (!raw) return DEFAULT_PREFERENCES
+    if (!raw) return null
     return { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) }
   } catch {
-    return DEFAULT_PREFERENCES
+    return null
+  }
+}
+
+// Seed defaults from a circle's saved context when the user hasn't yet picked
+// preferences for meal planning. Once they save, localStorage takes over.
+function defaultsFromCircleContext(ctx: CircleContext | null | undefined): MealPlanPreferences {
+  if (!ctx) return DEFAULT_PREFERENCES
+  const dietary = (ctx.diet ?? []).filter((d) => d !== 'none')
+  let cookingStyle: MealPlanPreferences['cookingStyle'] = ''
+  const time = ctx.cooking?.time_pref
+  if (time === 'quick') cookingStyle = 'quick'
+  else if (time === 'project') cookingStyle = 'gourmet'
+  else if (time === 'medium') cookingStyle = 'balanced'
+
+  return {
+    ...DEFAULT_PREFERENCES,
+    dietary,
+    cookingStyle,
   }
 }
 
@@ -97,14 +117,17 @@ export function MealPlanPreferencesDialog({
   loading = false,
 }: MealPlanPreferencesDialogProps) {
   const { t } = useI18n()
+  const { activeCircle } = useAppStore()
   const [prefs, setPrefs] = useState<MealPlanPreferences>(DEFAULT_PREFERENCES)
 
-  // Load saved preferences when dialog opens
+  // Load saved preferences when dialog opens; fall back to the active circle's
+  // saved context as the seed if the user has not yet customized preferences.
   useEffect(() => {
     if (open) {
-      setPrefs(loadSavedPreferences())
+      const saved = loadSavedPreferences()
+      setPrefs(saved ?? defaultsFromCircleContext((activeCircle?.context ?? null) as CircleContext | null))
     }
-  }, [open])
+  }, [open, activeCircle?.id])
 
   function toggleDietary(value: string) {
     setPrefs((prev) => {

@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
 import { useI18n } from '@/lib/i18n'
+import { useAppStore } from '@/stores/appStore'
+import type { CircleContext } from '@/types'
 
 export interface MealPlanIntakeValues {
   scope: 'meal' | 'day' | 'week'
@@ -32,6 +34,33 @@ const DEFAULT_VALUES: MealPlanIntakeValues = {
   preferSource: 'mix',
   skillLevel: 'normal',
   caloriesPerMeal: '',
+}
+
+// Map a circle's stored context into MealPlanIntake defaults so the dialog
+// reflects what was captured at circle setup. Anything missing falls back to
+// DEFAULT_VALUES.
+function valuesFromCircleContext(ctx: CircleContext | null | undefined): MealPlanIntakeValues {
+  if (!ctx) return DEFAULT_VALUES
+  const dietParts: string[] = []
+  if (ctx.diet?.length) dietParts.push(ctx.diet.filter((d) => d !== 'none').join(', '))
+  if (ctx.allergies?.length) dietParts.push(`allergies: ${ctx.allergies.join(', ')}`)
+  if (ctx.dislikes?.length) dietParts.push(`avoid: ${ctx.dislikes.join(', ')}`)
+
+  let skill: MealPlanIntakeValues['skillLevel'] = DEFAULT_VALUES.skillLevel
+  const skillNum = ctx.cooking?.skill
+  if (typeof skillNum === 'number') {
+    if (skillNum <= 2) skill = 'easy'
+    else if (skillNum >= 4) skill = 'challenge'
+    else skill = 'normal'
+  }
+
+  return {
+    ...DEFAULT_VALUES,
+    headcountAdults: ctx.household?.adults ?? DEFAULT_VALUES.headcountAdults,
+    headcountKids: ctx.household?.kids_ages?.length ?? DEFAULT_VALUES.headcountKids,
+    dietaryNotes: dietParts.filter(Boolean).join('; '),
+    skillLevel: skill,
+  }
 }
 
 interface ChipProps {
@@ -116,8 +145,19 @@ export function MealPlanIntakeDialog({
   isLoading = false,
 }: MealPlanIntakeDialogProps) {
   const { t } = useI18n()
-  const [values, setValues] = useState<MealPlanIntakeValues>(DEFAULT_VALUES)
+  const { activeCircle } = useAppStore()
+  const [values, setValues] = useState<MealPlanIntakeValues>(() =>
+    valuesFromCircleContext((activeCircle?.context ?? null) as CircleContext | null),
+  )
   const [showMoreOptions, setShowMoreOptions] = useState(false)
+
+  // Seed defaults from the active circle's saved context each time the dialog opens.
+  // Once open, in-session edits persist until close.
+  useEffect(() => {
+    if (open) {
+      setValues(valuesFromCircleContext((activeCircle?.context ?? null) as CircleContext | null))
+    }
+  }, [open, activeCircle?.id])
 
   function toggleMealType(mealType: string) {
     setValues((prev) => {
