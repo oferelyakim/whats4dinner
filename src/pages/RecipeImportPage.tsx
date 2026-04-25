@@ -106,12 +106,12 @@ export function RecipeImportPage() {
   })
 
   function handleImportUrl() {
-    if (!ai.checkAIAccess()) return
+    if (!ai.checkRecipeImportAccess()) return
     fetchMutation.mutate()
   }
 
   function handleImportImage() {
-    if (!ai.checkAIAccess()) return
+    if (!ai.checkRecipeImportAccess()) return
     imageMutation.mutate()
   }
 
@@ -457,6 +457,9 @@ export function RecipeImportPage() {
         open={ai.showUpgradeModal}
         onOpenChange={ai.setShowUpgradeModal}
         isLimitReached={ai.hasAI && ai.isLimitReached}
+        isImportCapReached={ai.upgradeReason === 'recipe_import_cap'}
+        importsUsed={ai.importsUsed}
+        importsLimit={ai.importsLimit}
         resetDate={resetDate}
       />
     </div>

@@ -108,7 +108,7 @@ export function FoodHubPage() {
           <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3">
             <Card
               variant="elevated"
-              className="p-3.5 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-blue-50/50 dark:from-surface-dark-elevated dark:to-blue-950/10"
+              className="p-3.5 cursor-pointer active:scale-[0.97] transition-transform"
               onClick={() => navigate('/recipes/new')}
             >
               <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center mb-2">
@@ -118,7 +118,7 @@ export function FoodHubPage() {
             </Card>
             <Card
               variant="elevated"
-              className="p-3.5 cursor-pointer active:scale-[0.97] transition-transform bg-gradient-to-br from-white to-emerald-50/50 dark:from-surface-dark-elevated dark:to-emerald-950/10"
+              className="p-3.5 cursor-pointer active:scale-[0.97] transition-transform"
               onClick={() => navigate('/lists/new')}
             >
               <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">

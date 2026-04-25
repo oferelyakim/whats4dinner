@@ -47,13 +47,13 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 - **Typography**: Instrument Serif italic for every page title + display moments; Geist for body/UI; Caveat for one handwritten accent per screen.
 - **Primary market**: United States. Hebrew/RTL remains fully supported as a secondary locale.
 - **i18n**: English (primary) / Hebrew, 300+ translation keys, full RTL support
-- **Theme**: Dark / Light / System
+- **Theme**: derived from the active skin only. The `theme` preference (Dark / Light / System) is persisted for future use but does NOT toggle the `.dark` class — `SkinProvider` / `applySkin` own the class. Hearth (light-only) therefore renders identically regardless of OS dark mode.
 
 ## Navigation
 
 - **Bottom nav**: Home | Food | **Gather** | **House** | **Me** (paths unchanged: `/`, `/food`, `/events`, `/household`, `/profile`; labels renamed in the Hearth redesign). Custom hand-drawn nav icons in `src/components/ui/hearth/NavIcons.tsx` — do not replace with lucide.
 - **Food hub** (`/food`): Pill tabs — Overview | Recipes | Plan | Lists. Quick actions, this week's meals, active lists, templates & stores shortcuts
-- **Household hub** (`/household`): Segmented control — Chores | Activities. Today's summary banner, daily/weekly chores, activity categories
+- **Household** (`/household`): redirects to whichever tab the user was last on (`/household/chores` or `/household/activities`). Tab choice persisted as `lastHouseholdTab` in appStore. The shared `<HouseholdTabs>` segmented control sits at the top of both `ChoresPage` and `ActivitiesPage` — there is no separate "hub" summary view.
 - **Profile** (`/profile`): Circles, Settings, Theme, Language, Subscription (slim replacement for old MorePage)
 - **Legacy routes**: `/more/*` paths redirect to `/profile/*` for backward compatibility
 
@@ -68,7 +68,7 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 /food/templates            → MealMenusPage
 /food/stores, /food/stores/:id
 /events, /events/:id       → Events
-/household                 → HouseholdHubPage (chores + activities)
+/household                 → HouseholdHubPage (redirect to last tab — chores or activities)
 /household/activities      → ActivitiesPage (full page)
 /household/chores          → ChoresPage (full page)
 /profile                   → MorePage (settings)
@@ -77,7 +77,7 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 /join/:code, /join-event/:code, /r/:code  → Public join/share links
 ```
 
-## Database Migrations (24 total)
+## Database Migrations (25 total)
 
 001-006: Core tables (profiles, circles, items, recipes, shopping lists, stores)
 007: Recipe shares + events
@@ -98,6 +98,7 @@ npx supabase functions deploy scrape-recipe --no-verify-jwt  # Deploy edge funct
 022: Activity cross-circle sharing (`022_activity_cross_circle_sharing.sql`)
 023: Grocer integrations (`023_grocer_integrations.sql`) — encrypted OAuth token store, product cache, list↔store links, app_config feature flag
 024: Circle skins (`024_circle_skins.sql`) — adds `circles.skin_id text DEFAULT 'hearth'` + `circles.custom_skin jsonb` for the Hearth skin system
+025: Onboarding prefs + Family seat roster (`025_onboarding_prefs_and_seats.sql`) — adds `profiles.diet text[]`, `profiles.meal_preferences jsonb`, `subscription_seats` table (for AI Family 4-seat cap enforcement), `has_active_family_seat()` security definer function. Not yet applied — apply via Supabase dashboard before enabling seat enforcement.
 
 Additional SQL fixes applied directly (not in migration files):
 - Events RLS fix: `get_my_event_ids()` security definer function
@@ -113,13 +114,14 @@ Additional SQL fixes applied directly (not in migration files):
 - **Circle members**: `getCircleMembers(circleId)` in `src/services/circles.ts` returns members with profiles
 - **Services layer**: Each feature has a service file in `src/services/` (12 service files — supabase queries + helpers)
 - **Pages**: 24+ pages in `src/pages/`, organized by domain (food, household, events, circles, profile)
-- **Hub pages**: FoodHubPage and HouseholdHubPage aggregate related features with internal tab navigation
-- **Subscription tiers**: Free (all core coordination) / AI Individual $4.99/mo / AI Family $6.99/mo (5 members). Stripe `create-checkout` + `stripe-webhook` Edge Functions built; needs `STRIPE_*` secrets set in Supabase to go live.
+- **Hub pages**: FoodHubPage aggregates related Food features with internal tab navigation. HouseholdHubPage is a thin redirect to `/household/chores` or `/household/activities` based on `appStore.lastHouseholdTab` — the [Chores | Activities] segmented control lives in those standalone pages via the shared `<HouseholdTabs>`.
+- **Subscription tiers**: Free (all core coordination, 10 recipe imports/month) / AI Individual $4.99/mo / AI Family $6.99/mo. Family seat cap = **4 members** (owner + 3) tracked via `subscription_seats` table (migration 025); enforcement in `useAIAccess` is planned but not wired yet. Stripe `create-checkout` + `stripe-webhook` Edge Functions built; needs `STRIPE_*` secrets set in Supabase to go live.
 - **Revenue**: AI subs (live today) + retailer cart integrations (Walmart-first, planned) — affiliate commission on ingredients sent from shopping lists
-- **AI gating**: `useAIAccess` hook checks subscription + usage cap. `AIUpgradeModal` for upgrade/limit-reached. `UsageMeter` progress bar in Profile/Settings
+- **AI gating**: `useAIAccess` hook exposes `checkAIAccess()` (paid AI features) and `checkRecipeImportAccess()` (paid-or-free + 10/mo free cap). `AIUpgradeModal` renders three variants: upgrade, `isLimitReached` (paid user over $ cap), `isImportCapReached` (free user over 10/mo). `UsageMeter` progress bar in Profile/Settings. Free-tier recipe-import cap = `RECIPE_IMPORT_FREE_CAP` in `src/services/ai-usage.ts`.
 - **AI usage tracking**: Edge function returns `_ai_usage` metadata (model, tokens, cost). `logAIUsage()` logs to `ai_usage` table. $4.00/mo hard cap, $3.00 warning threshold
 - **Design tokens**: `src/index.css` declares `--rp-*` CSS variables + a Tailwind v4 `@theme` block that exposes them as utilities (`bg-rp-brand`, `text-rp-ink`, `font-display`, `shadow-rp-card`, etc.). Legacy `brand-500` is remapped to Hearth terracotta so not-yet-migrated pages stay on-palette. Hardcoded hex values are banned outside `src/index.css` / `src/lib/skins.ts`.
-- **Skin system**: `src/lib/skins.ts` (9 built-ins) + `src/components/SkinProvider.tsx` (writes `--rp-*` vars onto `<html>` from active circle's `skin_id` / `custom_skin`, toggles `.dark` for dark skins). Custom-skin builder (AI Family tier) is planned but not yet routed.
+- **Surface utilities — use `rp-*`, not `surface-dark-*`**: Always use `bg-rp-card` / `bg-rp-bg` / `bg-rp-bg-soft` / `text-rp-ink` for surface + ink. Do NOT use `bg-white dark:bg-surface-dark-elevated` (or any `dark:bg-surface-dark-*`) — `applySkin` writes inline `--rp-*` values onto `<html>` while `applyTheme` toggles `.dark` based on system preference, so the two can disagree (light Hearth tokens + `.dark` class). Legacy `dark:bg-surface-dark-*` then forces a dark surface while `text-rp-ink` stays dark → unreadable. The shared `<Card>` primitive already uses rp-tokens; mirror that in any new surface.
+- **Skin system**: `src/lib/skins.ts` (9 built-ins) + `src/components/SkinProvider.tsx` (writes `--rp-*` vars onto `<html>` from active circle's `skin_id` / `custom_skin`, toggles `.dark` for skins with `dark: true`). **The skin is the only authority on `.dark`** — `appStore.applyTheme` is a no-op. This prevents the old bug where system-prefers-dark would add `.dark` while Hearth kept light tokens, making legacy `dark:bg-surface-dark-*` utilities collide with the inline rp-tokens. Custom-skin builder (AI Family tier) is planned but not yet routed.
 - **Hearth primitives**: `src/components/ui/hearth/` exports `Avatar`, `AvatarStack`, `CircleGlyph`, `RingsOrnament`, `PageTitle`, `DisplayTitle`, `MonoLabel`, `HandAccent`, `PhotoPlaceholder`, and the five custom nav icons. Use these for all new screens — do not import shadcn/daisy/Material wholesale.
 
 ## Features
@@ -130,11 +132,11 @@ Additional SQL fixes applied directly (not in migration files):
 - **Essentials**: Non-food item collections (renamed from Supply Kits), accessible from FoodHub tab + Recipes toggle
 - **Shopping Lists**: CRUD, check/uncheck, DnD reorder, real-time sync, share with circle, sort by store route, ingredient deduplication
 - **Store Routes**: DnD department ordering, sort shopping list by route
-- **Meal Planning**: Week view, multi-recipe per slot, templates, copy week, add to list, calendar export, AI meal plan generation (Edge Function)
-- **Events**: 5 tabs (Overview/Mine/Menu/Supplies/Tasks), invite link, co-organizers, claim/assign items, clone, calendar export
+- **Meal Planning**: Week view, multi-recipe per slot, templates, copy week, add to list, calendar export, AI meal plan generation (Edge Function) — AI-proposed recipes dedup against existing circle recipes by title (case-insensitive, trimmed) before creating
+- **Events**: 5 tabs (Overview/Mine/Menu/Supplies/Tasks), invite link, co-organizers, claim/assign items, clone, calendar export, AI event planning (Claude Haiku via `plan-event` Edge Function) — AI-proposed dishes/supplies/tasks persist to `event_items` with case-insensitive dedup against existing items
 - **Activities**: Recurring schedules (weekly/biweekly/daily/monthly/yearly), circle member assignment, participants, bring items, month/week/day calendar drill-down with Zustand persistence, reminders (any activity, flexible timing)
 - **Chores**: Create/edit/delete, emoji icons, frequency (daily/weekly/biweekly/monthly/once), recurrence days, points system, completion tracking, assignee filter chips (defaults to "Me"), colored person headers
-- **Home**: Daily dashboard, today's activities/chores, upcoming reminders widget, NLP quick action input (AI)
+- **Home**: Daily dashboard — greeting, tonight's meal hero, two-card pulse row (shared shopping list + Household entry that routes to `/household`), today's activities timeline, week meals strip, recipe-import buttons (gate via `checkRecipeImportAccess()`). Chores are NOT shown on home; users go through the Household tab. NLP quick action input (AI).
 - **Onboarding**: 3-step first-run flow (Welcome → Create/Join Circle → Done), gated via has_onboarded flag
 - **Notifications**: In-app notification center (bell icon in header), activity reminders + chore nudges, browser Notification API
 - **Subscriptions**: AI Individual/Family plans, Stripe checkout Edge Function (with mock fallback), webhook handler
@@ -152,7 +154,7 @@ Additional SQL fixes applied directly (not in migration files):
 
 - Recipe detail page partially updated for supply kits (Essentials)
 - Assignment approval UI built but needs multi-user testing
-- Family plan member sharing: currently checks only the subscribing user, not shared across circle members
+- Family plan seat enforcement: `subscription_seats` schema + `has_active_family_seat()` RPC exist (migration 025), but `useAIAccess` does not yet consult them. Subscribing user is still the only one gated. Enforcement = next ~45min task after migration 025 is applied.
 - Stripe integration: Edge Functions built (create-checkout, stripe-webhook) but needs STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_* secrets configured in Supabase
 - Edge Functions not yet deployed: generate-meal-plan, nlp-action, create-checkout, stripe-webhook (deploy with `npx supabase functions deploy <name> --no-verify-jwt`)
 - Server-side push notifications: deferred (VAPID/cron), currently browser Notification API only

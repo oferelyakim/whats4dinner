@@ -34,6 +34,10 @@ interface AppState {
   setCalendarView: (view: 'month' | 'week' | 'day') => void
   calendarDate: string
   setCalendarDate: (date: string) => void
+
+  // Household last-visited tab (persisted)
+  lastHouseholdTab: 'chores' | 'activities'
+  setLastHouseholdTab: (tab: 'chores' | 'activities') => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -67,6 +71,9 @@ export const useAppStore = create<AppState>()(
       setCalendarView: (view) => set({ calendarView: view }),
       calendarDate: new Date().toISOString().split('T')[0],
       setCalendarDate: (date) => set({ calendarDate: date }),
+
+      lastHouseholdTab: 'chores',
+      setLastHouseholdTab: (tab) => set({ lastHouseholdTab: tab }),
     }),
     {
       name: 'w4d-app',
@@ -77,19 +84,18 @@ export const useAppStore = create<AppState>()(
         activeCircle: state.activeCircle,
         calendarView: state.calendarView,
         calendarDate: state.calendarDate,
+        lastHouseholdTab: state.lastHouseholdTab,
       }),
     }
   )
 )
 
-function applyTheme(theme: 'dark' | 'light' | 'system') {
-  const root = document.documentElement
-  if (theme === 'system') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    root.classList.toggle('dark', prefersDark)
-  } else {
-    root.classList.toggle('dark', theme === 'dark')
-  }
+// Theme preference is persisted but does NOT toggle the `.dark` class.
+// SkinProvider / applySkin own the class so the skin's token palette always
+// wins (see SkinProvider.tsx for rationale). Kept as a no-op to preserve the
+// shape of `setTheme` for existing callers.
+function applyTheme(_theme: 'dark' | 'light' | 'system') {
+  // intentionally empty
 }
 
 const FONT_SIZE_SCALE: Record<FontSize, string> = {

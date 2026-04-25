@@ -2,10 +2,11 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Plus, Calendar, MapPin, Clock, Repeat, Trash2, User,
+  Plus, Calendar, MapPin, Clock, Repeat, Trash2, User,
   Pencil, Users, PackageCheck, ChevronDown, ChevronUp, X,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
+import { HouseholdTabs } from '@/components/layout/HouseholdTabs'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -346,17 +347,18 @@ export function ActivitiesPage() {
 
   if (!activeCircle) {
     return (
-      <div className="px-4 py-4">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate(-1)} className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft">
-            <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
-          </button>
-          <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('activity.activities')}</h2>
-        </div>
+      <div className="px-4 py-4 space-y-4">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('household.title')}</h2>
+        <HouseholdTabs active="activities" />
         <EmptyState
           icon={<Calendar className="h-12 w-12" />}
           title={t('activity.selectCircle')}
           description={t('activity.selectCircleDesc')}
+          action={
+            <Button onClick={() => navigate('/profile/circles')}>
+              {t('circle.chooseCircle')}
+            </Button>
+          }
         />
       </div>
     )
@@ -364,20 +366,15 @@ export function ActivitiesPage() {
 
   return (
     <div className="px-4 py-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="h-11 w-11 rounded-xl flex items-center justify-center bg-rp-bg-soft active:scale-90 transition-transform shrink-0"
-        >
-          <ArrowLeft className="h-5 w-5 text-rp-ink-soft rtl-flip" />
-        </button>
-        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink flex-1">{t('activity.activities')}</h2>
+      {/* Page title + tabs */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display italic tracking-rp-tight text-[26px] text-rp-ink">{t('household.title')}</h2>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           {t('common.add')}
         </Button>
       </div>
+      <HouseholdTabs active="activities" />
 
       {/* View toggle */}
       <div className="flex items-center gap-2">

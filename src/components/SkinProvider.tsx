@@ -8,11 +8,17 @@ import type { Skin } from '@/lib/skins'
  * matching --rp-* CSS variables onto <html>. All rp-* Tailwind utilities
  * resolve through these vars, so swapping a skin is a single writeback.
  *
+ * The skin is the ONLY authority on the `.dark` class. Theme preference
+ * (light/dark/system) is retained for future per-skin variants but does
+ * NOT toggle `.dark` — otherwise legacy `dark:bg-surface-dark-*` utilities
+ * fight the skin's inline `--rp-*` values and produce unreadable surfaces.
+ * Light-only skins (e.g. Hearth) therefore render consistently regardless
+ * of OS preference.
+ *
  * Falls back to Hearth when no circle is loaded.
  */
 export function SkinProvider({ children }: { children: ReactNode }) {
   const activeCircle = useAppStore((s) => s.activeCircle)
-  const theme = useAppStore((s) => s.theme)
 
   const skin: Skin = resolveSkin(
     activeCircle?.skin_id,
@@ -21,15 +27,7 @@ export function SkinProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     applySkin(skin)
-    // If the user's explicit theme preference is 'light', force-clear any dark
-    // class the skin may have set. 'dark' and 'system' let the skin's own
-    // `dark` flag drive the class.
-    if (theme === 'light') {
-      document.documentElement.classList.remove('dark')
-    } else if (theme === 'dark') {
-      document.documentElement.classList.add('dark')
-    }
-  }, [skin, theme])
+  }, [skin])
 
   return <>{children}</>
 }

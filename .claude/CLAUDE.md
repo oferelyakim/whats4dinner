@@ -43,7 +43,7 @@ A mobile-first Progressive Web App for US households to coordinate family life �
 ## Navigation
 - **Bottom nav**: Home | Food | **Gather** | **House** | **Me** — 5 domain tabs, routes unchanged (`/`, `/food`, `/events`, `/household`, `/profile`). Labels were renamed in the Hearth redesign; custom hand-drawn icons live in `src/components/ui/hearth/NavIcons.tsx`.
 - **Food hub** (`/food`): Pill tabs — Overview | Recipes | Plan | Lists
-- **Household hub** (`/household`): Segmented control — Chores | Activities
+- **Household** (`/household`): redirects to last tab (`/household/chores` or `/household/activities`); the [Chores | Activities] segmented control (shared `<HouseholdTabs>`) sits at the top of those pages
 - **Me** (`/profile`): Circles, Settings, Theme, Language, Subscription. "Appearance → Household skin" is planned (skin system is in place, UI not yet routed).
 
 ## Design language — "Hearth"

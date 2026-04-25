@@ -97,42 +97,51 @@ export function CirclesPage() {
         />
       ) : (
         <div className="space-y-3">
-          {circles.map((circle) => (
-            <Card
-              key={circle.id}
-              variant={activeCircle?.id === circle.id ? 'elevated' : 'default'}
-              className={cn(
-                'p-4 cursor-pointer active:scale-[0.98] transition-all',
-                activeCircle?.id === circle.id && 'ring-2 ring-brand-500'
-              )}
-              onClick={() => navigate(`/more/circles/${circle.id}`)}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{circle.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-rp-ink truncate">
-                    {circle.name}
-                  </p>
-                  <p className="text-xs text-slate-400 truncate">
-                    {t('circle.tapToManage')}
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    copyInviteCode(circle.invite_code, circle.id)
-                  }}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay transition-colors"
-                >
-                  {copiedId === circle.id ? (
-                    <Check className="h-4 w-4 text-success" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
+          {circles.map((circle) => {
+            const isActive = activeCircle?.id === circle.id
+            return (
+              <Card
+                key={circle.id}
+                variant={isActive ? 'elevated' : 'default'}
+                className={cn(
+                  'p-4 cursor-pointer active:scale-[0.98] transition-all',
+                  isActive && 'ring-2 ring-brand-500',
+                )}
+                onClick={() => {
+                  setActiveCircle(circle)
+                  navigate(`/more/circles/${circle.id}`)
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{circle.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-rp-ink truncate">
+                      {circle.name}
+                    </p>
+                    <p className="text-xs text-slate-400 truncate">
+                      {isActive ? t('circle.activeCircle') : t('circle.tapToSelect')}
+                    </p>
+                  </div>
+                  {isActive && (
+                    <Check className="h-4 w-4 text-brand-500 shrink-0" />
                   )}
-                </button>
-              </div>
-            </Card>
-          ))}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      copyInviteCode(circle.invite_code, circle.id)
+                    }}
+                    className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-surface-dark-overlay transition-colors"
+                  >
+                    {copiedId === circle.id ? (
+                      <Check className="h-4 w-4 text-success" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </Card>
+            )
+          })}
         </div>
       )}
 

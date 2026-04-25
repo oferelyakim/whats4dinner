@@ -22,6 +22,7 @@ import { AIUpgradeModal, UsageMeter, cancelSubscription } from '@/components/ui/
 import { ConnectedStoresSection } from '@/components/grocers/ConnectedStoresSection'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/Toast'
+import { APP_VERSION } from '@/lib/version'
 
 export function MorePage() {
   const navigate = useNavigate()
@@ -291,6 +292,11 @@ export function MorePage() {
         <LogOut className="h-4 w-4" />
         {t('auth.signOut')}
       </button>
+
+      {/* Version */}
+      <p className="text-center text-[11px] text-rp-ink-mute pt-2 pb-1">
+        Replanish v{APP_VERSION}
+      </p>
 
       <AIUpgradeModal
         open={ai.showUpgradeModal}

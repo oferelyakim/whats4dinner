@@ -13,15 +13,29 @@ interface AIUpgradeModalProps {
   onOpenChange: (open: boolean) => void
   /** If true, user has AI plan but hit the usage limit */
   isLimitReached?: boolean
+  /** If true, free user hit the monthly recipe-import cap */
+  isImportCapReached?: boolean
+  /** Imports used / limit, shown on cap-reached variant */
+  importsUsed?: number
+  importsLimit?: number
   /** Reset date string for limit-reached state */
   resetDate?: string
 }
 
-export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }: AIUpgradeModalProps) {
+export function AIUpgradeModal({
+  open,
+  onOpenChange,
+  isLimitReached,
+  isImportCapReached,
+  importsUsed,
+  importsLimit,
+  resetDate,
+}: AIUpgradeModalProps) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const [selectedPlan, setSelectedPlan] = useState<'ai_individual' | 'ai_family'>('ai_individual')
   const [showPaymentStep, setShowPaymentStep] = useState(false)
+  const [proceedToUpgrade, setProceedToUpgrade] = useState(false)
 
   const activateMutation = useMutation({
     mutationFn: () => activateSubscription(selectedPlan),
@@ -66,8 +80,47 @@ export function AIUpgradeModal({ open, onOpenChange, isLimitReached, resetDate }
     )
   }
 
+  if (isImportCapReached && !proceedToUpgrade) {
+    return (
+      <Dialog.Root open={open} onOpenChange={onOpenChange}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-3xl p-6 max-w-lg mx-auto">
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+            <div className="flex flex-col items-center text-center">
+              <div className="h-12 w-12 rounded-full bg-brand-500/10 flex items-center justify-center mb-3">
+                <Sparkles className="h-6 w-6 text-brand-500" />
+              </div>
+              <Dialog.Title className="text-lg font-bold text-rp-ink mb-1">
+                {t('ai.importCapReached')}
+              </Dialog.Title>
+              <p className="text-sm text-slate-500 mb-4">
+                {t('ai.importCapReachedDesc')
+                  .replace('{{used}}', String(importsUsed ?? ''))
+                  .replace('{{limit}}', String(importsLimit ?? ''))}
+              </p>
+              <Button className="w-full mb-2" onClick={() => setProceedToUpgrade(true)}>
+                <Sparkles className="h-4 w-4" />
+                {t('ai.activate')}
+              </Button>
+              <button
+                className="text-sm text-slate-400 hover:text-slate-600 min-h-[44px]"
+                onClick={() => onOpenChange(false)}
+              >
+                {t('common.done')}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    )
+  }
+
   const handleOpenChange = (v: boolean) => {
-    if (!v) setShowPaymentStep(false)
+    if (!v) {
+      setShowPaymentStep(false)
+      setProceedToUpgrade(false)
+    }
     onOpenChange(v)
   }
 

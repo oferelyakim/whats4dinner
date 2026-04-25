@@ -199,6 +199,32 @@ export function formatFrequency(chore: Chore): string {
   return FREQ_LABELS[chore.frequency] ?? chore.frequency
 }
 
+/** Is this chore scheduled to recur on the given date? */
+export function isChoreDueOn(chore: Chore, date: Date): boolean {
+  const dow = date.getDay()
+  const dateStr = date.toISOString().split('T')[0]
+  switch (chore.frequency) {
+    case 'daily':
+      return true
+    case 'weekly':
+      return chore.recurrence_days.length === 0 || chore.recurrence_days.includes(dow)
+    case 'biweekly': {
+      if (chore.recurrence_days.length > 0 && !chore.recurrence_days.includes(dow)) return false
+      const anchor = new Date(chore.created_at)
+      const days = Math.floor((date.getTime() - anchor.getTime()) / 86_400_000)
+      return Math.floor(days / 7) % 2 === 0
+    }
+    case 'monthly': {
+      const anchor = new Date(chore.created_at)
+      return anchor.getDate() === date.getDate()
+    }
+    case 'once':
+      return chore.due_time ? chore.due_time.slice(0, 10) === dateStr : false
+    default:
+      return false
+  }
+}
+
 export function isChoreCompletedToday(
   choreId: string,
   completions: ChoreCompletion[],

@@ -4,6 +4,9 @@ import type { Subscription, SubscriptionPlan, AIActionType } from '@/types'
 const USAGE_CAP_USD = 4.0
 const WARNING_THRESHOLD_USD = 3.0
 
+export const RECIPE_IMPORT_FREE_CAP = 10
+const RECIPE_IMPORT_ACTION_TYPES = ['recipe_import_url', 'recipe_import_photo'] as const
+
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
   const { data } = await supabase
     .from('subscriptions')
@@ -37,6 +40,33 @@ export async function getMonthlyUsage(userId: string): Promise<MonthlyUsage> {
     isWarning: totalCost >= WARNING_THRESHOLD_USD && totalCost < USAGE_CAP_USD,
     isLimitReached: totalCost >= USAGE_CAP_USD,
     limitDollars: USAGE_CAP_USD,
+  }
+}
+
+export interface MonthlyImports {
+  count: number
+  limit: number
+  remaining: number
+  isLimitReached: boolean
+}
+
+export async function getMonthlyImports(userId: string): Promise<MonthlyImports> {
+  const now = new Date()
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
+
+  const { count } = await supabase
+    .from('ai_usage')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .in('action_type', RECIPE_IMPORT_ACTION_TYPES as unknown as string[])
+    .gte('created_at', monthStart)
+
+  const imports = count ?? 0
+  return {
+    count: imports,
+    limit: RECIPE_IMPORT_FREE_CAP,
+    remaining: Math.max(0, RECIPE_IMPORT_FREE_CAP - imports),
+    isLimitReached: imports >= RECIPE_IMPORT_FREE_CAP,
   }
 }
 

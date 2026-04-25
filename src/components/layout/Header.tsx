@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Users } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
+import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/cn'
 import { NotificationCenter } from '@/components/ui/NotificationCenter'
 
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ title, onCircleSelect }: HeaderProps) {
   const { activeCircle } = useAppStore()
+  const { t } = useI18n()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -40,20 +42,30 @@ export function Header({ title, onCircleSelect }: HeaderProps) {
 
         <div className="flex items-center gap-2">
           <NotificationCenter />
-          {activeCircle && (
-            <button
-              onClick={onCircleSelect}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-full text-xs',
-                'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300',
-                'active:scale-95 transition-transform border border-brand-200/50 dark:border-brand-500/20'
-              )}
-            >
-              <span className="text-sm">{activeCircle.icon}</span>
-              <span className="font-medium max-w-[100px] truncate">{activeCircle.name}</span>
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          )}
+          <button
+            onClick={onCircleSelect}
+            aria-label={activeCircle ? activeCircle.name : t('circle.chooseCircle')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 rounded-full text-xs',
+              'active:scale-95 transition-transform border',
+              activeCircle
+                ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300 border-brand-200/50 dark:border-brand-500/20'
+                : 'bg-rp-bg-soft text-rp-ink border-rp-hairline'
+            )}
+          >
+            {activeCircle ? (
+              <>
+                <span className="text-sm">{activeCircle.icon}</span>
+                <span className="font-medium max-w-[100px] truncate">{activeCircle.name}</span>
+              </>
+            ) : (
+              <>
+                <Users className="h-3.5 w-3.5" />
+                <span className="font-medium">{t('circle.chooseCircle')}</span>
+              </>
+            )}
+            <ChevronDown className="h-3 w-3" />
+          </button>
         </div>
       </div>
     </header>

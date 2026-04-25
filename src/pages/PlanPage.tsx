@@ -361,29 +361,43 @@ export function PlanPage() {
     if (!activeCircle) return
     setAcceptingPlan(true)
     try {
+      // Dedup AI-proposed recipes against existing circle recipes by title (case-insensitive, trimmed).
+      // Also dedup across items in the same plan (so a title that appears twice reuses the first insert).
+      const existingRecipes = await getRecipes(activeCircle.id)
+      const titleToId = new Map<string, string>(
+        existingRecipes.map((r: { id: string; title: string }) => [r.title.trim().toLowerCase(), r.id])
+      )
+
       let newRecipesCreated = 0
       for (const item of aiPlan) {
         let recipeId = item.recipe_id
 
-        // For AI-suggested new recipes (no existing recipe_id), create them first
+        // For AI-suggested new recipes (no existing recipe_id), dedup then create
         if (!recipeId) {
-          const newRecipe = await createRecipe({
-            title: item.recipe_title,
-            instructions: item.instructions || '',
-            tags: item.tags || [],
-            servings: item.servings || undefined,
-            circle_id: activeCircle.id,
-            ingredients: (item.ingredients || []).map((ing, idx) => ({
-              name: ing.name,
-              quantity: ing.quantity ?? null,
-              unit: (ing.unit || '') as import('@/lib/constants').Unit,
-              sort_order: idx,
-              notes: null,
-              item_id: null,
-            })),
-          })
-          recipeId = newRecipe.id
-          newRecipesCreated++
+          const key = item.recipe_title.trim().toLowerCase()
+          const existingId = titleToId.get(key)
+          if (existingId) {
+            recipeId = existingId
+          } else {
+            const newRecipe = await createRecipe({
+              title: item.recipe_title,
+              instructions: item.instructions || '',
+              tags: item.tags || [],
+              servings: item.servings || undefined,
+              circle_id: activeCircle.id,
+              ingredients: (item.ingredients || []).map((ing, idx) => ({
+                name: ing.name,
+                quantity: ing.quantity ?? null,
+                unit: (ing.unit || '') as import('@/lib/constants').Unit,
+                sort_order: idx,
+                notes: null,
+                item_id: null,
+              })),
+            })
+            recipeId = newRecipe.id
+            titleToId.set(key, newRecipe.id)
+            newRecipesCreated++
+          }
         }
 
         await setMealPlan(activeCircle.id, item.date, item.meal_type as MealType, recipeId)
@@ -878,7 +892,7 @@ export function PlanPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[70vh] overflow-y-auto">
             <Dialog.Title className="text-lg font-bold text-rp-ink mb-1">
-              {t('plan.addMeal')} {MEAL_LABELS[selectedMealType]} {/* TODO: add i18n key for addMeal */}
+              {t('plan.addMeal')} {MEAL_LABELS[selectedMealType]}
             </Dialog.Title>
             <p className="text-xs text-slate-400 mb-4">
               {selectedDate
@@ -923,8 +937,8 @@ export function PlanPage() {
                 {filteredRecipes.length === 0 ? (
                   <p className="text-sm text-slate-400 text-center py-6">
                     {recipes.length === 0
-                      ? t('plan.noRecipesYet') /* TODO: add i18n key */
-                      : t('plan.noMatchingRecipes') /* TODO: add i18n key */}
+                      ? t('plan.noRecipesYet')
+                      : t('plan.noMatchingRecipes')}
                   </p>
                 ) : (
                   <div className="space-y-1.5">

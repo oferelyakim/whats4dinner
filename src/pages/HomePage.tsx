@@ -12,12 +12,12 @@ import {
   AvatarStack,
   RingsOrnament,
   PotIcon,
-  TableIcon,
   HouseCircleIcon,
 } from '@/components/ui/hearth'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { useAIAccess } from '@/hooks/useAIAccess'
+import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import { getShoppingLists, getShoppingList } from '@/services/shoppingLists'
 import { getCircleMembers } from '@/services/circles'
 import { getActivities, activityOccursOnDate, formatTimeRange, type Activity } from '@/services/activities'
@@ -241,17 +241,17 @@ export function HomePage() {
         )}
 
         <button
-          onClick={() => navigate('/events')}
+          onClick={() => navigate('/household')}
           className="p-4 text-start active:scale-[0.98] transition-transform rounded-rp-md border border-rp-hairline shadow-rp-card"
           style={{ background: 'var(--rp-glow-soft)' }}
         >
-          <MonoLabel>{t('home.nextGathering')}</MonoLabel>
+          <MonoLabel>{t('home.householdLabel')}</MonoLabel>
           <p className="font-display italic text-[18px] mt-1.5 text-rp-ink leading-tight">
-            {t('home.planEvent')}
+            {t('home.choresAndActivities')}
           </p>
           <p className="text-[11px] text-rp-ink-soft mt-2 inline-flex items-center gap-1">
-            <TableIcon width={14} height={14} />
-            {t('home.planEventDesc')}
+            <HouseCircleIcon width={14} height={14} />
+            {t('home.householdDesc')}
           </p>
         </button>
       </motion.section>
@@ -424,7 +424,7 @@ export function HomePage() {
               <button
                 onClick={() => {
                   setRecipePickerOpen(false)
-                  if (ai.checkAIAccess()) navigate('/recipes/import?mode=url')
+                  if (ai.checkRecipeImportAccess()) navigate('/recipes/import?mode=url')
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-rp-sm bg-rp-bg-soft active:scale-[0.98] transition-transform text-start min-h-[56px]"
               >
@@ -439,7 +439,7 @@ export function HomePage() {
               <button
                 onClick={() => {
                   setRecipePickerOpen(false)
-                  if (ai.checkAIAccess()) navigate('/recipes/import?mode=photo')
+                  if (ai.checkRecipeImportAccess()) navigate('/recipes/import?mode=photo')
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-rp-sm bg-rp-bg-soft active:scale-[0.98] transition-transform text-start min-h-[56px]"
               >
@@ -454,6 +454,15 @@ export function HomePage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      <AIUpgradeModal
+        open={ai.showUpgradeModal}
+        onOpenChange={ai.setShowUpgradeModal}
+        isLimitReached={ai.hasAI && ai.isLimitReached}
+        isImportCapReached={ai.upgradeReason === 'recipe_import_cap'}
+        importsUsed={ai.importsUsed}
+        importsLimit={ai.importsLimit}
+      />
     </motion.div>
   )
 }

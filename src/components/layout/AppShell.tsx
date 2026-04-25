@@ -43,7 +43,11 @@ export function AppShell() {
           </button>
         </div>
       )}
-      <main id="main-content" className="flex-1 pb-safe animate-page-enter">
+      <main
+        id="main-content"
+        className="flex-1 animate-page-enter"
+        style={{ paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' }}
+      >
         <Outlet />
       </main>
       <BottomNav />

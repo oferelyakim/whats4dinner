@@ -189,6 +189,7 @@ export function EventDetailPage() {
   })
 
   async function handleAIPlanSubmit(request: EventAIPlanRequest) {
+    if (!id) return
     setIsAIPlanLoading(true)
     try {
       const sessionId = localStorage.getItem('replanish_session_id') ?? crypto.randomUUID()
@@ -206,25 +207,87 @@ export function EventDetailPage() {
         },
       })
       if (error) throw error
+
       if (data?._ai_usage) {
         const { data: authData } = await supabase.auth.getUser()
         if (authData.user) {
           await logAIUsage(
             authData.user.id,
-            'meal_plan',
+            'event_plan',
             data._ai_usage.model,
             data._ai_usage.tokens_in,
             data._ai_usage.tokens_out,
             data._ai_usage.cost_usd,
-            {
-              session_id: sessionId,
-              feature_context: 'event_detail',
-            }
+            { session_id: sessionId, feature_context: 'event_detail' }
           )
         }
       }
+
+      // Persist AI-proposed dishes / supplies / tasks as event_items.
+      // Dedup against existing items (same type + case-insensitive name) so re-running doesn't create duplicates.
+      const existingKeys = new Set(
+        items.map((it) => `${it.type}:${it.name.trim().toLowerCase()}`)
+      )
+      const inserts: Array<Promise<void>> = []
+
+      for (const dish of (data?.dishes ?? []) as Array<{
+        name?: string; type?: string; notes?: string
+      }>) {
+        if (!dish?.name) continue
+        const key = `dish:${dish.name.trim().toLowerCase()}`
+        if (existingKeys.has(key)) continue
+        existingKeys.add(key)
+        inserts.push(addEventItem(id, {
+          type: 'dish',
+          name: dish.name,
+          category: dish.type ?? 'other',
+          notes: dish.notes,
+        }))
+      }
+
+      for (const supply of (data?.supplies ?? []) as Array<{
+        name?: string; quantity?: string
+      }>) {
+        if (!supply?.name) continue
+        const key = `supply:${supply.name.trim().toLowerCase()}`
+        if (existingKeys.has(key)) continue
+        existingKeys.add(key)
+        inserts.push(addEventItem(id, {
+          type: 'supply',
+          name: supply.name,
+          category: 'other',
+          notes: supply.quantity,
+        }))
+      }
+
+      for (const task of (data?.tasks ?? []) as Array<{
+        title?: string; due_when?: string; notes?: string
+      }>) {
+        if (!task?.title) continue
+        const key = `task:${task.title.trim().toLowerCase()}`
+        if (existingKeys.has(key)) continue
+        existingKeys.add(key)
+        const noteParts = [task.due_when, task.notes].filter(Boolean)
+        inserts.push(addEventItem(id, {
+          type: 'task',
+          name: task.title,
+          category: 'other',
+          notes: noteParts.length ? noteParts.join(' — ') : undefined,
+        }))
+      }
+
+      await Promise.all(inserts)
+      queryClient.invalidateQueries({ queryKey: ['event-items', id] })
+
       setShowAIPlanDialog(false)
-      toast.success(t('event.aiPlanSuccess'))
+      const count = inserts.length
+      toast.success(count > 0
+        ? t('event.aiPlanAddedCount').replace('{{count}}', String(count))
+        : t('event.aiPlanSuccess'))
+
+      if (data?.clarifying_question) {
+        toast.info(String(data.clarifying_question))
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.somethingWentWrong'))
       setShowAIPlanDialog(false)

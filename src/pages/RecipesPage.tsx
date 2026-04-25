@@ -195,15 +195,18 @@ export function RecipesPage() {
         <>
           <SpeedDial
             items={[
-              { icon: Sparkles, label: t('recipe.importUrl'), onClick: () => { if (ai.checkAIAccess()) navigate('/recipes/import') }, color: '#3b82f6' },
-              { icon: Camera, label: t('recipe.importPhoto'), onClick: () => { if (ai.checkAIAccess()) navigate('/recipes/import') }, color: '#8b5cf6' },
+              { icon: Sparkles, label: t('recipe.importUrl'), onClick: () => { if (ai.checkRecipeImportAccess()) navigate('/recipes/import') }, color: '#3b82f6' },
+              { icon: Camera, label: t('recipe.importPhoto'), onClick: () => { if (ai.checkRecipeImportAccess()) navigate('/recipes/import') }, color: '#8b5cf6' },
               { icon: PenLine, label: t('recipe.writeManually'), onClick: () => navigate('/recipes/new'), color: '#2bbaa0' },
             ]}
           />
           <AIUpgradeModal
             open={ai.showUpgradeModal}
             onOpenChange={ai.setShowUpgradeModal}
-            isLimitReached={ai.isLimitReached}
+            isLimitReached={ai.hasAI && ai.isLimitReached}
+            isImportCapReached={ai.upgradeReason === 'recipe_import_cap'}
+            importsUsed={ai.importsUsed}
+            importsLimit={ai.importsLimit}
           />
         </>
       ) : (
