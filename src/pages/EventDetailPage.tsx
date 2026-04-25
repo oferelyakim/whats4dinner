@@ -353,16 +353,17 @@ export function EventDetailPage() {
     }))
   const attending = [...explicitlyAttending, ...circleMemberPseudoParticipants]
   const inviteUrl = `${getShareOrigin()}/join-event/${event.invite_code}`
+  const eventName = event.name
 
   const whatsappMessage = t('share.eventWhatsAppMessage')
-    .replace('{eventName}', event.name)
+    .replace('{eventName}', eventName)
     .replace('{joinUrl}', inviteUrl)
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`
 
   async function nativeShare() {
     if (navigator.share) {
       try {
-        await navigator.share({ title: event.name, text: whatsappMessage, url: inviteUrl })
+        await navigator.share({ title: eventName, text: whatsappMessage, url: inviteUrl })
         return
       } catch {
         // user dismissed
