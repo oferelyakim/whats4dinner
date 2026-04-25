@@ -7,6 +7,7 @@ export interface CreateCircleInput {
   purpose?: string | null
   circle_type?: CircleType | null
   context?: CircleContext | null
+  skin_id?: string | null
 }
 
 export async function getMyCircles(): Promise<Circle[]> {
@@ -47,7 +48,28 @@ export async function createCircle(input: CreateCircleInput | string, icon?: str
     })
 
   if (error) throw error
-  return data as Circle
+  const circle = data as Circle
+
+  // The RPC predates skin support — apply skin_id as a follow-up update.
+  if (payload.skin_id && payload.skin_id !== circle.skin_id) {
+    const { data: updated, error: skinError } = await supabase
+      .from('circles')
+      .update({ skin_id: payload.skin_id })
+      .eq('id', circle.id)
+      .select()
+      .single()
+    if (skinError) throw skinError
+    return updated as Circle
+  }
+  return circle
+}
+
+export async function updateCircleSkin(circleId: string, skinId: string): Promise<void> {
+  const { error } = await supabase
+    .from('circles')
+    .update({ skin_id: skinId })
+    .eq('id', circleId)
+  if (error) throw error
 }
 
 export async function updateCircleContext(

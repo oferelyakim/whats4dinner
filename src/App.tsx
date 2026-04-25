@@ -6,6 +6,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
 import { ToastProvider } from '@/components/ui/Toast'
 import { SkinProvider } from '@/components/SkinProvider'
+import { ReviewPrompt } from '@/components/ReviewPrompt'
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -149,6 +150,7 @@ export default function App() {
           </Suspense>
         </AuthGuard>
       </BrowserRouter>
+      <ReviewPrompt />
       </ToastProvider>
       </SkinProvider>
     </QueryClientProvider>

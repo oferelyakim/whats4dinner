@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -35,6 +35,7 @@ import { DEPARTMENTS, type Department } from '@/lib/constants'
 import { useI18n } from '@/lib/i18n'
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
 import { useGrocerFlag } from '@/hooks/useGrocerFlag'
+import { maybeRequestReview } from '@/lib/reviewPrompt'
 import { useAuth } from '@/hooks/useAuth'
 import { getMyGrocerConnections, getLinkForList } from '@/services/grocers/service'
 import { ListStoreLinkerModal } from '@/components/grocers/ListStoreLinkerModal'
@@ -119,6 +120,19 @@ export function ShoppingListPage() {
       .filter((item: ShoppingListItem) => !item.is_checked)
       .map((item: ShoppingListItem) => item.name)
   }
+
+  // Review prompt: trigger when shared list crosses 80% checked
+  const reviewPromptedRef = useRef(false)
+  useEffect(() => {
+    if (reviewPromptedRef.current) return
+    if (!data?.items || data.items.length < 3) return
+    if (!data.circle_id) return
+    const checked = data.items.filter((i: ShoppingListItem) => i.is_checked).length
+    if (checked / data.items.length >= 0.8) {
+      reviewPromptedRef.current = true
+      maybeRequestReview()
+    }
+  }, [data])
 
   // Real-time subscription for list items
   useEffect(() => {

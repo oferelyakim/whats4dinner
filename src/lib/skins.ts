@@ -13,6 +13,20 @@ export type SkinTokens = {
   cool: string; coolSoft: string
 }
 
+export type SkinFonts = {
+  display?: string
+  sans?: string
+  mono?: string
+  hand?: string
+}
+
+export type SkinFeel =
+  | 'editorial'
+  | 'terminal'
+  | 'pillow'
+  | 'sticker'
+  | 'default'
+
 export type Skin = {
   id: string
   name: string
@@ -20,6 +34,8 @@ export type Skin = {
   tag: string
   tokens: SkinTokens
   dark?: boolean
+  fonts?: SkinFonts
+  feel?: SkinFeel
 }
 
 export const SKINS: Skin[] = [
@@ -129,6 +145,68 @@ export const SKINS: Skin[] = [
     },
   },
   {
+    id: 'nordic',
+    name: 'Nordic',
+    sub: 'japandi minimalist',
+    tag: 'soft as linen',
+    feel: 'editorial',
+    fonts: {
+      display: "'EB Garamond', 'Times New Roman', serif",
+      sans:    "'Inter Tight', -apple-system, system-ui, sans-serif",
+      hand:    "'Caveat', cursive",
+    },
+    tokens: {
+      bg: '#f3efe8', bgSoft: '#e6e0d4', bgDeep: '#1e2228',
+      ink: '#1f242b', inkSoft: '#525a64', inkMute: '#8e96a0',
+      hairline: 'rgba(31,36,43,0.10)', card: '#ffffff',
+      brand: '#5a7088', brandSoft: '#cdd6e0', brandDeep: '#2e3f52',
+      accent: '#7a8472', accentSoft: '#d4d8cc',
+      glow:  '#c19a6b', glowSoft:  '#e8d8c2',
+      cool:  '#3a4a5a', coolSoft:  '#c5cdd6',
+    },
+  },
+  {
+    id: 'bloom',
+    name: 'Bloom',
+    sub: 'soft botanical pastel',
+    tag: 'a quiet little garden',
+    feel: 'pillow',
+    fonts: {
+      display: "'Quicksand', 'Nunito', -apple-system, system-ui, sans-serif",
+      sans:    "'Quicksand', 'Nunito', -apple-system, system-ui, sans-serif",
+      hand:    "'Caveat', cursive",
+    },
+    tokens: {
+      bg: '#fcf3ee', bgSoft: '#f5e3da', bgDeep: '#2b1a22',
+      ink: '#2c1a22', inkSoft: '#6a4554', inkMute: '#a78694',
+      hairline: 'rgba(44,26,34,0.09)', card: '#ffffff',
+      brand: '#c4607a', brandSoft: '#f4cad5', brandDeep: '#7a2a40',
+      accent: '#88a878', accentSoft: '#d6e2c8',
+      glow:  '#e8b18a', glowSoft:  '#f6dcc7',
+      cool:  '#8a93b8', coolSoft:  '#d6dae8',
+    },
+  },
+  {
+    id: 'citrus',
+    name: 'Citrus',
+    sub: 'retro pop',
+    tag: "today's a juicy one",
+    feel: 'sticker',
+    fonts: {
+      display: "'Fraunces', Georgia, serif",
+      sans:    "'Inter', -apple-system, system-ui, sans-serif",
+    },
+    tokens: {
+      bg: '#fff7e2', bgSoft: '#ffe9bf', bgDeep: '#0e1d3a',
+      ink: '#0e1d3a', inkSoft: '#3d4d72', inkMute: '#7d8aa8',
+      hairline: 'rgba(14,29,58,0.10)', card: '#ffffff',
+      brand: '#e94e4a', brandSoft: '#ffc9c4', brandDeep: '#8a1a18',
+      accent: '#3aa9c9', accentSoft: '#bfe2ec',
+      glow:  '#5cc28b', glowSoft:  '#cfecda',
+      cool:  '#1c3370', coolSoft:  '#c5cee0',
+    },
+  },
+  {
     id: 'dusk',
     name: 'Dusk',
     sub: 'candlelit',
@@ -142,6 +220,28 @@ export const SKINS: Skin[] = [
       accent: '#a8bb82', accentSoft: '#3a4a2d',
       glow: '#f0bf72', glowSoft: '#6a4a20',
       cool: '#7a95b2', coolSoft: '#2e3d4d',
+    },
+  },
+  {
+    id: 'studio',
+    name: 'Studio',
+    sub: 'cool monochrome dark',
+    tag: 'late on the laptop',
+    dark: true,
+    feel: 'terminal',
+    fonts: {
+      display: "'JetBrains Mono', ui-monospace, monospace",
+      sans:    "'JetBrains Mono', ui-monospace, monospace",
+      mono:    "'JetBrains Mono', ui-monospace, monospace",
+    },
+    tokens: {
+      bg: '#0e1116', bgSoft: '#161a22', bgDeep: '#070a0f',
+      ink: '#e6edf5', inkSoft: '#9aa6b4', inkMute: '#5d6776',
+      hairline: 'rgba(230,237,245,0.08)', card: '#181d26',
+      brand: '#3ed7ee', brandSoft: '#103642', brandDeep: '#a8ecf6',
+      accent: '#7c8896', accentSoft: '#202632',
+      glow:  '#f5b94a', glowSoft:  '#3a2a10',
+      cool:  '#5da4d4', coolSoft:  '#1c2a38',
     },
   },
   {
@@ -185,9 +285,29 @@ export function resolveSkin(
       tag: custom.tag ?? '',
       tokens: custom.tokens as SkinTokens,
       dark: custom.dark,
+      fonts: custom.fonts,
+      feel: custom.feel,
     }
   }
   return getSkin(skinId)
+}
+
+/** Suggest a skin id based on a circle_type. */
+export function suggestSkinId(circleType?: string | null): string {
+  switch (circleType) {
+    case 'event': return 'citrus'
+    case 'roommates': return 'nordic'
+    case 'friends': return 'bloom'
+    case 'family': return 'hearth'
+    default: return 'hearth'
+  }
+}
+
+const HEARTH_FONTS: Required<SkinFonts> = {
+  display: "'Instrument Serif', 'Times New Roman', serif",
+  sans:    "'Geist', -apple-system, system-ui, sans-serif",
+  mono:    "ui-monospace, 'SF Mono', Menlo, monospace",
+  hand:    "'Caveat', cursive",
 }
 
 /** Convert camelCase token name to kebab-case CSS var suffix. */
@@ -197,8 +317,23 @@ function kebab(s: string): string {
 
 /** Write a skin's tokens to `document.documentElement` as --rp-* CSS vars. */
 export function applySkin(skin: Skin, root: HTMLElement = document.documentElement): void {
+  // 1. Color tokens
   Object.entries(skin.tokens).forEach(([k, v]) => {
     root.style.setProperty(`--rp-${kebab(k)}`, v)
   })
+
+  // 2. Font stacks (skin overrides → Hearth fallback)
+  const f = { ...HEARTH_FONTS, ...(skin.fonts ?? {}) }
+  root.style.setProperty('--rp-ff-display', f.display)
+  root.style.setProperty('--rp-ff-sans',    f.sans)
+  root.style.setProperty('--rp-ff-mono',    f.mono)
+  root.style.setProperty('--rp-ff-hand',    f.hand)
+
+  // 3. Dark mode + structural feel
   root.classList.toggle('dark', !!skin.dark)
+  if (skin.feel && skin.feel !== 'default') {
+    root.dataset.feel = skin.feel
+  } else {
+    delete root.dataset.feel
+  }
 }

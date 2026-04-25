@@ -788,6 +788,22 @@ const translations: Record<string, Record<Locale, string>> = {
   'onboard.v2.cadence.monthly': { en: 'Monthly', he: 'חודשי', es: 'Mensual' },
   'onboard.v2.cadence.occasional': { en: 'Occasional', he: 'מדי פעם', es: 'Ocasional' },
 
+  'onboard.v2.skinTitle': { en: 'Pick a skin', he: 'בחר עיצוב', es: 'Elige un estilo' },
+  'onboard.v2.skinDesc': { en: 'Sets the colors and feel of this circle. Members can override on their device.', he: 'מגדיר את הצבעים והאווירה של המעגל. חברים יכולים להחליף במכשיר שלהם.', es: 'Define los colores y el ambiente de este círculo. Los miembros pueden cambiarlo en su dispositivo.' },
+  'onboard.v2.skinSuggestion': { en: 'Suggested for this circle:', he: 'מומלץ למעגל הזה:', es: 'Sugerido para este círculo:' },
+  'onboard.v2.skinFootnote': { en: 'You can change this anytime from the circle page.', he: 'אפשר לשנות בכל עת מדף המעגל.', es: 'Puedes cambiarlo en cualquier momento desde la página del círculo.' },
+
+  'circle.skin.title': { en: 'Circle skin', he: 'עיצוב המעגל', es: 'Estilo del círculo' },
+  'circle.skin.descOwner': { en: 'Sets the default look for everyone in this circle.', he: 'מגדיר את המראה הברירת-מחדל לכל החברים במעגל.', es: 'Define la apariencia por defecto para todos en el círculo.' },
+  'circle.skin.descMember': { en: 'The owner picked this look. You can override it just for your device below.', he: 'הבעלים בחר את העיצוב הזה. אפשר להחליף עבור המכשיר שלך למטה.', es: 'El propietario eligió este estilo. Puedes cambiarlo solo para tu dispositivo abajo.' },
+  'circle.skin.editBtn': { en: 'Change skin', he: 'החלף עיצוב', es: 'Cambiar estilo' },
+  'circle.skin.saved': { en: 'Skin updated', he: 'העיצוב עודכן', es: 'Estilo actualizado' },
+
+  'more.personalSkin.title': { en: 'My skin (this device)', he: 'העיצוב שלי (במכשיר הזה)', es: 'Mi estilo (este dispositivo)' },
+  'more.personalSkin.desc': { en: 'Override the active circle\'s skin on this device only. Doesn\'t affect anyone else.', he: 'החלף את עיצוב המעגל במכשיר הזה בלבד. לא משפיע על אחרים.', es: 'Cambia el estilo del círculo solo en este dispositivo. No afecta a otros.' },
+  'more.personalSkin.useCircle': { en: 'Use circle\'s skin', he: 'השתמש בעיצוב המעגל', es: 'Usar el estilo del círculo' },
+  'more.personalSkin.active': { en: 'Personal override active', he: 'דריסה אישית פעילה', es: 'Anulación personal activa' },
+
   'onboard.v2.reviewTitle': { en: 'Ready to go', he: 'הכל מוכן', es: 'Listo' },
   'onboard.v2.reviewDesc': { en: 'You can always update this later from circle settings.', he: 'תמיד אפשר לעדכן את זה מאוחר יותר בהגדרות המעגל.', es: 'Siempre puedes actualizar esto luego en los ajustes del círculo.' },
   'onboard.v2.createBtn': { en: 'Create circle', he: 'צור מעגל', es: 'Crear círculo' },
@@ -918,6 +934,35 @@ const translations: Record<string, Record<Locale, string>> = {
   'event.aiPlanAddedCount': { en: 'Added {{count}} items from AI plan', he: 'נוספו {{count}} פריטים מתכנון ה-AI', es: 'Se agregaron {{count}} elementos del plan de IA' },
   'event.aiPlanApply': { en: 'Apply to Event', he: 'החל על האירוע', es: 'Aplicar al evento' },
   'event.aiPlanReview': { en: 'Review & Apply', he: 'סקור והחל', es: 'Revisar y aplicar' },
+
+  // Share + Join + Review (v1.11.0 soft-launch)
+  'share.whatsapp': { en: 'Share on WhatsApp', he: 'שיתוף ב-WhatsApp', es: 'Compartir en WhatsApp' },
+  'share.copyLink': { en: 'Copy link', he: 'העתק קישור', es: 'Copiar enlace' },
+  'share.linkCopied': { en: 'Link copied', he: 'הקישור הועתק', es: 'Enlace copiado' },
+  'share.shareLink': { en: 'Share', he: 'שתף', es: 'Compartir' },
+  'share.eventWhatsAppMessage': {
+    en: "I'm planning {eventName} — see what to bring: {joinUrl}",
+    he: 'אני מארגן/ת את {eventName} — מה להביא: {joinUrl}',
+    es: 'Estoy organizando {eventName} — mira qué traer: {joinUrl}',
+  },
+  'event.created': { en: 'Event created', he: 'האירוע נוצר', es: 'Evento creado' },
+  'event.createdShare': { en: 'Invite your guests so they can claim what to bring.', he: 'הזמינו את האורחים כדי שיוכלו לבחור מה להביא.', es: 'Invita a los asistentes para que reserven qué traer.' },
+  'event.viewEvent': { en: 'View event', he: 'הצג אירוע', es: 'Ver evento' },
+  'join.youreInvitedTo': { en: "You're invited to", he: 'הוזמנת ל', es: 'Estás invitado a' },
+  'join.whatsNeeded': { en: "What's needed", he: 'מה נדרש', es: 'Qué se necesita' },
+  'join.claimCta': { en: 'Sign up & claim what to bring', he: 'הירשמו ובחרו מה להביא', es: 'Regístrate y reserva qué traer' },
+  'join.signinClaimCta': { en: 'Sign in & claim what to bring', he: 'התחברו ובחרו מה להביא', es: 'Inicia sesión y reserva qué traer' },
+  'join.poweredBy': { en: 'Powered by Replanish — families coordinate meals & events together', he: 'מבית Replanish — משפחות מתאמות ארוחות ואירועים יחד', es: 'Hecho con Replanish — las familias coordinan comidas y eventos juntas' },
+  'join.featureMeals': { en: 'Meals', he: 'ארוחות', es: 'Comidas' },
+  'join.featureShopping': { en: 'Shopping', he: 'קניות', es: 'Compras' },
+  'join.featureEvents': { en: 'Events', he: 'אירועים', es: 'Eventos' },
+  'join.organizeOwnTitle': { en: 'Want to organize your own?', he: 'רוצים לארגן אצלכם?', es: '¿Quieres organizar el tuyo?' },
+  'join.organizeOwnCta': { en: 'Free, 60 seconds — sign up', he: 'חינם, 60 שניות — הירשמו', es: 'Gratis, 60 segundos — regístrate' },
+
+  'review.title': { en: 'Enjoying Replanish?', he: 'נהנים מ-Replanish?', es: '¿Disfrutas Replanish?' },
+  'review.body': { en: 'A quick review helps other families find the app.', he: 'ביקורת קצרה תעזור למשפחות אחרות לגלות את האפליקציה.', es: 'Una reseña rápida ayuda a otras familias a descubrir la app.' },
+  'review.cta': { en: 'Leave a review', he: 'השאירו ביקורת', es: 'Dejar una reseña' },
+  'review.notNow': { en: 'Not now', he: 'לא כרגע', es: 'Ahora no' },
 }
 
 export const useI18n = create<I18nState>()(

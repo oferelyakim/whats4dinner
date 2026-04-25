@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User, LogOut, PartyPopper, CalendarDays, Plus, Pencil, Sparkles } from 'lucide-react'
+import { ArrowLeft, UserPlus, Copy, Check, Crown, Shield, User, LogOut, PartyPopper, CalendarDays, Plus, Pencil, Sparkles, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import * as Dialog from '@radix-ui/react-dialog'
 import { CircleContextEditor } from '@/components/circle/CircleContextEditor'
-import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle, deleteCircle } from '@/services/circles'
+import { SkinPicker } from '@/components/skins/SkinPicker'
+import { getSkin } from '@/lib/skins'
+import { getMyCircles, getCircleMembers, inviteByEmail, leaveCircle, deleteCircle, updateCircleSkin } from '@/services/circles'
 import { getEvents, type Event } from '@/services/events'
 import { useAppStore } from '@/stores/appStore'
 import { useAuth } from '@/hooks/useAuth'
@@ -37,6 +39,7 @@ export function CircleDetailPage() {
   const [copied, setCopied] = useState(false)
   const [showLeave, setShowLeave] = useState(false)
   const [showContextEdit, setShowContextEdit] = useState(false)
+  const [showSkinEdit, setShowSkinEdit] = useState(false)
   const { activeCircle, setActiveCircle } = useAppStore()
   const { session } = useAuth()
   const { t, locale } = useI18n()
@@ -77,6 +80,20 @@ export function CircleDetailPage() {
       if (activeCircle?.id === id) setActiveCircle(null)
       queryClient.invalidateQueries({ queryKey: ['circles'] })
       navigate('/profile/circles')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const skinMutation = useMutation({
+    mutationFn: (skinId: string) => updateCircleSkin(id!, skinId),
+    onSuccess: (_void, skinId) => {
+      // Update active-circle in store + cache so SkinProvider re-applies immediately.
+      if (circle) {
+        const next = { ...circle, skin_id: skinId }
+        if (activeCircle?.id === circle.id) setActiveCircle(next)
+      }
+      queryClient.invalidateQueries({ queryKey: ['circles'] })
+      toast.success(t('circle.skin.saved'))
     },
     onError: (err: Error) => toast.error(err.message),
   })
@@ -199,6 +216,39 @@ export function CircleDetailPage() {
           })()}
         </Card>
       )}
+
+      {/* Skin */}
+      <Card className="p-4">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Palette className="h-4 w-4 text-rp-brand shrink-0" />
+            <h3 className="text-sm font-semibold text-rp-ink truncate">{t('circle.skin.title')}</h3>
+          </div>
+          {isOwner && (
+            <button
+              onClick={() => setShowSkinEdit(true)}
+              className="h-8 px-2 rounded-lg flex items-center gap-1 text-xs text-rp-ink-mute hover:bg-rp-bg-soft hover:text-rp-ink transition-colors shrink-0"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {t('circle.skin.editBtn')}
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1">
+            {(() => {
+              const t0 = getSkin(circle.skin_id).tokens
+              return [t0.brand, t0.accent, t0.glow, t0.cool].map((c, i) => (
+                <span key={i} className="h-5 w-5 rounded-full" style={{ background: c, border: `1px solid ${t0.hairline}` }} />
+              ))
+            })()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-rp-ink truncate">{getSkin(circle.skin_id).name}</p>
+            <p className="text-xs text-rp-ink-mute truncate">{isOwner ? t('circle.skin.descOwner') : t('circle.skin.descMember')}</p>
+          </div>
+        </div>
+      </Card>
 
       {/* Members */}
       <section>
@@ -359,6 +409,37 @@ export function CircleDetailPage() {
       {/* Context editor (owner) */}
       {isOwner && (
         <CircleContextEditor open={showContextEdit} onOpenChange={setShowContextEdit} circle={circle} />
+      )}
+
+      {/* Skin editor (owner) */}
+      {isOwner && (
+        <Dialog.Root open={showSkinEdit} onOpenChange={setShowSkinEdit}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
+              <Dialog.Title className="text-lg font-bold text-rp-ink mb-1 flex items-center gap-2">
+                <Palette className="h-4 w-4 text-rp-brand" />
+                {t('circle.skin.title')}
+              </Dialog.Title>
+              <Dialog.Description className="text-sm text-rp-ink-mute mb-4">
+                {t('circle.skin.descOwner')}
+              </Dialog.Description>
+              <SkinPicker
+                selectedId={circle.skin_id ?? 'hearth'}
+                onSelect={(id) => {
+                  skinMutation.mutate(id, {
+                    onSuccess: () => setShowSkinEdit(false),
+                  })
+                }}
+              />
+              <div className="flex justify-end pt-4">
+                <Button variant="secondary" onClick={() => setShowSkinEdit(false)}>
+                  {t('common.cancel')}
+                </Button>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       )}
 
       {/* Leave / Delete button */}

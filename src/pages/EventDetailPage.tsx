@@ -4,7 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Plus, Copy, Check, CalendarDays, MapPin, Trash2,
   UtensilsCrossed, Package, ListTodo, Users, Crown, X, Download, Edit3, Sparkles,
+  MessageCircle, Share2,
 } from 'lucide-react'
+import { getShareOrigin } from '@/lib/url'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -18,6 +20,8 @@ import {
   assignItem, respondToAssignment,
   type EventItem, type EventParticipant, type EventOrganizer,
 } from '@/services/events'
+import { getCircleMembers } from '@/services/circles'
+import type { CircleMember } from '@/types'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { exportEventToCalendar } from '@/lib/calendar'
@@ -105,6 +109,12 @@ export function EventDetailPage() {
     queryKey: ['event-organizers', id],
     queryFn: () => getEventOrganizers(id!),
     enabled: !!id,
+  })
+
+  const { data: circleMembers = [] } = useQuery({
+    queryKey: ['circle-members', event?.circle_id],
+    queryFn: () => getCircleMembers(event!.circle_id!),
+    enabled: !!event?.circle_id,
   })
 
   const isOrganizer = organizers.some((o: EventOrganizer) => o.user_id === profile?.id) || event?.created_by === profile?.id
@@ -325,8 +335,43 @@ export function EventDetailPage() {
   const dishes = items.filter((i: EventItem) => i.type === 'dish')
   const supplies = items.filter((i: EventItem) => i.type === 'supply')
   const tasks = items.filter((i: EventItem) => i.type === 'task')
-  const attending = participants.filter((p: EventParticipant) => p.status === 'attending')
-  const inviteUrl = `${window.location.origin}/join-event/${event.invite_code}`
+  const explicitlyAttending = participants.filter((p: EventParticipant) => p.status === 'attending')
+
+  // Merge in circle members so all members of the event's circle are visible
+  // and assignable, even if they haven't explicitly joined via invite link.
+  const attendingUserIds = new Set(explicitlyAttending.map((p) => p.user_id).filter(Boolean) as string[])
+  const circleMemberPseudoParticipants: EventParticipant[] = circleMembers
+    .filter((m: CircleMember) => !attendingUserIds.has(m.user_id))
+    .map((m: CircleMember) => ({
+      id: `circle-member-${m.user_id}`,
+      event_id: event.id,
+      user_id: m.user_id,
+      guest_name: null,
+      guest_email: null,
+      status: 'attending',
+      profile: m.profile ? { display_name: m.profile.display_name, email: m.profile.email } : undefined,
+    }))
+  const attending = [...explicitlyAttending, ...circleMemberPseudoParticipants]
+  const inviteUrl = `${getShareOrigin()}/join-event/${event.invite_code}`
+
+  const whatsappMessage = t('share.eventWhatsAppMessage')
+    .replace('{eventName}', event.name)
+    .replace('{joinUrl}', inviteUrl)
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`
+
+  async function nativeShare() {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: event.name, text: whatsappMessage, url: inviteUrl })
+        return
+      } catch {
+        // user dismissed
+      }
+    }
+    await navigator.clipboard.writeText(inviteUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   function openAddItem(type: 'dish' | 'supply' | 'task') {
     setAddType(type)
@@ -406,6 +451,21 @@ export function EventDetailPage() {
                 setTimeout(() => setCopied(false), 2000)
               }}>
                 {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 h-10 rounded-lg bg-[#25D366] text-white text-sm font-medium active:scale-95 transition-transform"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {t('share.whatsapp')}
+              </a>
+              <Button size="sm" variant="secondary" className="flex-1" onClick={nativeShare}>
+                <Share2 className="h-4 w-4" />
+                {t('share.shareLink')}
               </Button>
             </div>
           </Card>

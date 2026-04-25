@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Plus, X, CalendarDays, ShoppingCart, ShoppingBag, Copy, Download, ArrowLeft, ChevronDown, ChevronUp, Clipboard, Check } from 'lucide-react'
+import { maybeRequestReview } from '@/lib/reviewPrompt'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -416,6 +417,7 @@ export function PlanPage() {
             : t('plan.createdNewRecipesPlural').replace('{{count}}', String(newRecipesCreated))
         toast.success(message)
       }
+      maybeRequestReview()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('common.error'))
     } finally {

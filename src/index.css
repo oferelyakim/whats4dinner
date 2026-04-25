@@ -159,8 +159,8 @@
   --z-overlay: 70;
 }
 
-/* Load Hearth type families */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Caveat:wght@500;700&display=swap');
+/* Load Hearth type families + skin-specific families (Nordic / Studio / Bloom / Citrus) */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700&family=Caveat:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;1,400;1,500;1,600&display=swap');
 
 html {
   -webkit-tap-highlight-color: transparent;
@@ -211,6 +211,119 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar,
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ─── Per-feel structural overrides ──────────────────────────────────────── */
+/* Keyed off [data-feel="…"] on <html>, set by applySkin(). Hearth + the
+   original 8 skins do not set data-feel and keep their existing chrome. */
+:root {
+  --rp-radius-card: 20px;
+  --rp-radius-pill: 999px;
+  --rp-card-border: 1px solid var(--rp-hairline);
+  --rp-card-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
+}
+
+/* Editorial (Nordic) */
+[data-feel="editorial"] {
+  --rp-radius-card: 0px;
+  --rp-radius-pill: 2px;
+  --rp-card-border: 1px solid var(--rp-ink);
+  --rp-card-shadow: none;
+}
+[data-feel="editorial"] body { font-family: var(--rp-ff-sans); }
+[data-feel="editorial"] h1,
+[data-feel="editorial"] h2,
+[data-feel="editorial"] .rp-display,
+[data-feel="editorial"] .display,
+[data-feel="editorial"] .font-display {
+  font-family: var(--rp-ff-display);
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: -0.01em;
+}
+
+/* Terminal (Studio) */
+[data-feel="terminal"] {
+  --rp-radius-card: 4px;
+  --rp-radius-pill: 4px;
+  --rp-card-border: 1px solid var(--rp-hairline);
+  --rp-card-shadow: 0 0 0 1px rgba(62,215,238,0.06), 0 12px 28px rgba(0,0,0,0.5);
+}
+[data-feel="terminal"] body,
+[data-feel="terminal"] body * {
+  font-family: var(--rp-ff-mono);
+  letter-spacing: 0;
+}
+[data-feel="terminal"] .rp-display,
+[data-feel="terminal"] .font-display { font-style: normal; }
+[data-feel="terminal"] body::before,
+[data-feel="terminal"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+[data-feel="terminal"] body::before {
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(62,215,238,0.10), transparent 60%),
+    radial-gradient(120% 60% at 50% 110%, rgba(62,215,238,0.08), transparent 60%);
+}
+[data-feel="terminal"] body::after {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.025) 0,
+    rgba(255,255,255,0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+[data-feel="terminal"] .terminal-caret::after {
+  content: '_';
+  animation: rp-blink 1s steps(2, start) infinite;
+  color: var(--rp-brand);
+  margin-left: 2px;
+}
+@keyframes rp-blink { to { visibility: hidden; } }
+
+/* Pillow (Bloom) */
+[data-feel="pillow"] {
+  --rp-radius-card: 28px;
+  --rp-radius-pill: 999px;
+  --rp-card-border: none;
+  --rp-card-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 8px 24px rgba(196,96,122,0.10),
+    0 24px 60px rgba(196,96,122,0.06);
+}
+[data-feel="pillow"] body { font-family: var(--rp-ff-sans); font-weight: 500; }
+[data-feel="pillow"] h1,
+[data-feel="pillow"] h2,
+[data-feel="pillow"] .rp-display,
+[data-feel="pillow"] .font-display {
+  font-family: var(--rp-ff-display);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: -0.005em;
+}
+
+/* Sticker (Citrus) */
+[data-feel="sticker"] {
+  --rp-radius-card: 16px;
+  --rp-radius-pill: 999px;
+  --rp-card-border: 1.5px solid var(--rp-ink);
+  --rp-card-shadow: 3px 3px 0 var(--rp-ink);
+}
+[data-feel="sticker"] body { font-family: var(--rp-ff-sans); }
+[data-feel="sticker"] h1,
+[data-feel="sticker"] h2,
+[data-feel="sticker"] .rp-display,
+[data-feel="sticker"] .font-display {
+  font-family: var(--rp-ff-display);
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
 
 .pb-safe { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
 

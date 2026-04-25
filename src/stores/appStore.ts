@@ -38,6 +38,11 @@ interface AppState {
   // Household last-visited tab (persisted)
   lastHouseholdTab: 'chores' | 'activities'
   setLastHouseholdTab: (tab: 'chores' | 'activities') => void
+
+  // Personal skin override — wins over the active circle's skin_id on this device only.
+  // null = use the circle's skin (default).
+  personalSkinId: string | null
+  setPersonalSkinId: (id: string | null) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -74,6 +79,9 @@ export const useAppStore = create<AppState>()(
 
       lastHouseholdTab: 'chores',
       setLastHouseholdTab: (tab) => set({ lastHouseholdTab: tab }),
+
+      personalSkinId: null,
+      setPersonalSkinId: (id) => set({ personalSkinId: id }),
     }),
     {
       name: 'w4d-app',
@@ -85,6 +93,7 @@ export const useAppStore = create<AppState>()(
         calendarView: state.calendarView,
         calendarDate: state.calendarDate,
         lastHouseholdTab: state.lastHouseholdTab,
+        personalSkinId: state.personalSkinId,
       }),
     }
   )

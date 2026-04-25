@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, CalendarDays, MapPin, Search } from 'lucide-react'
+import { Plus, CalendarDays, MapPin, Search, Copy, Check, MessageCircle, Share2 } from 'lucide-react'
+import { getShareOrigin } from '@/lib/url'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
@@ -26,6 +27,8 @@ export function EventsPage() {
   const toast = useToast()
   const [showCreate, setShowCreate] = useState(false)
   const [search, setSearch] = useState('')
+  const [createdEvent, setCreatedEvent] = useState<Event | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (circleId) setShowCreate(true)
@@ -52,12 +55,11 @@ export function EventsPage() {
     onSuccess: async (event) => {
       queryClient.setQueryData(['event', event.id], event)
       await queryClient.invalidateQueries({ queryKey: ['events'] })
-      setShowCreate(false)
       setName('')
       setDescription('')
       setEventDate('')
       setLocation('')
-      navigate(`/events/${event.id}`)
+      setCreatedEvent(event)
     },
     onError: (err: Error) => {
       toast.error(err.message)
@@ -90,6 +92,35 @@ export function EventsPage() {
   const featured = upcoming[0]
   const rest = upcoming.slice(1)
   const dateLocale = locale === 'he' ? 'he-IL' : 'en-US'
+
+  const createdInviteUrl = createdEvent ? `${getShareOrigin()}/join-event/${createdEvent.invite_code}` : ''
+  const createdWhatsAppMessage = createdEvent
+    ? t('share.eventWhatsAppMessage')
+        .replace('{eventName}', createdEvent.name)
+        .replace('{joinUrl}', createdInviteUrl)
+    : ''
+  const createdWhatsAppHref = `https://wa.me/?text=${encodeURIComponent(createdWhatsAppMessage)}`
+
+  async function nativeShareCreated() {
+    if (!createdEvent) return
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: createdEvent.name, text: createdWhatsAppMessage, url: createdInviteUrl })
+        return
+      } catch { /* user dismissed */ }
+    }
+    await navigator.clipboard.writeText(createdInviteUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function closeCreateFlow() {
+    const id = createdEvent?.id
+    setCreatedEvent(null)
+    setShowCreate(false)
+    setCopied(false)
+    if (id) navigate(`/events/${id}`)
+  }
 
   return (
     <div className="px-5 py-6 space-y-6 animate-page-enter">
@@ -245,25 +276,62 @@ export function EventsPage() {
       )}
 
       {/* Create Event Dialog */}
-      <Dialog.Root open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog.Root open={showCreate} onOpenChange={(o) => { if (!o) closeCreateFlow(); else setShowCreate(true) }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
           <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-rp-lg p-6 max-w-lg mx-auto">
-            <Dialog.Title asChild>
-              <PageTitle className="text-[24px] mb-4">{t('event.newEvent')}</PageTitle>
-            </Dialog.Title>
-            <div className="space-y-3">
-              <Input label="Event Name" placeholder="e.g., Christmas Dinner 2026" value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} />
-              <Input label="Description (optional)" placeholder="Bring your best dish!" value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} />
-              <Input label="Date & Time" type="datetime-local" value={eventDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEventDate(e.target.value)} />
-              <Input label="Location (optional)" placeholder="Grandma's house" value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} />
-              <div className="flex gap-3 pt-2">
-                <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
-                <Button className="flex-1" onClick={() => createMutation.mutate()} disabled={!name.trim() || createMutation.isPending}>
-                  {createMutation.isPending ? t('common.loading') : t('common.create')}
-                </Button>
-              </div>
-            </div>
+            {createdEvent ? (
+              <>
+                <Dialog.Title asChild>
+                  <PageTitle className="text-[24px] mb-1">{t('event.created')}</PageTitle>
+                </Dialog.Title>
+                <p className="text-sm text-rp-ink-soft mb-4">{t('event.createdShare')}</p>
+                <div className="rp-card p-3 mb-3 flex items-center gap-2">
+                  <code className="flex-1 text-[10px] font-mono text-rp-ink-soft truncate">{createdInviteUrl}</code>
+                  <Button size="sm" variant="secondary" onClick={async () => {
+                    await navigator.clipboard.writeText(createdInviteUrl)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}>
+                    {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <div className="flex gap-2 mb-4">
+                  <a
+                    href={createdWhatsAppHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-11 rounded-lg bg-[#25D366] text-white text-sm font-medium active:scale-95 transition-transform"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    {t('share.whatsapp')}
+                  </a>
+                  <Button variant="secondary" className="flex-1" onClick={nativeShareCreated}>
+                    <Share2 className="h-4 w-4" />
+                    {t('share.shareLink')}
+                  </Button>
+                </div>
+                <Button className="w-full" onClick={closeCreateFlow}>{t('event.viewEvent')}</Button>
+              </>
+            ) : (
+              <>
+                <Dialog.Title asChild>
+                  <PageTitle className="text-[24px] mb-4">{t('event.newEvent')}</PageTitle>
+                </Dialog.Title>
+                <div className="space-y-3">
+                  <Input label="Event Name" placeholder="e.g., Christmas Dinner 2026" value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} />
+                  <Input label="Description (optional)" placeholder="Bring your best dish!" value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} />
+                  <Input label="Date & Time" type="datetime-local" value={eventDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEventDate(e.target.value)} />
+                  <Input label="Location (optional)" placeholder="Grandma's house" value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} />
+                  <div className="flex gap-3 pt-2">
+                    <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
+                    <Button className="flex-1" onClick={() => createMutation.mutate()} disabled={!name.trim() || createMutation.isPending}>
+                      {createMutation.isPending ? t('common.loading') : t('common.create')}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

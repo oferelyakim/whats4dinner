@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, ArrowLeft, Check, Users, Sparkles, Salad, ChefHat, CalendarDays, Home, Heart, MoreHorizontal } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Check, Users, Sparkles, Salad, ChefHat, CalendarDays, Home, Heart, MoreHorizontal, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -8,6 +8,8 @@ import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/cn'
 import type { Circle, CircleContext, CircleType, CookTimePref } from '@/types'
 import { createCircle, joinCircleByInviteCode } from '@/services/circles'
+import { suggestSkinId, getSkin } from '@/lib/skins'
+import { SkinPicker } from '@/components/skins/SkinPicker'
 
 type Mode = 'create' | 'join'
 
@@ -118,6 +120,13 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
   // Roommates/friends/other
   const [cadence, setCadence] = useState<'daily' | 'weekly' | 'monthly' | 'occasional'>('weekly')
 
+  // Skin (suggested from circle_type, user can override)
+  const [skinId, setSkinId] = useState<string>('hearth')
+  const [skinTouched, setSkinTouched] = useState(false)
+  useEffect(() => {
+    if (!skinTouched) setSkinId(suggestSkinId(type))
+  }, [type, skinTouched])
+
   // Compute the active step list based on type. Step keys:
   //   identity = name + icon + type chooser (or Join screen if mode=join)
   //   purpose  = single-line "what is this circle about" (used for AI)
@@ -133,10 +142,10 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
     if (mode === 'join') return ['join']
     const base = ['identity']
     if (!type) return [...base, 'review']
-    if (type === 'family') return [...base, 'purpose', 'household', 'diet', 'cooking', 'review']
-    if (type === 'event') return [...base, 'purpose', 'event_when_where', 'event_who', 'event_food', 'review']
+    if (type === 'family') return [...base, 'purpose', 'household', 'diet', 'cooking', 'skin', 'review']
+    if (type === 'event') return [...base, 'purpose', 'event_when_where', 'event_who', 'event_food', 'skin', 'review']
     // roommates/friends/other
-    return [...base, 'purpose', 'diet', 'cadence', 'review']
+    return [...base, 'purpose', 'diet', 'cadence', 'skin', 'review']
   }, [type, mode])
 
   const [stepIdx, setStepIdx] = useState(0)
@@ -190,6 +199,7 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
         purpose: purpose.trim() || null,
         circle_type: type,
         context: buildContext(),
+        skin_id: skinId,
       })
       onDone(circle)
     } catch (err) {
@@ -600,6 +610,27 @@ export function CircleSetupWizard({ variant = 'optional', onDone, onSkip, onClos
                     </button>
                   ))}
                 </div>
+                <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
+              </Section>
+            )}
+
+            {stepKey === 'skin' && (
+              <Section
+                icon={<Palette className="h-7 w-7 text-rp-brand" />}
+                title={t('onboard.v2.skinTitle')}
+                desc={t('onboard.v2.skinDesc')}
+              >
+                <div className="text-xs text-rp-ink-mute text-center">
+                  {t('onboard.v2.skinSuggestion')}{' '}
+                  <span className="font-medium text-rp-ink">{getSkin(suggestSkinId(type)).name}</span>
+                </div>
+                <SkinPicker
+                  selectedId={skinId}
+                  onSelect={(id) => { setSkinId(id); setSkinTouched(true) }}
+                />
+                <p className="text-[11px] text-rp-ink-mute text-center">
+                  {t('onboard.v2.skinFootnote')}
+                </p>
                 <NavRow onBack={() => go(-1)} onContinue={() => go(1)} t={t} />
               </Section>
             )}

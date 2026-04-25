@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
@@ -9,7 +10,11 @@ import {
   Sparkles,
   Type,
   MonitorSmartphone,
+  Palette,
 } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { SkinPicker } from '@/components/skins/SkinPicker'
+import { getSkin } from '@/lib/skins'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useAppStore } from '@/stores/appStore'
@@ -26,7 +31,8 @@ import { APP_VERSION } from '@/lib/version'
 
 export function MorePage() {
   const navigate = useNavigate()
-  const { theme, setTheme, fontSize, setFontSize, keepScreenOn, setKeepScreenOn, profile } = useAppStore()
+  const { theme, setTheme, fontSize, setFontSize, keepScreenOn, setKeepScreenOn, profile, activeCircle, personalSkinId, setPersonalSkinId } = useAppStore()
+  const [showSkinPicker, setShowSkinPicker] = useState(false)
   const { session, signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
   const ai = useAIAccess()
@@ -152,6 +158,66 @@ export function MorePage() {
 
       {/* Grocer integrations (feature flagged) */}
       {grocerFlag.enabled && <ConnectedStoresSection />}
+
+      {/* Personal skin override (per device) */}
+      <Card className="px-4 py-3 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Palette className="h-5 w-5 text-slate-500 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-rp-ink truncate">{t('more.personalSkin.title')}</div>
+              <div className="text-xs text-rp-ink-mute truncate">{t('more.personalSkin.desc')}</div>
+            </div>
+          </div>
+          <Button size="sm" variant="secondary" onClick={() => setShowSkinPicker(true)}>
+            {getSkin(personalSkinId ?? activeCircle?.skin_id).name}
+          </Button>
+        </div>
+        {personalSkinId && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-rp-brand-deep">{t('more.personalSkin.active')}</span>
+            <button
+              onClick={() => setPersonalSkinId(null)}
+              className="text-rp-ink-mute hover:text-rp-ink underline underline-offset-2"
+            >
+              {t('more.personalSkin.useCircle')}
+            </button>
+          </div>
+        )}
+      </Card>
+
+      <Dialog.Root open={showSkinPicker} onOpenChange={setShowSkinPicker}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto max-h-[85vh] overflow-y-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-1 flex items-center gap-2">
+              <Palette className="h-4 w-4 text-rp-brand" />
+              {t('more.personalSkin.title')}
+            </Dialog.Title>
+            <Dialog.Description className="text-sm text-rp-ink-mute mb-4">
+              {t('more.personalSkin.desc')}
+            </Dialog.Description>
+            <SkinPicker
+              selectedId={personalSkinId ?? activeCircle?.skin_id ?? 'hearth'}
+              onSelect={(id) => {
+                setPersonalSkinId(id === activeCircle?.skin_id ? null : id)
+                setShowSkinPicker(false)
+              }}
+            />
+            <div className="flex items-center justify-between pt-4">
+              <button
+                onClick={() => { setPersonalSkinId(null); setShowSkinPicker(false) }}
+                className="text-sm text-rp-ink-mute hover:text-rp-ink min-h-[44px]"
+              >
+                {t('more.personalSkin.useCircle')}
+              </button>
+              <Button variant="secondary" onClick={() => setShowSkinPicker(false)}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Theme toggle */}
       <Card className="px-4 py-3">
