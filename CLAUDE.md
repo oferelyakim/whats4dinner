@@ -159,11 +159,9 @@ Additional SQL fixes applied directly (not in migration files):
 - Assignment approval UI built but needs multi-user testing
 - Family plan seat enforcement: `subscription_seats` schema + `has_active_family_seat()` RPC exist (migration 025), but `useAIAccess` does not yet consult them. Subscribing user is still the only one gated. Enforcement = next ~45min task after migration 025 is applied.
 - Stripe integration: Edge Functions built (create-checkout, stripe-webhook) but needs STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_* secrets configured in Supabase
-- Edge Functions not yet deployed: generate-meal-plan, nlp-action, create-checkout, stripe-webhook (deploy with `npx supabase functions deploy <name> --no-verify-jwt`). v2 onboarding pass also re-touched `generate-meal-plan`, `plan-event`, and `ai-chat` to inject circle context — redeploy these alongside applying migration 027.
-- Migration 027 not applied yet: until it runs in Supabase, `createCircle` will fail because the RPC signature now takes `(p_name, p_icon, p_purpose, p_circle_type, p_context)`. Apply before deploying the v2 onboarding wizard to prod.
-- v2 onboarding browser smoke test: not done yet. Type-check + production build are green, but the wizard wasn't clicked through across all 5 circle types.
-- Circle context edit UI: owners can't yet edit `purpose` / `circle_type` / `context` post-creation. `updateCircleContext()` helper exists in `src/services/circles.ts`; needs a circles settings page hook-up.
-- Existing meal-plan dialogs (`MealPlanPreferencesDialog`, `MealPlanIntakeDialog`) still keep their own dietary state and don't pre-fill from `circles.context`. The AI side now reads it, so the duplication is leftover — clean up once grounding is trusted.
+- Edge Functions: `ai-chat` was deployed for v1.8.2. `generate-meal-plan` and `plan-event` were also touched in v1.8.2 (circle-context injection) — redeploy those next time Supabase functions go out (`npx supabase functions deploy generate-meal-plan plan-event --no-verify-jwt`). `nlp-action`, `create-checkout`, `stripe-webhook` still pending.
+- Migration 027: applied. Circle creation goes through `(p_name, p_icon, p_purpose, p_circle_type, p_context)`.
+- v2 onboarding browser smoke test: not done yet (type-check + production build are green, but the wizard wasn't clicked through across all 5 circle types). Owner: user.
 - Server-side push notifications: deferred (VAPID/cron), currently browser Notification API only
 - Calendar import from external calendars: deferred (needs Google OAuth)
 - Code splitting: 1MB+ bundle, needs lazy routes via dynamic import()
