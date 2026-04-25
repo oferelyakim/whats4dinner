@@ -5,6 +5,7 @@ import {
   getUserSubscription,
   getMonthlyUsage,
   getMonthlyImports,
+  hasActiveFamilySeat,
   RECIPE_IMPORT_FREE_CAP,
 } from '@/services/ai-usage'
 import type { Subscription } from '@/types'
@@ -51,10 +52,19 @@ export function useAIAccess(): AIAccess {
     enabled: !!userId,
   })
 
-  const hasAI = !!subscription
+  const hasOwnedAI = !!subscription
     && subscription.plan !== 'free'
     && subscription.status === 'active'
     && new Date(subscription.current_period_end) >= new Date()
+
+  // Check shared Family seats (migration 025) — only run if no direct subscription
+  const { data: familySeat, isLoading: seatLoading } = useQuery({
+    queryKey: ['family-seat', userId],
+    queryFn: () => hasActiveFamilySeat(userId!),
+    enabled: !!userId && !hasOwnedAI,
+  })
+
+  const hasAI = hasOwnedAI || familySeat === true
 
   const { data: usage, isLoading: usageLoading } = useQuery({
     queryKey: ['ai-usage', userId],
@@ -109,7 +119,7 @@ export function useAIAccess(): AIAccess {
     importsRemaining,
     importsLimit,
     canImportRecipe,
-    isLoading: subLoading || usageLoading || importsLoading,
+    isLoading: subLoading || seatLoading || usageLoading || importsLoading,
     showUpgradeModal,
     upgradeReason,
     setShowUpgradeModal,

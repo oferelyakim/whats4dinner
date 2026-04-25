@@ -1,8 +1,8 @@
-# OurTable Architecture
+# Replanish Architecture
 
 ## System Overview
 
-OurTable (השולחן שלנו) is a family coordination Progressive Web App targeting the Israeli market. It helps families manage meals, shopping, events, chores, and activities through shared "circles" (family groups).
+Replanish is a family coordination Progressive Web App targeting the US market. It helps households manage meals, shopping, events, chores, and activities through shared "circles" (family groups). Revenue comes from (1) retailer cart integrations (Walmart-first affiliate add-to-cart from shopping lists) and (2) AI subscriptions (Individual / Family tiers that unlock AI meal planning, recipe import, AI assistant, and event planning). Hebrew/RTL is fully supported as a secondary locale.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -19,13 +19,13 @@ OurTable (השולחן שלנו) is a family coordination Progressive Web App ta
 │                 Supabase Platform                 │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
 │  │ Auth     │ │ Realtime │ │ Edge Functions    │ │
-│  │ email+   │ │ channels │ │ (scrape-recipe)  │ │
-│  │ Google   │ │          │ │                  │ │
+│  │ email+   │ │ channels │ │ 8 functions       │ │
+│  │ Google   │ │          │ │ (ai-chat, stripe…)│ │
 │  └──────────┘ └──────────┘ └──────────────────┘ │
 │  ┌──────────────────────────────────────────────┐│
 │  │        PostgreSQL + Row Level Security        ││
 │  │   Security definer functions (RLS core)       ││
-│  │   19 migrations | 15+ tables                  ││
+│  │   22 migrations | 15+ tables                  ││
 │  └──────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────┘
 ```
@@ -106,7 +106,7 @@ Supabase Realtime channels provide live updates for:
 
 ## Internationalization and RTL
 
-- **Two locales**: English (`en`) and Hebrew (`he`)
+- **Two locales**: English (`en`, primary — US market) and Hebrew (`he`, secondary)
 - **300+ translation keys** in `src/lib/i18n.ts` (Zustand store with persistence)
 - **RTL layout**: Logical CSS properties (`ms-`, `me-`, `ps-`, `pe-`, `text-start`)
 - **Direction**: `dir()` helper returns `'rtl'` or `'ltr'` based on locale
@@ -121,7 +121,7 @@ Supabase Realtime channels provide live updates for:
 
 ### Backend (Supabase)
 - Hosted Supabase project
-- Migrations in `supabase/migrations/` (001-019)
+- Migrations in `supabase/migrations/` (001-022)
 - Edge Functions deployed via CLI: `npx supabase functions deploy`
 - Database changes applied via Supabase dashboard or migration files
 
@@ -143,19 +143,26 @@ Potluck/gathering coordination with 5 tabs (Overview/Mine/Menu/Supplies/Tasks), 
 - **Chores**: Frequency-based (daily/weekly/biweekly/monthly/once), emoji icons, points system, completion tracking
 - **Activities**: Recurring schedules (weekly/biweekly/daily), participant management, bring-items, weekly calendar view
 
-## Subscription Model
+## Revenue Model
+
+Replanish monetizes through two streams:
+
+### 1. Retailer Cart Integrations (primary long-term)
+One-tap "send to cart" from any shopping list to US grocery retailers. Walmart-first (affiliate add-to-cart API), Instacart and Amazon Fresh planned. Revenue = affiliate commission on purchased items. Free for users. (Integration work in progress — see roadmap.)
+
+### 2. AI Subscriptions
 
 | Tier | Price | Features |
 |------|-------|----------|
-| Free | $0 | All core features |
-| AI Individual | $4.99/mo | AI recipe import, AI meal planning (coming soon) |
+| Free | $0 | All core coordination features |
+| AI Individual | $4.99/mo | AI recipe import (URL/photo), AI meal planning, AI assistant chat, event planning AI |
 | AI Family | $6.99/mo | AI features for up to 5 circle members |
 
 - `useAIAccess` hook gates AI features
 - `AIUpgradeModal` for upgrade prompts
 - `UsageMeter` shows monthly AI consumption
 - AI usage capped at $4.00/mo with $3.00 warning threshold
-- Stripe integration not yet built (mock upgrade flow in place)
+- Stripe integration: `create-checkout` + `stripe-webhook` Edge Functions (requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_*` secrets)
 
 ## Testing
 

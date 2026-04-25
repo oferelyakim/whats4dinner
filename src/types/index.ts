@@ -10,8 +10,19 @@ export interface Profile {
     default_store_id?: string
   }
   has_onboarded?: boolean
+  diet?: string[]
+  meal_preferences?: MealPreferences
   created_at: string
   updated_at: string
+}
+
+export type CookTimePref = 'quick' | 'medium' | 'project'
+
+export interface MealPreferences {
+  skill_level?: 1 | 2 | 3 | 4 | 5
+  cook_time_pref?: CookTimePref
+  spice_level?: 1 | 2 | 3 | 4 | 5
+  disliked_ingredients?: string[]
 }
 
 export interface Circle {

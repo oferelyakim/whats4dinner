@@ -670,6 +670,37 @@ const translations: Record<string, Record<Locale, string>> = {
   'onboard.goHome': { en: 'Go to Replanish', he: 'עבור ל-Replanish', es: 'Ir a Replanish' },
   'onboard.skip': { en: 'Skip for now', he: 'דלג לבינתיים', es: 'Omitir por ahora' },
   'onboard.back': { en: 'Back', he: 'חזרה', es: 'Volver' },
+  'onboard.continue': { en: 'Continue', he: 'המשך', es: 'Continuar' },
+  'onboard.tipInvite': { en: 'Tip: Invite family members from Profile → Circles to collaborate together.', he: 'טיפ: הזמן בני משפחה דרך הפרופיל ← מעגלים כדי לשתף פעולה.', es: 'Consejo: Invita a tu familia desde Perfil → Círculos para colaborar.' },
+
+  // Onboarding — diet
+  'onboard.diet.title': { en: 'Any diet preferences?', he: 'העדפות תזונה?', es: '¿Preferencias dietéticas?' },
+  'onboard.diet.desc': { en: 'Pick any that apply. We\'ll use these to tailor recipe and meal-plan suggestions.', he: 'בחר מה שמתאים. נשתמש בזה כדי להתאים מתכונים ותפריטים.', es: 'Elige los que apliquen. Los usaremos para recetas y planes de comida.' },
+  'onboard.diet.none': { en: 'No restrictions', he: 'ללא הגבלות', es: 'Sin restricciones' },
+  'onboard.diet.vegetarian': { en: 'Vegetarian', he: 'צמחוני', es: 'Vegetariano' },
+  'onboard.diet.vegan': { en: 'Vegan', he: 'טבעוני', es: 'Vegano' },
+  'onboard.diet.pescatarian': { en: 'Pescatarian', he: 'פסקטריאני', es: 'Pescetariano' },
+  'onboard.diet.kosher': { en: 'Kosher', he: 'כשר', es: 'Kosher' },
+  'onboard.diet.halal': { en: 'Halal', he: 'חלאל', es: 'Halal' },
+  'onboard.diet.glutenFree': { en: 'Gluten-free', he: 'ללא גלוטן', es: 'Sin gluten' },
+  'onboard.diet.dairyFree': { en: 'Dairy-free', he: 'ללא חלב', es: 'Sin lácteos' },
+  'onboard.diet.nutFree': { en: 'Nut-free', he: 'ללא אגוזים', es: 'Sin frutos secos' },
+  'onboard.diet.lowCarb': { en: 'Low-carb', he: 'דל פחמימות', es: 'Bajo en carbohidratos' },
+
+  // Onboarding — meal preferences
+  'onboard.prefs.title': { en: 'How do you like to cook?', he: 'איך אתה אוהב לבשל?', es: '¿Cómo te gusta cocinar?' },
+  'onboard.prefs.desc': { en: 'A quick read so meal plans match your kitchen style.', he: 'הצצה מהירה שתעזור לנו להתאים תפריטים לסגנון שלך.', es: 'Una lectura rápida para ajustar los planes a tu estilo.' },
+  'onboard.prefs.skill': { en: 'Cooking skill', he: 'רמת בישול', es: 'Nivel de cocina' },
+  'onboard.prefs.skill1': { en: 'Beginner', he: 'מתחיל', es: 'Principiante' },
+  'onboard.prefs.skill2': { en: 'Casual', he: 'בסיסי', es: 'Casual' },
+  'onboard.prefs.skill3': { en: 'Comfortable', he: 'נוח', es: 'Cómodo' },
+  'onboard.prefs.skill4': { en: 'Confident', he: 'מנוסה', es: 'Seguro' },
+  'onboard.prefs.skill5': { en: 'Pro', he: 'שף', es: 'Pro' },
+  'onboard.prefs.cookTime': { en: 'Time you usually have', he: 'כמה זמן יש לך לבשל', es: 'Tiempo disponible' },
+  'onboard.cookTime.quick': { en: 'Quick', he: 'מהיר', es: 'Rápido' },
+  'onboard.cookTime.medium': { en: 'Medium', he: 'בינוני', es: 'Medio' },
+  'onboard.cookTime.project': { en: 'Project', he: 'פרויקט', es: 'Proyecto' },
+  'onboard.prefs.spice': { en: 'Spice tolerance', he: 'סבילות לחריף', es: 'Tolerancia al picante' },
 
   // Meal plan intake (new dialog)
   'plan.intake.title': { en: 'Plan Meals', he: 'תכנון ארוחות', es: 'Planificar comidas' },

@@ -75,7 +75,7 @@ serve(async (req) => {
         })
 
     // Create checkout session
-    const origin = req.headers.get('Origin') || 'https://whats4dinner-gamma.vercel.app'
+    const origin = req.headers.get('Origin') || 'https://app.replanish.app'
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
       line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],

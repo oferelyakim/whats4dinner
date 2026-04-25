@@ -17,6 +17,19 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
   return data as Subscription | null
 }
 
+/**
+ * Returns true when this user shares an active AI Family subscription via
+ * `subscription_seats` (added in migration 025). The owner of the subscription
+ * is also seeded as an `owner` seat, so this is sufficient to gate AI features
+ * when the user does not have a direct subscription row.
+ */
+export async function hasActiveFamilySeat(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .rpc('has_active_family_seat', { p_user_id: userId })
+  if (error) return false
+  return data === true
+}
+
 export interface MonthlyUsage {
   totalCost: number
   percentUsed: number
