@@ -133,11 +133,14 @@
   --color-danger: #c4522d;
   --color-info: #3e5970;
 
-  /* Typography — font-display, font-sans, font-hand, font-mono */
-  --font-sans:    'Geist', -apple-system, system-ui, sans-serif;
-  --font-display: 'Instrument Serif', 'Times New Roman', serif;
-  --font-hand:    'Caveat', cursive;
-  --font-mono:    ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Typography — font-display, font-sans, font-hand, font-mono.
+     Wired to --rp-ff-* so Tailwind utilities (font-display etc.) follow
+     the active skin set by applySkin(). Hearth defaults are written to
+     --rp-ff-* in :root above, so SSR / first paint stays correct. */
+  --font-sans:    var(--rp-ff-sans);
+  --font-display: var(--rp-ff-display);
+  --font-hand:    var(--rp-ff-hand);
+  --font-mono:    var(--rp-ff-mono);
 
   /* Radii — rounded-rp-md etc. */
   --radius-rp-xs: 8px;
