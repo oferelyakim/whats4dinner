@@ -963,6 +963,25 @@ const translations: Record<string, Record<Locale, string>> = {
   'review.body': { en: 'A quick review helps other families find the app.', he: 'ביקורת קצרה תעזור למשפחות אחרות לגלות את האפליקציה.', es: 'Una reseña rápida ayuda a otras familias a descubrir la app.' },
   'review.cta': { en: 'Leave a review', he: 'השאירו ביקורת', es: 'Dejar una reseña' },
   'review.notNow': { en: 'Not now', he: 'לא כרגע', es: 'Ahora no' },
+
+  // Subscription (single tier, two billing periods)
+  'subscription.monthly': { en: 'Monthly', he: 'חודשי', es: 'Mensual' },
+  'subscription.annual': { en: 'Annual', he: 'שנתי', es: 'Anual' },
+  'subscription.trial_badge': { en: 'Trial ends {{date}}', he: 'הניסיון מסתיים ב-{{date}}', es: 'Prueba termina el {{date}}' },
+  'subscription.save_pct': { en: 'Save 17% · 14-day free trial', he: 'חסוך 17% · ניסיון חינם 14 ימים', es: 'Ahorra 17% · prueba gratis 14 días' },
+  'subscription.start_trial': { en: 'Start free trial', he: 'התחל ניסיון חינם', es: 'Iniciar prueba gratuita' },
+  'subscription.subscribe': { en: 'Subscribe', he: 'הירשם', es: 'Suscribirse' },
+  'subscription.manage_in_stripe': { en: 'Manage in Stripe', he: 'נהל ב-Stripe', es: 'Gestionar en Stripe' },
+  'subscription.seats.title': { en: 'Share AI access', he: 'שתף גישה ל-AI', es: 'Compartir acceso AI' },
+  'subscription.seats.used': { en: '{{used}} of {{total}} seats used', he: '{{used}} מתוך {{total}} מקומות בשימוש', es: '{{used}} de {{total}} plazas usadas' },
+  'subscription.seats.add_member': { en: '+ Add member', he: '+ הוסף חבר', es: '+ Agregar miembro' },
+  'subscription.seats.from_circles': { en: 'From your circles', he: 'מהמעגלים שלך', es: 'De tus círculos' },
+  'subscription.seats.by_email': { en: 'By email', he: 'לפי אימייל', es: 'Por correo' },
+  'subscription.seats.send_invite': { en: 'Send invite', he: 'שלח הזמנה', es: 'Enviar invitación' },
+  'subscription.seats.pending': { en: 'Pending invite', he: 'הזמנה ממתינה', es: 'Invitación pendiente' },
+  'subscription.seats.remove': { en: 'Remove', he: 'הסר', es: 'Eliminar' },
+  'subscription.seats.cap_reached': { en: 'Seat cap reached — remove a member first', he: 'מספר המושבים המקסימלי הגיע — הסר חבר תחילה', es: 'Capacidad alcanzada — elimina un miembro primero' },
+  'subscription.seats.you_label': { en: '(You)', he: '(אתה)', es: '(Tú)' },
 }
 
 export const useI18n = create<I18nState>()(

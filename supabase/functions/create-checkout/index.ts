@@ -11,10 +11,27 @@ const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-// Map plan names to Stripe Price IDs (configure in Stripe Dashboard)
 const PRICE_IDS: Record<string, string> = {
-  ai_individual: Deno.env.get('STRIPE_PRICE_AI_INDIVIDUAL') || '',
-  ai_family: Deno.env.get('STRIPE_PRICE_AI_FAMILY') || '',
+  monthly: Deno.env.get('STRIPE_PRICE_MONTHLY') || '',
+  annual: Deno.env.get('STRIPE_PRICE_ANNUAL') || '',
+}
+
+/** Normalise legacy `plan` values to the new `billingPeriod` enum */
+function normaliseBillingPeriod(body: Record<string, unknown>): 'monthly' | 'annual' | null {
+  // Prefer explicit billingPeriod field
+  if (body.billingPeriod === 'monthly' || body.billingPeriod === 'annual') {
+    return body.billingPeriod as 'monthly' | 'annual'
+  }
+  // Legacy: plan field (ai_individual → monthly, ai_family → monthly)
+  if (body.plan === 'annual') return 'annual'
+  if (
+    body.plan === 'monthly' ||
+    body.plan === 'ai_individual' ||
+    body.plan === 'ai_family'
+  ) {
+    return 'monthly'
+  }
+  return null
 }
 
 serve(async (req) => {
@@ -49,10 +66,12 @@ serve(async (req) => {
       )
     }
 
-    const { plan } = await req.json()
-    if (!plan || !PRICE_IDS[plan]) {
+    const body = await req.json() as Record<string, unknown>
+    const billingPeriod = normaliseBillingPeriod(body)
+
+    if (!billingPeriod || !PRICE_IDS[billingPeriod]) {
       return new Response(
-        JSON.stringify({ error: 'Invalid plan' }),
+        JSON.stringify({ error: 'Invalid billing period. Expected "monthly" or "annual".' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -74,17 +93,26 @@ serve(async (req) => {
           metadata: { supabase_user_id: user.id },
         })
 
+    // Build subscription_data — annual gets a 14-day trial
+    const subscriptionData: Stripe.Checkout.SessionCreateParams['subscription_data'] = {
+      metadata: { billing_period: billingPeriod },
+      ...(billingPeriod === 'annual' ? { trial_period_days: 14 } : {}),
+    }
+
     // Create checkout session
     const origin = req.headers.get('Origin') || 'https://app.replanish.app'
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
-      line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
+      line_items: [{ price: PRICE_IDS[billingPeriod], quantity: 1 }],
       mode: 'subscription',
       success_url: `${origin}/profile?subscription=success`,
       cancel_url: `${origin}/profile?subscription=cancelled`,
+      subscription_data: subscriptionData,
       metadata: {
         supabase_user_id: user.id,
-        plan,
+        billing_period: billingPeriod,
+        // Keep legacy plan field so old webhook code doesn't break mid-deploy
+        plan: billingPeriod,
       },
     })
 
@@ -92,9 +120,10 @@ serve(async (req) => {
       JSON.stringify({ url: session.url }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

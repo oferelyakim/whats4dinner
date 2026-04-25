@@ -222,17 +222,32 @@ export interface ItemRequest {
   profile?: Profile
 }
 
-export type SubscriptionPlan = 'free' | 'ai_individual' | 'ai_family'
+/**
+ * SubscriptionPlan:
+ *  - 'free'         — no AI features
+ *  - 'monthly'      — Replanish AI, billed monthly ($6/mo)
+ *  - 'annual'       — Replanish AI, billed annually ($60/yr, 14-day trial)
+ *  - 'ai_individual'/'ai_family' — legacy values, treated as 'monthly' everywhere
+ */
+export type SubscriptionPlan = 'free' | 'monthly' | 'annual' | 'ai_individual' | 'ai_family'
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired'
 export type AIActionType = 'recipe_import_url' | 'recipe_import_photo' | 'meal_plan' | 'meal_plan_edit' | 'nlp_action' | 'chat' | 'chat_recipe_import' | 'event_plan' | 'event_plan_refine'
+
+/** Returns true when the plan grants AI access (anything except 'free'). */
+export function isPaidPlan(plan: SubscriptionPlan | null | undefined): boolean {
+  return plan !== 'free' && plan != null
+}
 
 export interface Subscription {
   id: string
   user_id: string
   plan: SubscriptionPlan
+  /** 'monthly' | 'annual' — set for new subscriptions; may be null on legacy rows */
+  billing_period: 'monthly' | 'annual' | null
   status: SubscriptionStatus
   current_period_start: string
   current_period_end: string
+  trial_end: string | null
   stripe_subscription_id: string | null
   created_at: string
   updated_at: string

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { Subscription, SubscriptionPlan, AIActionType } from '@/types'
+import { isPaidPlan } from '@/types'
 
 const USAGE_CAP_USD = 4.0
 const WARNING_THRESHOLD_USD = 3.0
@@ -85,7 +86,7 @@ export async function getMonthlyImports(userId: string): Promise<MonthlyImports>
 
 export async function canUseAI(userId: string): Promise<boolean> {
   const sub = await getUserSubscription(userId)
-  if (!sub || sub.plan === 'free') return false
+  if (!sub || !isPaidPlan(sub.plan)) return false
   if (sub.status !== 'active') return false
   if (new Date(sub.current_period_end) < new Date()) return false
 
@@ -127,9 +128,12 @@ export async function logAIUsage(
  * Activate subscription. Tries Stripe checkout Edge Function first;
  * if Stripe is not configured (501), falls back to mock activation.
  * Returns checkout URL when Stripe is live, or null for mock mode.
+ *
+ * @param billingPeriod - 'monthly' | 'annual'. Legacy `plan` string values are
+ *   also accepted here and normalised inside the Edge Function.
  */
 export async function activateSubscription(
-  plan: SubscriptionPlan,
+  billingPeriod: SubscriptionPlan,
 ): Promise<{ url?: string; subscription?: Subscription | null; mock?: boolean }> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
@@ -137,7 +141,7 @@ export async function activateSubscription(
   // Try Stripe Edge Function
   try {
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { plan },
+      body: { billingPeriod },
     })
 
     if (error) throw error
@@ -146,7 +150,7 @@ export async function activateSubscription(
     // Stripe not configured — fall back to mock
   }
 
-  // Mock fallback (test mode)
+  // Mock fallback (test / non-Stripe mode)
   const now = new Date()
   const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
@@ -154,10 +158,14 @@ export async function activateSubscription(
     .from('subscriptions')
     .upsert({
       user_id: session.user.id,
-      plan,
+      plan: billingPeriod,
+      billing_period: billingPeriod === 'ai_individual' || billingPeriod === 'ai_family'
+        ? 'monthly'
+        : billingPeriod,
       status: 'active',
       current_period_start: now.toISOString(),
       current_period_end: periodEnd.toISOString(),
+      trial_end: null,
       updated_at: now.toISOString(),
     }, { onConflict: 'user_id' })
     .select()

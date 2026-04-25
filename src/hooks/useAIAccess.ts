@@ -9,6 +9,7 @@ import {
   RECIPE_IMPORT_FREE_CAP,
 } from '@/services/ai-usage'
 import type { Subscription } from '@/types'
+import { isPaidPlan } from '@/types'
 
 export type UpgradeReason = 'ai' | 'ai_limit' | 'recipe_import_cap'
 
@@ -53,7 +54,7 @@ export function useAIAccess(): AIAccess {
   })
 
   const hasOwnedAI = !!subscription
-    && subscription.plan !== 'free'
+    && isPaidPlan(subscription.plan)
     && subscription.status === 'active'
     && new Date(subscription.current_period_end) >= new Date()
 

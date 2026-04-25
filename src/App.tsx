@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { ToastProvider } from '@/components/ui/Toast'
 import { SkinProvider } from '@/components/SkinProvider'
 import { ReviewPrompt } from '@/components/ReviewPrompt'
+import { supabase } from '@/services/supabase'
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -80,6 +81,21 @@ export default function App() {
     }
     window.addEventListener('online', handleOnline)
     return () => window.removeEventListener('online', handleOnline)
+  }, [])
+
+  useEffect(() => {
+    // Claim any pending seat invites that were sent to this email address.
+    // One-shot per session — fires after the session is established.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        supabase
+          .rpc('claim_seat_by_email', { p_email: session.user.email })
+          .then(() => {
+            // Ignore result — the RPC is idempotent and a no-op when no invite exists.
+          })
+      }
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   return (

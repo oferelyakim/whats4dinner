@@ -33,12 +33,12 @@ export function AIUpgradeModal({
 }: AIUpgradeModalProps) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
-  const [selectedPlan, setSelectedPlan] = useState<'ai_individual' | 'ai_family'>('ai_individual')
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual')
   const [showPaymentStep, setShowPaymentStep] = useState(false)
   const [proceedToUpgrade, setProceedToUpgrade] = useState(false)
 
   const activateMutation = useMutation({
-    mutationFn: () => activateSubscription(selectedPlan),
+    mutationFn: () => activateSubscription(billingPeriod),
     onSuccess: (result) => {
       if (result.url) {
         // Stripe checkout — redirect to Stripe
@@ -124,6 +124,10 @@ export function AIUpgradeModal({
     onOpenChange(v)
   }
 
+  const selectedPrice = billingPeriod === 'annual'
+    ? AI_PRICING.annual.perMonth
+    : AI_PRICING.monthly.price
+
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
@@ -144,9 +148,10 @@ export function AIUpgradeModal({
                 {t('ai.paymentDesc')}
               </p>
               <p className="text-xs text-slate-400 mb-6">
-                {selectedPlan === 'ai_individual'
-                  ? `${AI_PRICING.ai_individual.label} — $${AI_PRICING.ai_individual.monthly.toFixed(2)}/mo`
-                  : `${AI_PRICING.ai_family.label} — $${AI_PRICING.ai_family.monthly.toFixed(2)}/mo`}
+                {`${AI_PRICING[billingPeriod].label} — $${selectedPrice.toFixed(2)}/mo`}
+                {billingPeriod === 'annual' && (
+                  <span className="ms-1">({t('subscription.annual')} · {t('subscription.save_pct')})</span>
+                )}
               </p>
 
               {/* Fake CC form placeholder */}
@@ -180,7 +185,7 @@ export function AIUpgradeModal({
               </button>
             </div>
           ) : (
-            /* Plan selection step */
+            /* Billing period selection step */
             <>
               <Dialog.Title className="text-lg font-bold text-rp-ink text-center mb-1">
                 {t('ai.unlockAI')}
@@ -189,42 +194,66 @@ export function AIUpgradeModal({
                 {t('ai.unlockDesc')}
               </p>
 
-              <div className="space-y-3">
-                <PlanCard
-                  name={AI_PRICING.ai_individual.label}
-                  price={AI_PRICING.ai_individual.monthly}
-                  features={[
-                    t('ai.feature.recipeImport'),
-                    t('ai.feature.recipePhoto'),
-                    t('ai.feature.mealPlanAI'),
-                    t('ai.feature.nlpActions'),
-                  ]}
-                  selected={selectedPlan === 'ai_individual'}
-                  onSelect={() => setSelectedPlan('ai_individual')}
-                />
+              {/* Billing toggle */}
+              <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
+                <button
+                  onClick={() => setBillingPeriod('monthly')}
+                  className={cn(
+                    'flex-1 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px]',
+                    billingPeriod === 'monthly'
+                      ? 'bg-rp-card text-rp-ink shadow-sm'
+                      : 'text-slate-500'
+                  )}
+                >
+                  {t('subscription.monthly')}
+                  <div className="text-xs font-normal mt-0.5">${AI_PRICING.monthly.price.toFixed(0)}/mo</div>
+                </button>
+                <button
+                  onClick={() => setBillingPeriod('annual')}
+                  className={cn(
+                    'flex-1 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] relative',
+                    billingPeriod === 'annual'
+                      ? 'bg-rp-card text-rp-ink shadow-sm'
+                      : 'text-slate-500'
+                  )}
+                >
+                  {t('subscription.annual')}
+                  <div className="text-xs font-normal mt-0.5">${AI_PRICING.annual.perMonth.toFixed(0)}/mo</div>
+                  <span className="absolute -top-2 start-1/2 -translate-x-1/2 text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                    {t('subscription.save_pct')}
+                  </span>
+                </button>
+              </div>
 
-                <PlanCard
-                  name={AI_PRICING.ai_family.label}
-                  price={AI_PRICING.ai_family.monthly}
-                  features={[
-                    t('ai.feature.everythingIndividual'),
-                    `${t('ai.feature.upToMembers')} ${AI_PRICING.ai_family.members} ${t('ai.feature.members')}`,
-                    t('ai.feature.sharedUsage'),
-                  ]}
-                  selected={selectedPlan === 'ai_family'}
-                  onSelect={() => setSelectedPlan('ai_family')}
-                  badge={t('ai.bestValue')}
-                />
+              {/* Feature list */}
+              <div className="space-y-2 mb-5">
+                {[
+                  t('ai.feature.recipeImport'),
+                  t('ai.feature.recipePhoto'),
+                  t('ai.feature.mealPlanAI'),
+                  t('ai.feature.nlpActions'),
+                  t('ai.feature.sharedUsage'),
+                ].map((feature) => (
+                  <div key={feature} className="flex items-center gap-2 text-sm text-rp-ink-soft">
+                    <Check className="h-4 w-4 text-success shrink-0" />
+                    {feature}
+                  </div>
+                ))}
               </div>
 
               <Button
-                className="w-full mt-4"
+                className="w-full"
                 size="lg"
                 onClick={() => setShowPaymentStep(true)}
               >
                 <Sparkles className="h-4 w-4" />
-                {t('ai.activate')}
+                {billingPeriod === 'annual' ? t('subscription.start_trial') : t('subscription.subscribe')}
               </Button>
+              {billingPeriod === 'annual' && (
+                <p className="text-xs text-emerald-600 text-center mt-2">
+                  {t('subscription.save_pct')}
+                </p>
+              )}
               <p className="text-[10px] text-slate-400 text-center mt-2">
                 {t('ai.testMode')}
               </p>
@@ -233,52 +262,6 @@ export function AIUpgradeModal({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  )
-}
-
-function PlanCard({
-  name, price, features, selected, onSelect, badge,
-}: {
-  name: string
-  price: number
-  features: string[]
-  selected: boolean
-  onSelect: () => void
-  badge?: string
-}) {
-  return (
-    <button
-      onClick={onSelect}
-      className={cn(
-        'w-full text-left p-4 rounded-xl border-2 transition-all',
-        selected
-          ? 'border-brand-500 bg-brand-500/5'
-          : 'border-rp-hairline'
-      )}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-rp-ink">{name}</span>
-          {badge && (
-            <span className="text-[10px] bg-brand-500 text-white px-1.5 py-0.5 rounded-full font-medium">
-              {badge}
-            </span>
-          )}
-        </div>
-        <div className="text-right">
-          <span className="text-lg font-bold text-rp-ink">${price.toFixed(2)}</span>
-          <span className="text-xs text-slate-400">/mo</span>
-        </div>
-      </div>
-      <div className="space-y-1">
-        {features.map((f) => (
-          <div key={f} className="flex items-center gap-2 text-xs text-rp-ink-soft">
-            <Check className="h-3 w-3 text-success shrink-0" />
-            {f}
-          </div>
-        ))}
-      </div>
-    </button>
   )
 }
 
@@ -316,7 +299,7 @@ export function UsageMeter({
           {Math.round(percentUsed)}%
         </span>
       </div>
-      <div className="h-2 rounded-full bg-slate-100 dark:bg-surface-dark-overlay overflow-hidden">
+      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
         <div
           className={cn('h-full rounded-full transition-all duration-500', barColor)}
           style={{ width: `${Math.min(percentUsed, 100)}%` }}
