@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Check, RefreshCcw, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Check, RefreshCcw, Sparkles, X } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { callOp } from '@/engine/ai/client'
 import {
@@ -19,7 +19,6 @@ import {
   type IntakeParseResult,
   type ProposePlanResult,
 } from '@/engine/ai/schemas'
-import { QUESTIONS } from '@/engine/interview/questions'
 import {
   applyInferences,
   getNextQuestion,
@@ -99,7 +98,7 @@ export function MealPlannerInterview({
       // Apply inferences + skip-list before returning to collecting.
       setAnswers((a) => applyInferences({ ...a, q_freeform: freeform }, out))
       setSkip(out.skip)
-      void logUsage('meal_plan_parse_intake')
+      void logUsage('meal_plan')
     } catch (err) {
       console.warn('[interview] parse-intake failed:', err)
       // Non-fatal — continue without skipping anything.
@@ -120,7 +119,7 @@ export function MealPlannerInterview({
         ProposePlanResultSchema,
       )
       setProposal(out)
-      void logUsage('meal_plan_propose_plan')
+      void logUsage('meal_plan_edit')
       setStage('reviewing')
     } catch (err) {
       console.warn('[interview] propose-plan failed:', err)
@@ -801,7 +800,8 @@ async function fetchRecentDishesForPlan(_planId: string): Promise<string[]> {
   return []
 }
 
-async function logUsage(actionType: string): Promise<void> {
+type InterviewActionType = 'meal_plan' | 'meal_plan_edit'
+async function logUsage(actionType: InterviewActionType): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -817,7 +817,7 @@ function applySwaps(
   days: ProposePlanResult['days'],
   swaps: Record<string, string>,
 ): ProposePlanResult['days'] {
-  return days.map((day, di) => ({
+  return days.map((day) => ({
     ...day,
     meals: day.meals.map((meal, mi) => ({
       ...meal,
