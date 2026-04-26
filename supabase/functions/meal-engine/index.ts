@@ -15,6 +15,7 @@
 //   - "extract" (Stage D direct): explicit fallback extraction from supplied HTML
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   anthropicWithRetry,
   AnthropicRateLimitError,
@@ -37,8 +38,18 @@ const MODEL = 'claude-haiku-4-5-20251001'
  * Override with COMPOSE_MODEL env var if needed (e.g. to revert to Haiku).
  */
 const COMPOSE_MODEL = Deno.env.get('COMPOSE_MODEL') ?? 'claude-sonnet-4-5-20250929'
-const APP_VERSION = '1.16.0'
-const DEPLOYED_AT = '2026-04-25T00:00:00Z'
+const APP_VERSION = '1.17.0'
+const DEPLOYED_AT = '2026-04-25T01:00:00Z'
+
+// v1.17.0: recipe bank wiring — service-role Supabase client used for the
+// `sample-from-bank` op. Anonymous client would also work via RLS but
+// service-role lets us call the security-definer RPC without forwarding the
+// caller's JWT (the caller is already auth'd at the edge function boundary).
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+function getServiceClient() {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+}
 
 // ─── Anthropic helpers ────────────────────────────────────────────────────
 
@@ -1001,6 +1012,248 @@ async function opExtract(input: Record<string, unknown>): Promise<unknown> {
   }
 }
 
+// ─── Op: sample-from-bank (v1.17.0) ───────────────────────────────────────
+// Look up candidate recipes from the recipe_bank table. Returns 0..N matches.
+// Caller (client) decides which one to use; if 0, falls through to AI generation.
+//
+// Input shape:
+//   {
+//     op: 'sample-from-bank',
+//     mealType: 'dinner',
+//     slotRole: 'main',
+//     cuisineIds: ['italian', 'thai'] | [],   // empty = any cuisine
+//     dietaryTags: ['vegan', 'gluten-free'] | [],
+//     dislikedIngredients: [],
+//     recentDishNames: ['Spaghetti carbonara', ...],
+//     limit: 5
+//   }
+async function opSampleFromBank(input: Record<string, unknown>): Promise<unknown> {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return { candidates: [], _diag: 'no_supabase_env' }
+  }
+  const mealType = String(input.mealType ?? '')
+  const slotRole = String(input.slotRole ?? '')
+  if (!mealType || !slotRole) {
+    return { candidates: [], _diag: 'missing_meal_or_role' }
+  }
+  const cuisineIds = Array.isArray(input.cuisineIds) ? (input.cuisineIds as string[]) : []
+  const dietaryTags = Array.isArray(input.dietaryTags) ? (input.dietaryTags as string[]) : []
+  const dislikedIngredients = Array.isArray(input.dislikedIngredients)
+    ? (input.dislikedIngredients as string[])
+    : []
+  const recentDishNames = Array.isArray(input.recentDishNames)
+    ? (input.recentDishNames as string[])
+    : []
+  const limit = typeof input.limit === 'number' ? Math.max(1, Math.min(20, input.limit)) : 5
+
+  const sb = getServiceClient()
+  const { data, error } = await sb.rpc('sample_recipes_for_slot', {
+    p_meal_type: mealType,
+    p_slot_role: slotRole,
+    p_cuisine_ids: cuisineIds,
+    p_dietary_tags: dietaryTags,
+    p_disliked_ingredients: dislikedIngredients,
+    p_recent_dish_names: recentDishNames,
+    p_limit: limit,
+  })
+  if (error) {
+    console.warn('[meal-engine] sample-from-bank rpc error:', error.message)
+    return { candidates: [], _diag: `rpc_error:${error.message}` }
+  }
+  // Map DB rows to the client-side Recipe shape.
+  const candidates = (data ?? []).map((r: Record<string, unknown>) => ({
+    bankId: r.id,
+    title: r.title,
+    cuisineId: r.cuisine_id,
+    ingredientMain: r.ingredient_main,
+    proteinFamily: r.protein_family,
+    styleId: r.style_id,
+    flavorId: r.flavor_id,
+    dietaryTags: r.dietary_tags,
+    qualityScore: r.quality_score,
+    recipe: {
+      title: r.title,
+      source: r.source_kind === 'web' ? 'web' : 'composed',
+      url: r.source_url ?? undefined,
+      sourceDomain: r.source_domain ?? undefined,
+      ingredients: r.ingredients,
+      steps: r.steps,
+      prepTimeMin: r.prep_time_min ?? undefined,
+      cookTimeMin: r.cook_time_min ?? undefined,
+      servings: r.servings ?? undefined,
+      imageUrl: r.image_url ?? undefined,
+    },
+  }))
+  return { candidates }
+}
+
+// ─── Op: day-plan (v1.17.0) ───────────────────────────────────────────────
+// Batched Stage A+B: takes a description of one day's meals and returns
+// {ingredient, dishName, searchKeywords} for every slot in a SINGLE Anthropic
+// call. Cuts a 7-day plan from ~14 calls (Stage A+B per slot) down to 7 calls.
+//
+// Input shape:
+//   {
+//     op: 'day-plan',
+//     day: { date: 'YYYY-MM-DD', theme?: string, isWeekend: boolean },
+//     prefs: { dietaryConstraints, dislikedIngredients, pantryItems },
+//     recentDishes: ['Spaghetti carbonara', ...],
+//     meals: [
+//       {
+//         mealId: 'meal-uuid', type: 'dinner',
+//         slots: [{ slotId, role: 'main', envelope: {...} }, ...]
+//       },
+//       ...
+//     ]
+//   }
+//
+// Output shape: { slots: [{ slotId, ingredient, dishName, searchKeywords }, ...] }
+
+const DAY_PLAN_TOOL: ToolDef = {
+  name: 'plan_day',
+  description:
+    'Fill ingredient + dish + search keywords for every slot in one day, respecting each slot envelope and avoiding sibling repetition.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      slots: {
+        type: 'array',
+        description: 'One entry per slot in the same order as the input.',
+        items: {
+          type: 'object',
+          properties: {
+            slotId: { type: 'string' },
+            ingredient: { type: 'string', description: 'A single primary ingredient.' },
+            dishName: { type: 'string', description: 'Concise dish name a recipe site would index.' },
+            searchKeywords: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '3-5 strings to find this recipe on the web.',
+            },
+            rationale: { type: 'string', description: 'One-sentence why this fits.' },
+          },
+          required: ['slotId', 'ingredient', 'dishName', 'searchKeywords'],
+        },
+      },
+    },
+    required: ['slots'],
+  },
+}
+
+interface DayPlanSlotInput {
+  slotId: string
+  role: string
+  envelope?: Envelope
+}
+
+async function opDayPlan(input: Record<string, unknown>): Promise<unknown> {
+  const day = (input.day as Record<string, unknown>) ?? {}
+  const prefs = (input.prefs as Record<string, unknown>) ?? {}
+  const recentDishes = Array.isArray(input.recentDishes) ? (input.recentDishes as string[]) : []
+  const meals = Array.isArray(input.meals) ? (input.meals as Record<string, unknown>[]) : []
+
+  if (meals.length === 0) {
+    return { slots: [] }
+  }
+
+  // Flatten slots in order, preserving meal context.
+  const allSlots: { slotId: string; mealType: string; role: string; envelope?: Envelope }[] = []
+  for (const meal of meals) {
+    const mealType = String(meal.type ?? 'meal')
+    const slots = Array.isArray(meal.slots) ? (meal.slots as DayPlanSlotInput[]) : []
+    for (const s of slots) {
+      allSlots.push({
+        slotId: s.slotId,
+        mealType,
+        role: s.role,
+        envelope: s.envelope,
+      })
+    }
+  }
+
+  if (allSlots.length === 0) {
+    return { slots: [] }
+  }
+
+  // Build a compact text representation of every slot's context.
+  const slotsBlock = allSlots
+    .map((s, i) => {
+      const env = s.envelope
+      const envStr = env
+        ? `cuisine=${env.cuisineLabel ?? '?'} style=${env.styleLabel ?? '?'} flavor=${env.flavorLabel ?? '?'}${env.proteinName ? ` protein-hint=${env.proteinName}` : ''}`
+        : '(no envelope)'
+      return `${i + 1}. slotId=${s.slotId} meal=${s.mealType} role=${s.role}: ${envStr}`
+    })
+    .join('\n')
+
+  const dietary = Array.isArray(prefs.dietaryConstraints) ? (prefs.dietaryConstraints as string[]) : []
+  const disliked = Array.isArray(prefs.dislikedIngredients) ? (prefs.dislikedIngredients as string[]) : []
+  const pantry = Array.isArray(prefs.pantryItems) ? (prefs.pantryItems as string[]) : []
+
+  const system = `You are filling a day of meals for one household. For EACH slot you must propose one ingredient, one dish name, and 3-5 web-search keywords.
+
+CRITICAL RULES:
+1. Honor each slot's envelope as authoritative — cuisine, style, flavor are FIXED, do NOT drift to a different cuisine.
+2. Within ONE meal, do not repeat the same protein family across slots (so chicken main + chicken side is wrong; chicken main + green-veg side + rice side is right).
+3. Respect dietary constraints + disliked ingredients across ALL slots in the day.
+4. Avoid the recent-dishes list (these were generated in the last 14 days).
+5. Return EXACTLY ONE entry per input slot, in the same order, by calling plan_day.
+
+The model bias toward Mediterranean/Middle-Eastern cuisines (kabob, shakshuka, falafel, hummus, tahini, za'atar, sumac) is FORBIDDEN unless the slot envelope explicitly names greek/persian/israeli/spanish-tapas as the cuisine.`
+
+  const user = `Plan ${allSlots.length} slot(s) for day ${day.date ?? 'TBD'}${day.theme ? ` (theme: ${day.theme})` : ''}${day.isWeekend ? ' [weekend]' : ''}.
+
+Slots:
+${slotsBlock}
+
+Dietary constraints (apply to ALL slots): ${dietary.join(', ') || 'none'}
+Disliked ingredients (avoid in ALL slots): ${disliked.join(', ') || 'none'}
+Pantry items the user has on hand: ${pantry.join(', ') || 'none'}
+Recent dishes (avoid these — they were generated in the last 14 days): ${recentDishes.slice(0, 30).join(', ') || 'none'}
+
+Call plan_day with one slot entry per input slot, in the same order.`
+
+  const resp = await anthropic({
+    model: MODEL,
+    max_tokens: 2500,
+    system,
+    tools: [DAY_PLAN_TOOL],
+    tool_choice: { type: 'tool', name: 'plan_day' },
+    messages: [{ role: 'user', content: user }],
+  })
+
+  const out = pickToolUse(resp, 'plan_day')
+  if (!out || !Array.isArray(out.slots)) {
+    throw new Error('Model did not return slots array')
+  }
+
+  // Normalize + dedup keywords server-side (same as opDish).
+  const result = (out.slots as Record<string, unknown>[]).map((s) => {
+    const slotId = String(s.slotId ?? '')
+    const ingredient = String(s.ingredient ?? '').trim()
+    const dishName = String(s.dishName ?? '').trim()
+    const rawKeywords = Array.isArray(s.searchKeywords) ? (s.searchKeywords as string[]) : []
+    const seen = new Set<string>()
+    const dedup: string[] = []
+    for (const k of rawKeywords) {
+      const v = (typeof k === 'string' ? k : '').trim()
+      if (!v) continue
+      const key = v.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      dedup.push(v)
+    }
+    return {
+      slotId,
+      ingredient,
+      dishName,
+      searchKeywords: dedup.length > 0 ? dedup.slice(0, 5) : [dishName],
+    }
+  })
+
+  return { slots: result }
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -1058,6 +1311,14 @@ serve(async (req) => {
         break
       case 'extract':
         result = await opExtract(body)
+        break
+      // v1.17.0: bank-first sampling — no Anthropic call, just a SQL lookup.
+      case 'sample-from-bank':
+        result = await opSampleFromBank(body)
+        break
+      // v1.17.0: batched Stage A+B for one day in a single Anthropic call.
+      case 'day-plan':
+        result = await opDayPlan(body)
         break
       default:
         return new Response(JSON.stringify({ error: `Unknown op: ${op}` }), {

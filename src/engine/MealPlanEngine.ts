@@ -21,6 +21,8 @@ import { findAndFetchRecipe } from './pipeline/fetchRecipe'
 import { buildEnvelope, type SlotEnvelope } from './variety/envelope'
 import { mergeEnvelope, parseUserHint } from './variety/precedence'
 import { AbortedByUserError, RateLimitedError } from './errors'
+import { callOp } from './ai/client'
+import { z } from 'zod'
 
 export { AbortedByUserError, RateLimitedError } from './errors'
 
@@ -841,11 +843,190 @@ export class MealPlanEngine {
     }
 
     const refreshedDays = await db.days.where('planId').equals(planId).sortBy('position')
+
+    // ─── v1.17.0 — Phase 1: bank-first sampling ────────────────────────
+    // Try to fill every empty/error slot from the recipe_bank table BEFORE
+    // touching Anthropic. Bank hits are ~50ms SQL queries per slot; misses
+    // fall through to the AI pipeline below. With a populated bank covering
+    // common cuisine × dietary cells, this single phase fills 80%+ of slots
+    // for free — the architectural fix to "single user crashes the system."
+    const prefs = await this.getPrefs()
+    const recentDishes = await this.getRecentDishNames(planId, prefs.recentDishesWindow)
+    const allSlotIds: string[] = []
+    for (const day of refreshedDays) {
+      const meals = await db.meals.where('dayId').equals(day.id).sortBy('position')
+      for (const meal of meals) {
+        const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
+        for (const s of slots) {
+          if (!s.locked && s.status !== 'ready') allSlotIds.push(s.id)
+        }
+      }
+    }
+    if (allSlotIds.length > 0) {
+      // Run bank-fills in parallel — they're SQL lookups, no rate-limit risk.
+      await Promise.all(
+        allSlotIds.map((slotId) =>
+          this.tryFillSlotFromBank(slotId, prefs.dietaryConstraints, prefs.dislikedIngredients, recentDishes).catch(
+            (err) => {
+              // Bank fill is best-effort — never throw out of generatePlan.
+              console.warn(`[bank-fill] slot ${slotId} skipped:`, err)
+              return false
+            },
+          ),
+        ),
+      )
+    }
+
+    // ─── Phase 2: AI fill the residual slots, day-by-day ───────────────
+    // Existing per-slot pipeline handles whatever the bank didn't cover.
     await Promise.all(refreshedDays.map((d) => this.generateDay(d.id)))
     const view = await this.getPlan(planId)
     if (!view) throw new Error('Plan disappeared')
     this.bus.emit('plan:updated', view)
     return view
+  }
+
+  /**
+   * v1.17.0 — Phase 1 of generatePlan: try the recipe_bank.
+   *
+   * Returns `true` if the slot was filled from the bank (status now `ready`,
+   * recipeId set), `false` if no bank candidate matched (caller falls through
+   * to AI generation).
+   *
+   * Sibling-aware: avoids picking a candidate whose protein_family or cuisine
+   * matches an already-filled sibling slot in the same meal — same anti-repeat
+   * rule the AI envelope enforces.
+   */
+  async tryFillSlotFromBank(
+    slotId: string,
+    dietaryConstraints: string[],
+    dislikedIngredients: string[],
+    recentDishNames: string[],
+  ): Promise<boolean> {
+    const slot = await db.slots.get(slotId)
+    if (!slot) return false
+    if (slot.status === 'ready' || slot.locked) return false
+
+    const meal = await db.meals.get(slot.mealId)
+    if (!meal) return false
+
+    // Build envelope client-side (same path as AI generation) so the bank
+    // sampler sees the cuisine constraint we'd otherwise apply.
+    const day = await db.days.get(meal.dayId)
+    if (!day) return false
+
+    const siblings = await db.slots.where('mealId').equals(meal.id).toArray()
+    const siblingProteinFamilies = new Set<string>()
+    const siblingCuisineIds = new Set<string>()
+    for (const s of siblings) {
+      if (s.id === slot.id) continue
+      if (s.envelope?.proteinFamily) siblingProteinFamilies.add(s.envelope.proteinFamily)
+      if (s.envelope?.cuisineId) siblingCuisineIds.add(s.envelope.cuisineId)
+    }
+
+    const env = await buildEnvelope({
+      slotId: slot.id,
+      mealId: meal.id,
+      dayId: day.id,
+      planId: day.planId,
+      slotRole: slot.role,
+      dietaryTags: dietaryConstraints,
+      dislikedNames: dislikedIngredients,
+      isWeekend: this.isWeekend(day.date),
+    })
+    const userHint = parseUserHint(slot.replaceHint || slot.notes)
+    const finalEnvelope = mergeEnvelope(env, userHint)
+
+    // Only filter by cuisine when the user hinted one explicitly. Otherwise
+    // keep the bank query broad so we don't always miss on small banks —
+    // the variety system filters by sibling/recent on the client side anyway.
+    const cuisineConstraint = userHint.cuisineId ? [userHint.cuisineId] : []
+
+    type BankCandidate = {
+      bankId: string
+      title: string
+      cuisineId: string
+      ingredientMain: string
+      proteinFamily?: string | null
+      qualityScore: number
+      recipe: Omit<Recipe, 'id' | 'fetchedAt'>
+    }
+    let response: { candidates: BankCandidate[] } | null = null
+    try {
+      response = await callOp(
+        'sample-from-bank',
+        {
+          mealType: meal.type,
+          slotRole: slot.role,
+          cuisineIds: cuisineConstraint,
+          dietaryTags: dietaryConstraints,
+          dislikedIngredients,
+          recentDishNames,
+          limit: 8,
+        },
+        z.object({ candidates: z.array(z.unknown()) }).passthrough(),
+      ) as unknown as { candidates: BankCandidate[] }
+    } catch (err) {
+      // Bank lookup must never break plan generation — fall through to AI.
+      console.warn('[bank-fill] sample failed:', err)
+      return false
+    }
+
+    const candidates = response?.candidates ?? []
+    if (candidates.length === 0) return false
+
+    // Pick first candidate that doesn't conflict with siblings.
+    const picked = candidates.find((c) => {
+      if (c.proteinFamily && siblingProteinFamilies.has(c.proteinFamily)) return false
+      if (siblingCuisineIds.has(c.cuisineId)) return false
+      return true
+    }) ?? candidates[0]
+
+    // Materialize a Recipe row in Dexie + flip slot to ready.
+    const recipe: Recipe = {
+      id: uid(),
+      fetchedAt: now(),
+      ...picked.recipe,
+    }
+    await db.recipes.add(recipe)
+    await this.patchSlot(slotId, {
+      status: 'ready',
+      ingredient: picked.ingredientMain,
+      dishName: picked.title,
+      searchKeywords: [picked.title],
+      recipeId: recipe.id,
+      replaceHint: undefined,
+      generatingStartedAt: undefined,
+      errorMessage: undefined,
+      errorStage: undefined,
+      envelope: {
+        cuisineId: picked.cuisineId,
+        cuisineLabel: finalEnvelope.cuisineLabel,
+        cuisineRegion: finalEnvelope.cuisineRegion,
+        proteinName: picked.ingredientMain,
+        proteinFamily: picked.proteinFamily ?? undefined,
+        styleId: finalEnvelope.styleId,
+        styleLabel: finalEnvelope.styleLabel,
+        flavorId: finalEnvelope.flavorId,
+        flavorLabel: finalEnvelope.flavorLabel,
+      },
+    })
+    // Write to dishHistory so subsequent slots see this in their anti-repeat
+    // window — same as Stage B does after AI generation.
+    await db.dishHistory.add({
+      id: uid(),
+      slotId,
+      planId: day.planId,
+      dishName: picked.title,
+      ingredient: picked.ingredientMain,
+      proteinName: picked.ingredientMain,
+      proteinFamily: picked.proteinFamily ?? undefined,
+      cuisineId: picked.cuisineId,
+      styleId: finalEnvelope.styleId,
+      flavorId: finalEnvelope.flavorId,
+      plannedAt: now(),
+    })
+    return true
   }
 
   /**

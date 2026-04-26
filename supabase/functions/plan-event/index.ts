@@ -15,8 +15,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const INPUT_COST_PER_1M = 1.00
 const OUTPUT_COST_PER_1M = 5.00
-const APP_VERSION = '1.16.0'
-const DEPLOYED_AT = '2026-04-25T00:00:00Z'
+const APP_VERSION = '1.17.0'
+const DEPLOYED_AT = '2026-04-25T01:00:00Z'
 
 // v1.16.0: minimum brief length to attempt AI planning. Below this, return
 // a clarifying question without burning a Claude call.

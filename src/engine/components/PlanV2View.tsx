@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Wand2, Trash2 } from 'lucide-react'
+import { Plus, Wand2, Trash2, LayoutGrid } from 'lucide-react'
 import { useEngine } from '../hooks/useEngine'
 import { usePlan } from '../hooks/usePlan'
 import type { MealPlan } from '../types'
@@ -67,6 +67,19 @@ export function PlanV2View() {
     await refresh()
   }
 
+  /**
+   * v1.17.0: one-click apply the "Standard day" preset (breakfast 1 + lunch 2 +
+   * dinner 3 = 6 slots) to every day in the active plan. Eliminates the
+   * "click each day" pain the user reported on /plan-v2.
+   */
+  async function applyStandardWeek() {
+    if (!plan || plan.days.length === 0) return
+    await engine.applyPreset('sys-day-standard', {
+      dayIds: plan.days.map((d) => d.id),
+    })
+    await refresh()
+  }
+
   async function generateAll() {
     if (!activePlanId) return
     await engine.generatePlan(activePlanId)
@@ -87,13 +100,22 @@ export function PlanV2View() {
           <h1 className="font-display italic text-3xl text-rp-ink">Meal plan</h1>
           <p className="text-xs text-rp-ink-mute">v2 engine — slot-based, offline-first</p>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => void addWeek(7)}
             className="px-3 py-2 rounded-lg bg-rp-bg-soft text-rp-ink text-xs font-medium flex items-center gap-1"
           >
             <Plus className="h-3.5 w-3.5" />
             Add 7 days
+          </button>
+          <button
+            onClick={() => void applyStandardWeek()}
+            className="px-3 py-2 rounded-lg bg-rp-bg-soft text-rp-ink text-xs font-medium flex items-center gap-1"
+            disabled={!plan || plan.days.length === 0}
+            title="Apply 'Standard day' preset (breakfast + lunch + dinner) to every day"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Standard week
           </button>
           <button
             onClick={() => void generateAll()}
