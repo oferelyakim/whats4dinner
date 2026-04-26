@@ -20,6 +20,9 @@ interface EventAIPlanDialogProps {
   eventTitle: string
   onSubmit: (values: EventAIPlanRequest) => void
   isLoading?: boolean
+  clarifyingQuestion?: string | null
+  onDismissQuestion?: () => void
+  onContinueAnyway?: () => void
 }
 
 const DEFAULT_VALUES: EventAIPlanRequest = {
@@ -88,6 +91,9 @@ export function EventAIPlanDialog({
   eventTitle,
   onSubmit,
   isLoading = false,
+  clarifyingQuestion,
+  onDismissQuestion,
+  onContinueAnyway,
 }: EventAIPlanDialogProps) {
   const { t } = useI18n()
   const [values, setValues] = useState<EventAIPlanRequest>(DEFAULT_VALUES)
@@ -153,6 +159,35 @@ export function EventAIPlanDialog({
           <p id="event-ai-plan-desc" className="text-sm text-slate-500 mb-5 ps-10">
             {eventTitle}
           </p>
+
+          {clarifyingQuestion && (
+            <div className="mb-5 p-4 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 border border-amber-300 dark:border-amber-700/50">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide mb-2">
+                {t('event.aiClarifyingTitle')}
+              </p>
+              <p className="text-sm text-amber-950 dark:text-amber-50 mb-3 leading-snug">
+                {clarifyingQuestion}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={onDismissQuestion}
+                  disabled={isLoading}
+                  className="text-xs font-medium px-3 py-2 rounded-lg bg-white dark:bg-amber-950/40 text-amber-900 dark:text-amber-100 border border-amber-300 dark:border-amber-700/60 active:scale-95 transition-transform disabled:opacity-60"
+                >
+                  {t('event.aiRefineDescription')}
+                </button>
+                <button
+                  type="button"
+                  onClick={onContinueAnyway}
+                  disabled={isLoading}
+                  className="text-xs font-medium px-3 py-2 rounded-lg bg-amber-600 text-white border border-amber-600 active:scale-95 transition-transform disabled:opacity-60"
+                >
+                  {t('event.aiContinueAnyway')}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-5">
             {/* Description */}

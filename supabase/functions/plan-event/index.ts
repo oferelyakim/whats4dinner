@@ -60,6 +60,19 @@ const EVENT_PLAN_TOOL = {
           required: ['name', 'type'],
         },
       },
+      activities: {
+        type: 'array',
+        description: 'Activities, games, ice-breakers, and atmosphere moments for the event. Tune to event type and headcount kids.',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'e.g. "Musical Chairs", "Welcome cocktail toast", "Group photo on the porch"' },
+            when: { type: 'string', enum: ['arrival', 'during meal', 'after meal', 'closing'] },
+            notes: { type: 'string', description: 'Materials needed, age range, time required, or playlist guidance' },
+          },
+          required: ['name', 'when'],
+        },
+      },
       timeline_summary: {
         type: 'string',
         description: 'A short narrative timeline overview (2-4 sentences): what to do weeks ahead, days ahead, day of.',
@@ -113,7 +126,16 @@ If the event description is vague (e.g., just "birthday party" with no other con
 - Low budget: potluck-style food, DIY decorations, Bluetooth speaker, borrowed items.
 - Medium budget: mix of catered and homemade, rented basics, modest entertainment.
 - High budget: professional catering, full venue setup, entertainment, photography.
-- "No idea": plan as medium budget unless the description implies otherwise.`
+- "No idea": plan as medium budget unless the description implies otherwise.
+
+## Activities & Atmosphere
+For any social event, suggest 3–6 activities tuned to event type, headcount, and especially \`kids\` count. Examples:
+- Kids parties (ages 4-10): age-appropriate games (musical chairs, treasure hunt, craft station), cake-cutting moment, take-home favors.
+- Adult dinners: ice-breaker prompts at the table, music/playlist vibe, group photo, after-dinner game (e.g. trivia, charades).
+- Holiday gatherings: cultural rituals (lighting candles, toasts, prayers), shared storytelling moment.
+- Outdoor events: lawn games, group activity (frisbee, photo scavenger hunt).
+- Field \`when\` is one of: \`arrival\`, \`during meal\`, \`after meal\`, \`closing\`.
+- Skip activities only for purely transactional events (carpool, errand, schedule). For all others, populate at least 3 entries.`
 
 // ─── Main Handler ────────────────────────────────────────────────────────────
 

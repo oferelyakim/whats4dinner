@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, CalendarDays, MapPin, Search, Copy, Check, MessageCircle, Share2 } from 'lucide-react'
+import { Plus, CalendarDays, MapPin, Search, Copy, Check, MessageCircle, Share2, Sparkles } from 'lucide-react'
 import { getShareOrigin } from '@/lib/url'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -120,6 +120,14 @@ export function EventsPage() {
     setShowCreate(false)
     setCopied(false)
     if (id) navigate(`/events/${id}`)
+  }
+
+  function openAIPlanForCreated() {
+    const id = createdEvent?.id
+    setCreatedEvent(null)
+    setShowCreate(false)
+    setCopied(false)
+    if (id) navigate(`/events/${id}?aiPlan=opened`)
   }
 
   return (
@@ -311,6 +319,19 @@ export function EventsPage() {
                     {t('share.shareLink')}
                   </Button>
                 </div>
+                <button
+                  type="button"
+                  onClick={openAIPlanForCreated}
+                  className="w-full mb-2 flex items-center gap-3 p-3 rounded-xl border border-dashed border-brand-300 dark:border-brand-700 bg-gradient-to-r from-brand-500/5 to-purple-500/5 hover:from-brand-500/10 hover:to-purple-500/10 active:scale-[0.99] transition-all text-start"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-rp-ink">{t('event.aiPlan')}</p>
+                    <p className="text-[11px] text-rp-ink-soft leading-tight">{t('event.aiPlanDesc')}</p>
+                  </div>
+                </button>
                 <Button className="w-full" onClick={closeCreateFlow}>{t('event.viewEvent')}</Button>
               </>
             ) : (

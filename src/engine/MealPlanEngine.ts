@@ -736,7 +736,25 @@ export class MealPlanEngine {
 
   async generatePlan(planId: string): Promise<PlanView> {
     const days = await db.days.where('planId').equals(planId).sortBy('position')
-    await Promise.all(days.map((d) => this.generateDay(d.id)))
+
+    // Empty days have no meals → no slots → nothing for the engine to fill,
+    // and the click silently no-ops. Auto-populate any empty day with a
+    // default Dinner meal + one main slot so "Add 7 days → Generate plan"
+    // works as users expect. Idempotent: only fires when meal count is 0,
+    // so applyPreset / explicit addMeal flows are untouched.
+    for (const d of days) {
+      const mealCount = await db.meals.where('dayId').equals(d.id).count()
+      if (mealCount === 0) {
+        const meal = await this.addMeal(d.id, 'Dinner')
+        const slotCount = await db.slots.where('mealId').equals(meal.id).count()
+        if (slotCount === 0) {
+          await this.addSlot(meal.id, 'main')
+        }
+      }
+    }
+
+    const refreshedDays = await db.days.where('planId').equals(planId).sortBy('position')
+    await Promise.all(refreshedDays.map((d) => this.generateDay(d.id)))
     const view = await this.getPlan(planId)
     if (!view) throw new Error('Plan disappeared')
     this.bus.emit('plan:updated', view)

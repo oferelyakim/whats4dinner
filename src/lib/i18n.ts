@@ -942,6 +942,10 @@ const translations: Record<string, Record<Locale, string>> = {
   'event.aiPlanAddedCount': { en: 'Added {{count}} items from AI plan', he: 'נוספו {{count}} פריטים מתכנון ה-AI', es: 'Se agregaron {{count}} elementos del plan de IA' },
   'event.aiPlanApply': { en: 'Apply to Event', he: 'החל על האירוע', es: 'Aplicar al evento' },
   'event.aiPlanReview': { en: 'Review & Apply', he: 'סקור והחל', es: 'Revisar y aplicar' },
+  'event.aiActivityPrefix': { en: '[Activity]', he: '[פעילות]', es: '[Actividad]' },
+  'event.aiClarifyingTitle': { en: 'One quick question first', he: 'שאלה קצרה לפני שנתחיל', es: 'Una pregunta rápida primero' },
+  'event.aiRefineDescription': { en: 'Refine description', he: 'שפר תיאור', es: 'Refinar descripción' },
+  'event.aiContinueAnyway': { en: 'Continue anyway', he: 'המשך בכל זאת', es: 'Continuar de todos modos' },
 
   // Share + Join + Review (v1.11.0 soft-launch)
   'share.whatsapp': { en: 'Share on WhatsApp', he: 'שיתוף ב-WhatsApp', es: 'Compartir en WhatsApp' },

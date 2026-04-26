@@ -4,6 +4,7 @@ export interface EventPlanResult {
   tasks: Array<{ title: string; due_when: string; assignable?: boolean; notes?: string }>
   supplies: Array<{ name: string; quantity?: string; claimable?: boolean }>
   dishes: Array<{ name: string; type: string; claimable?: boolean; notes?: string }>
+  activities?: Array<{ name: string; when: 'arrival' | 'during meal' | 'after meal' | 'closing'; notes?: string }>
   timeline_summary: string
   clarifying_question?: string | null
 }
