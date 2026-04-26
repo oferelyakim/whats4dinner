@@ -153,6 +153,58 @@ export function MealPlannerInterview({
     setDraft(undefined)
   }
 
+  /**
+   * v2.3.0 — Skip the current optional question with the empty/no-op answer
+   * for its kind. Commits + advances exactly like Continue. Used by the
+   * Skip button rendered next to Continue on multi_select / preset_picker
+   * / open_text-dislikes / choice steps.
+   */
+  function handleSkip() {
+    if (!currentQuestion) return
+    const questionId = currentQuestion.id
+    let skipValue: AnswerMap[QuestionId]
+    switch (currentQuestion.kind) {
+      case 'multi_select':
+      case 'open_text':
+        skipValue = [] as never
+        break
+      case 'preset_picker':
+        skipValue = {} as never
+        break
+      case 'choice':
+        // Use the question's existing inferenceWhenSkipped path: leave the
+        // value unset and let getNextQuestion treat it as committed via the
+        // skip-list mechanism. Falls through to Continue with undefined.
+        skipValue = undefined
+        break
+      default:
+        skipValue = undefined
+    }
+    setAnswers((prev) => ({ ...prev, [questionId]: skipValue }))
+    setHistory((prev) => [...prev, questionId])
+    setDraft(undefined)
+  }
+
+  /**
+   * v2.3.0 — questions that have no required value. The Skip button shows
+   * only for these and the prompt gets the "Optional — leave blank" hint.
+   */
+  function isOptionalQuestion(): boolean {
+    if (!currentQuestion) return false
+    if (
+      currentQuestion.kind === 'multi_select' ||
+      currentQuestion.kind === 'preset_picker'
+    ) {
+      return true
+    }
+    // q_dislikes is open_text — also optional. q_freeform handles its own
+    // submit button (no shared footer) so it never needs the Skip CTA.
+    if (currentQuestion.kind === 'open_text' && currentQuestion.id === 'q_dislikes') {
+      return true
+    }
+    return false
+  }
+
   // Special-case: q_freeform uses its own submit inside FreeformInput which
   // also triggers parse-intake. After parse-intake finishes, the component
   // resumes in 'collecting' with the answer already committed. The explicit
@@ -228,12 +280,20 @@ export function MealPlannerInterview({
         { answers, circleContext, recentDishes },
         ProposePlanResultSchema,
       )
+      // v2.3.0: an empty days[] is a silent failure — Anthropic returned no
+      // tool_use, or the schema's `.default([])` swallowed a malformed shape.
+      // Treat as a retryable error rather than navigating to an empty review.
+      if (!out.days || out.days.length === 0) {
+        setError(t('interview.proposing.empty'))
+        setStage('ready_to_propose')
+        return
+      }
       setProposal(out)
       void logUsage('meal_plan_edit')
       setStage('reviewing')
     } catch (err) {
       console.warn('[interview] propose-plan failed:', err)
-      setError(t('interview.proposing'))
+      setError(t('interview.proposing.empty'))
       // Return to ready_to_propose so the user can retry
       setStage('ready_to_propose')
     }
@@ -392,6 +452,7 @@ export function MealPlannerInterview({
                 proposal={proposal}
                 swaps={reviewSwaps}
                 setSwaps={setReviewSwaps}
+                onRetry={() => void runProposePlan()}
               />
             )}
 
@@ -400,7 +461,7 @@ export function MealPlannerInterview({
             )}
           </div>
 
-          {/* Footer — Back + Continue while collecting */}
+          {/* Footer — Back + Skip + Continue while collecting */}
           {stage === 'collecting' && currentQuestion && currentQuestion.id !== 'q_freeform' && (
             <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-between gap-2">
               <button
@@ -416,19 +477,34 @@ export function MealPlannerInterview({
                 <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
                 {t('interview.back')}
               </button>
-              <button
-                type="button"
-                onClick={handleContinue}
-                disabled={!canContinue()}
-                className="
-                  inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-5 py-2.5
-                  text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
-                  disabled:opacity-40 disabled:cursor-not-allowed
-                "
-              >
-                {t('interview.next')}
-                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
-              </button>
+              <div className="flex items-center gap-2">
+                {isOptionalQuestion() && (
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    className="
+                      inline-flex items-center gap-1 rounded-full px-4 py-2
+                      text-sm font-medium text-rp-ink/70 hover:text-rp-ink
+                      hover:bg-rp-ink/5
+                    "
+                  >
+                    {t('interview.skip')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleContinue}
+                  disabled={!canContinue()}
+                  className="
+                    inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-5 py-2.5
+                    text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
+                    disabled:opacity-40 disabled:cursor-not-allowed
+                  "
+                >
+                  {t('interview.next')}
+                  <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -546,6 +622,14 @@ function QuestionStep({
 }) {
   const t = useI18n((s) => s.t)
   const showDietaryDisclaimer = question.id === 'q_dietary'
+  // v2.3.0 — surface "Optional — leave blank" copy on questions that can be
+  // skipped from the user's perspective (matches the Skip button gating in
+  // the parent component). q_freeform has its own submit + this label is
+  // only useful where the shared footer renders.
+  const isOptional =
+    question.kind === 'multi_select' ||
+    question.kind === 'preset_picker' ||
+    (question.kind === 'open_text' && question.id === 'q_dislikes')
   return (
     <div className="space-y-4">
       <div>
@@ -554,6 +638,9 @@ function QuestionStep({
         </h2>
         {question.helpKey && (
           <p className="mt-1 text-sm text-rp-ink/60 leading-snug">{t(question.helpKey)}</p>
+        )}
+        {isOptional && (
+          <p className="mt-1 text-xs text-rp-ink/50 italic">{t('interview.optional')}</p>
         )}
       </div>
 
@@ -973,12 +1060,39 @@ function ReviewStep({
   proposal,
   swaps,
   setSwaps,
+  onRetry,
 }: {
   proposal: ProposePlanResult
   swaps: Record<string, string>
   setSwaps: (s: Record<string, string>) => void
+  onRetry: () => void
 }) {
   const t = useI18n((s) => s.t)
+  // v2.3.0: belt-and-braces. The runProposePlan caller already routes empty
+  // results back to ready_to_propose, but if a propose-plan response slips
+  // through with zero rows (e.g. partial schema-default), render a clear
+  // retry CTA instead of a blank dialog.
+  if (!proposal.days || proposal.days.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-10">
+        <Sparkles className="h-10 w-10 text-rp-brand" />
+        <p className="font-display italic text-lg text-rp-ink text-center">
+          {t('interview.proposing.empty')}
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="
+            inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-5 py-2.5
+            text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
+          "
+        >
+          <RefreshCcw className="h-4 w-4" />
+          {t('interview.generatePlan')}
+        </button>
+      </div>
+    )
+  }
   return (
     <div className="space-y-4">
       {proposal.days.map((day) => (

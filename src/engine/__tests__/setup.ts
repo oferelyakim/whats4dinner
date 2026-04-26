@@ -6,6 +6,12 @@ vi.mock('@/services/supabase', () => ({
   supabase: {
     auth: {
       getSession: async () => ({ data: { session: null } }),
+      // v2.3.0: applyInterviewResult → generatePlanAsync → createMealPlanJob
+      // calls getUser. Return null user — the create call will throw
+      // "Not authenticated" which the test catches around the
+      // applyInterviewResult call so the cuisine-propagation pass that
+      // already ran is what we assert on.
+      getUser: async () => ({ data: { user: null } }),
     },
   },
 }))

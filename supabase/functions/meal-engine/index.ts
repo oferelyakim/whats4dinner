@@ -38,7 +38,7 @@ const MODEL = 'claude-haiku-4-5-20251001'
  * Override with COMPOSE_MODEL env var if needed (e.g. to revert to Haiku).
  */
 const COMPOSE_MODEL = Deno.env.get('COMPOSE_MODEL') ?? 'claude-sonnet-4-5-20250929'
-const APP_VERSION = '2.0.0'
+const APP_VERSION = '2.3.0'
 const DEPLOYED_AT = '2026-04-26T18:00:00Z'
 
 // v1.17.0: recipe bank wiring — service-role Supabase client used for the
@@ -1473,7 +1473,12 @@ async function opProposePlan(input: Record<string, unknown>): Promise<unknown> {
   const out = pickToolUse(resp, 'propose_plan') as
     | { days?: unknown[] }
     | null
-  if (!out?.days) return { days: [] }
+  // v2.3.0: surface a real error instead of returning an empty plan. The
+  // client previously rendered an empty review page when this happened
+  // because zod's `.default([])` swallowed the failure shape.
+  if (!out?.days || (Array.isArray(out.days) && out.days.length === 0)) {
+    throw new Error('propose_plan returned no days')
+  }
   return { days: out.days }
 }
 

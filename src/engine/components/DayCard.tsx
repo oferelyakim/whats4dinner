@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Plus, Layers, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { Plus, Layers, Trash2, BookOpen, X } from 'lucide-react'
 import type { DayView, Preset, PresetSlot } from '../types'
 import type { InterviewResult } from '../interview/types'
 import { MealCard } from './MealCard'
@@ -10,6 +11,9 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
 import { useI18n } from '@/lib/i18n'
 import { db } from '../db'
+import { getMealMenus } from '@/services/mealMenus'
+import { useAppStore } from '@/stores/appStore'
+import type { MealMenu, Recipe } from '@/types'
 
 interface Props {
   day: DayView
@@ -28,9 +32,24 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
   const [showPresets, setShowPresets] = useState(false)
   const [confirmPreset, setConfirmPreset] = useState<Preset | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  // v2.3.0 — manual template-application dialog
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [templates, setTemplates] = useState<(MealMenu & { recipes: Recipe[] })[] | null>(null)
+  const [templatesLoading, setTemplatesLoading] = useState(false)
   const [theme, setTheme] = useState(day.theme ?? '')
   const engine = getEngine()
   const t = useI18n((s) => s.t)
+  const { activeCircle } = useAppStore()
+
+  // Lazy-load templates on first dialog open.
+  useEffect(() => {
+    if (!showTemplates || templates !== null) return
+    setTemplatesLoading(true)
+    getMealMenus(activeCircle?.id ?? undefined)
+      .then((rows) => setTemplates(rows))
+      .catch(() => setTemplates([]))
+      .finally(() => setTemplatesLoading(false))
+  }, [showTemplates, templates, activeCircle?.id])
 
   const date = new Date(day.date + 'T12:00:00')
   const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
@@ -84,20 +103,27 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
         ))}
       </div>
 
-      <button
-        onClick={() => {
-          // v2.2.0: pick the next missing meal type so Add meal does something
-          // sensible. Cycle: dinner → lunch → breakfast → snack → dinner.
-          const existing = new Set(day.meals.map((m) => m.type.toLowerCase()))
-          const order = ['dinner', 'lunch', 'breakfast', 'snack'] as const
-          const next = order.find((t) => !existing.has(t)) ?? 'dinner'
-          void engine.addMeal(day.id, next)
-        }}
-        className="w-full py-2 rounded-lg border border-dashed border-rp-hairline text-xs text-rp-ink-mute hover:bg-rp-bg-soft flex items-center justify-center gap-1"
-      >
-        <Plus className="h-3 w-3" />
-        Add meal
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => {
+            const existing = new Set(day.meals.map((m) => m.type.toLowerCase()))
+            const order = ['dinner', 'lunch', 'breakfast', 'snack'] as const
+            const next = order.find((t) => !existing.has(t)) ?? 'dinner'
+            void engine.addMeal(day.id, next)
+          }}
+          className="py-2 rounded-lg border border-dashed border-rp-hairline text-xs text-rp-ink-mute hover:bg-rp-bg-soft flex items-center justify-center gap-1"
+        >
+          <Plus className="h-3 w-3" />
+          Add meal
+        </button>
+        <button
+          onClick={() => setShowTemplates(true)}
+          className="py-2 rounded-lg border border-dashed border-rp-hairline text-xs text-rp-ink-mute hover:bg-rp-bg-soft flex items-center justify-center gap-1"
+        >
+          <BookOpen className="h-3 w-3" />
+          {t('plan.day.addFromTemplate')}
+        </button>
+      </div>
 
       <PresetPicker
         open={showPresets}
@@ -158,6 +184,68 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
         destructive
         onConfirm={() => engine.removeDay(day.id)}
       />
+
+      <Dialog.Root open={showTemplates} onOpenChange={setShowTemplates}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-rp-ink/40 backdrop-blur-sm z-40" />
+          <Dialog.Content
+            className="
+              fixed inset-0 z-50 flex flex-col bg-rp-bg
+              sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+              sm:h-[min(80vh,560px)] sm:w-[min(480px,90vw)] sm:rounded-2xl
+              shadow-rp-hover overflow-hidden
+            "
+          >
+            <div className="flex items-center justify-between border-b border-rp-ink/10 px-4 py-3">
+              <Dialog.Title className="font-display italic text-lg text-rp-ink">
+                {t('plan.template.dialogTitle')}
+              </Dialog.Title>
+              <Dialog.Close
+                className="rounded-full p-1 text-rp-ink/60 hover:bg-rp-ink/5 hover:text-rp-ink"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </Dialog.Close>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {templatesLoading && (
+                <p className="text-sm text-rp-ink/60 text-center py-8">…</p>
+              )}
+              {!templatesLoading && (templates?.length ?? 0) === 0 && (
+                <p className="text-sm text-rp-ink/60 text-center py-8">
+                  {t('plan.template.empty')}
+                </p>
+              )}
+              {!templatesLoading &&
+                (templates ?? []).map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={async () => {
+                      setShowTemplates(false)
+                      await engine.applyMenuToDay(day.id, tpl)
+                    }}
+                    className="
+                      w-full text-left rounded-xl border border-rp-ink/10 bg-rp-card
+                      px-4 py-3 hover:border-rp-brand hover:bg-rp-bg-soft transition
+                    "
+                  >
+                    <div className="font-medium text-rp-ink">{tpl.name}</div>
+                    {tpl.description && (
+                      <div className="text-xs text-rp-ink/60 mt-0.5 line-clamp-1">
+                        {tpl.description}
+                      </div>
+                    )}
+                    <div className="text-xs text-rp-ink/50 mt-1">
+                      {tpl.recipes.length === 1
+                        ? '1 recipe'
+                        : `${tpl.recipes.length} recipes`}
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 }

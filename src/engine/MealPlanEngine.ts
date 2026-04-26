@@ -954,11 +954,20 @@ export class MealPlanEngine {
 
     const siblings = await db.slots.where('mealId').equals(meal.id).toArray()
     const siblingProteinFamilies = new Set<string>()
-    const siblingCuisineIds = new Set<string>()
+    // v2.3.0 — within ONE meal the sibling cuisines should MATCH the new
+    // slot's cuisine (Greek main → Greek sides), not differ. We collect
+    // them here as a *required* constraint, not an avoid set.
+    const siblingMealCuisineIds = new Set<string>()
     for (const s of siblings) {
       if (s.id === slot.id) continue
       if (s.envelope?.proteinFamily) siblingProteinFamilies.add(s.envelope.proteinFamily)
-      if (s.envelope?.cuisineId) siblingCuisineIds.add(s.envelope.cuisineId)
+      if (s.envelope?.cuisineId) siblingMealCuisineIds.add(s.envelope.cuisineId)
+      // Also pick up cuisine from sibling notes (set by preset application
+      // or by applyInterviewResult's sibling-propagation pass below).
+      if (!s.envelope?.cuisineId) {
+        const sibHint = parseUserHint(s.notes)
+        if (sibHint.cuisineId) siblingMealCuisineIds.add(sibHint.cuisineId)
+      }
     }
 
     const env = await buildEnvelope({
@@ -972,12 +981,26 @@ export class MealPlanEngine {
       isWeekend: this.isWeekend(day.date),
     })
     const userHint = parseUserHint(slot.replaceHint || slot.notes)
-    const finalEnvelope = mergeEnvelope(env, userHint)
+    // v2.3.0 — if a meal sibling already has a cuisine, lock the envelope
+    // to that cuisine before mergeEnvelope so the bank query + downstream
+    // AI envelope all share one cuisine within the meal. The user hint
+    // (if any) still overrides — explicit user intent always wins.
+    const lockedSiblingCuisineId =
+      siblingMealCuisineIds.size === 1
+        ? Array.from(siblingMealCuisineIds)[0]
+        : undefined
+    const effectiveHint = {
+      ...userHint,
+      cuisineId: userHint.cuisineId ?? lockedSiblingCuisineId,
+    }
+    const finalEnvelope = mergeEnvelope(env, effectiveHint)
 
-    // Only filter by cuisine when the user hinted one explicitly. Otherwise
-    // keep the bank query broad so we don't always miss on small banks —
-    // the variety system filters by sibling/recent on the client side anyway.
-    const cuisineConstraint = userHint.cuisineId ? [userHint.cuisineId] : []
+    // v2.3.0 — pass cuisine into the bank query when EITHER the user hinted
+    // it OR a sibling slot already locked it. This keeps Greek main + side
+    // + starch all on Greek instead of returning a Korean side.
+    const cuisineConstraint = effectiveHint.cuisineId
+      ? [effectiveHint.cuisineId]
+      : []
 
     type BankCandidate = {
       bankId: string
@@ -1025,12 +1048,18 @@ export class MealPlanEngine {
     const candidates = response?.candidates ?? []
     if (candidates.length === 0) return false
 
-    // Pick first candidate that doesn't conflict with siblings.
+    // v2.3.0 — pick candidate that:
+    //  1. doesn't share protein-family with siblings (variety within meal)
+    //  2. WHEN a sibling cuisine is locked, MUST share that cuisine
+    //     (coherence within meal — Greek main → Greek sides, not Korean)
     const picked = candidates.find((c) => {
       if (c.proteinFamily && siblingProteinFamilies.has(c.proteinFamily)) return false
-      if (siblingCuisineIds.has(c.cuisineId)) return false
+      if (lockedSiblingCuisineId && c.cuisineId !== lockedSiblingCuisineId) return false
       return true
-    }) ?? candidates[0]
+    }) ?? candidates.find((c) =>
+      // Relaxation 1: drop the protein-family constraint, keep cuisine lock.
+      lockedSiblingCuisineId ? c.cuisineId === lockedSiblingCuisineId : true,
+    ) ?? candidates[0]
 
     const envelopeSnapshot: SlotEnvelopeSnapshot = {
       cuisineId: picked.cuisineId,
@@ -1451,6 +1480,37 @@ export class MealPlanEngine {
             misses.push(slot.id)
           }
         }
+
+        // v2.3.0 — cuisine coherence pass. After processing all slots in
+        // this meal, find the meal's resolved cuisine (from any filled
+        // sibling's envelope) and propagate it into still-empty siblings'
+        // notes. The async worker reads slot.notes when building its
+        // envelope, so this guarantees Greek main → Greek sides for the
+        // residual generation path too. We propagate ONLY when the meal
+        // has converged on exactly one cuisine — mixed-cuisine meals are
+        // left alone (rare, only happens when the user's hints conflict).
+        const allSiblings = await db.slots.where('mealId').equals(meal.id).toArray()
+        const resolvedCuisines = new Set<string>()
+        for (const s of allSiblings) {
+          if (s.envelope?.cuisineId) resolvedCuisines.add(s.envelope.cuisineId)
+          else if (s.notes) {
+            const h = parseUserHint(s.notes).cuisineId
+            if (h) resolvedCuisines.add(h)
+          }
+        }
+        if (resolvedCuisines.size === 1) {
+          const cuisineId = Array.from(resolvedCuisines)[0]
+          const cuisineLabel = cuisineLabelFromId(cuisineId)
+          if (cuisineLabel) {
+            for (const s of allSiblings) {
+              if (s.envelope?.cuisineId) continue // already locked via envelope
+              const existingHint = parseUserHint(s.notes).cuisineId
+              if (existingHint) continue // notes already carry a cuisine
+              const composed = [cuisineLabel, s.notes].filter(Boolean).join(' ')
+              await db.slots.update(s.id, { notes: composed, updatedAt: now() })
+            }
+          }
+        }
       }
     }
 
@@ -1460,6 +1520,113 @@ export class MealPlanEngine {
     }
     const { jobId, totalQueued } = await this.generatePlanAsync(planId, circleId)
     return { jobId, bankFilled, totalQueued }
+  }
+
+  /**
+   * v2.3.0 — Apply a user-created meal template (Supabase `meal_menus` row)
+   * to a day on the local-first plan. Creates ONE meal of `mealType` with one
+   * slot per recipe in the template. Each slot lands at status='ready' with
+   * a Dexie Recipe row mirroring the Supabase recipe's metadata. Calls
+   * `touchPlan` so the UI re-renders (the v2.2 invariant).
+   *
+   * Bug from user testing: the legacy `addMenuToPlan` only writes to the
+   * Supabase `meal_plans` table, but `/plan-v2` is local-first via Dexie —
+   * so applying a template silently did nothing on the new planner. This
+   * method bridges that gap.
+   */
+  async applyMenuToDay(
+    dayId: string,
+    menu: { id: string; name: string; recipes: Array<{
+      id: string
+      title: string
+      source_url?: string | null
+      image_url?: string | null
+      prep_time_min?: number | null
+      cook_time_min?: number | null
+      servings?: number | null
+      instructions?: string | null
+      ingredients?: Array<{ name: string; quantity?: number | null; unit?: string | null }>
+    }> },
+    mealType: string = 'Dinner',
+  ): Promise<void> {
+    const day = await db.days.get(dayId)
+    if (!day) throw new Error(`Day ${dayId} not found`)
+    if (!menu.recipes || menu.recipes.length === 0) {
+      // Empty template — still create a meal so the user sees something.
+      await this.addMeal(dayId, mealType)
+      return
+    }
+
+    // Create one meal carrying all the template's recipes as siblings.
+    const mealCount = await db.meals.where('dayId').equals(dayId).count()
+    const meal: Meal = {
+      id: uid(),
+      dayId,
+      type: mealType,
+      position: mealCount,
+    }
+    await db.meals.add(meal)
+
+    // For each recipe, create a Dexie Recipe row + slot pointing at it.
+    let position = 0
+    for (const r of menu.recipes) {
+      const ingredients = (r.ingredients ?? []).map((ing) => ({
+        item: ing.name,
+        quantity:
+          ing.quantity != null
+            ? `${ing.quantity}${ing.unit ? ' ' + ing.unit : ''}`.trim()
+            : undefined,
+      }))
+      const steps = r.instructions
+        ? r.instructions
+            .split(/\r?\n+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+        : []
+      const dexieRecipe: Recipe = {
+        id: uid(),
+        fetchedAt: now(),
+        title: r.title,
+        source: r.source_url ? 'web' : 'composed',
+        url: r.source_url ?? undefined,
+        ingredients,
+        steps,
+        prepTimeMin: r.prep_time_min ?? undefined,
+        cookTimeMin: r.cook_time_min ?? undefined,
+        servings: r.servings ?? undefined,
+        imageUrl: r.image_url ?? undefined,
+      }
+      await db.recipes.add(dexieRecipe)
+      // First recipe is the main; subsequent are sides.
+      const role = position === 0 ? 'main' : 'side'
+      const slot: Slot = {
+        id: uid(),
+        mealId: meal.id,
+        role,
+        status: 'ready',
+        dishName: r.title,
+        recipeId: dexieRecipe.id,
+        locked: false,
+        position,
+        updatedAt: now(),
+      }
+      await db.slots.add(slot)
+      // Anti-repeat invariant: write a dishHistory row.
+      await db.dishHistory.add({
+        id: uid(),
+        slotId: slot.id,
+        planId: day.planId,
+        dishName: r.title,
+        cuisineId: 'unknown',
+        styleId: 'unknown',
+        flavorId: 'unknown',
+        plannedAt: now(),
+      })
+      position++
+    }
+
+    // touchPlan emits 'plan:updated' so usePlan re-renders.
+    await this.touchPlan(day.planId)
   }
 
   /**

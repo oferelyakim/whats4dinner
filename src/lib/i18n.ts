@@ -946,6 +946,14 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.day.delete': { en: 'Delete day', he: 'מחק יום', es: 'Eliminar día' },
   'plan.day.deleteConfirm.title': { en: 'Delete this day?', he: 'למחוק יום זה?', es: '¿Eliminar este día?' },
   'plan.day.deleteConfirm.body': { en: 'All meals and dishes for this day will be removed.', he: 'כל הארוחות והמנות ליום זה יוסרו.', es: 'Todas las comidas y platos de este día serán eliminados.' },
+  // v2.3.0 — manual template-application UI on /plan-v2 day cards.
+  'plan.day.addFromTemplate': { en: 'From template', he: 'מתבנית', es: 'Desde plantilla' },
+  'plan.template.dialogTitle': { en: 'Pick a template', he: 'בחר תבנית', es: 'Elige una plantilla' },
+  'plan.template.empty': {
+    en: "You haven't created any templates yet.",
+    he: 'עדיין לא יצרת תבניות.',
+    es: 'Aún no has creado ninguna plantilla.',
+  },
   'confirm.delete': { en: 'Delete', he: 'מחק', es: 'Eliminar' },
   'confirm.cancel': { en: 'Cancel', he: 'ביטול', es: 'Cancelar' },
 
@@ -1290,6 +1298,19 @@ const translations: Record<string, Record<Locale, string>> = {
   'interview.next': { en: 'Continue', he: 'המשך', es: 'Continuar' },
   'interview.back': { en: 'Back', he: 'חזור', es: 'Atrás' },
   'interview.skip': { en: 'Skip for now', he: 'דלג לעת עתה', es: 'Omitir por ahora' },
+  // v2.3.0 — surfaced under the prompt on optional questions so the user
+  // sees explicitly that "blank" is a valid answer.
+  'interview.optional': {
+    en: 'Optional — leave blank if nothing to add.',
+    he: 'אופציונלי — השאר ריק אם אין מה להוסיף.',
+    es: 'Opcional — déjalo en blanco si no hay nada que añadir.',
+  },
+  // v2.3.0 — shown on the review step when propose-plan returns no days.
+  'interview.proposing.empty': {
+    en: "We couldn't put a draft together. Try again or rephrase your answers.",
+    he: 'לא הצלחנו ליצור טיוטה. נסה שוב או נסח מחדש את התשובות.',
+    es: 'No pudimos armar un borrador. Inténtalo de nuevo o reformula tus respuestas.',
+  },
   'interview.approve': { en: 'Approve plan', he: 'אשר תוכנית', es: 'Aprobar plan' },
   'interview.swap': { en: 'Swap dish', he: 'החלף מנה', es: 'Cambiar plato' },
   'interview.parsing': { en: 'Reading your notes…', he: 'קורא את ההערות שלך…', es: 'Leyendo tus notas…' },
