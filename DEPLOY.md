@@ -1,6 +1,6 @@
 # Replanish — Deploy Runbook
 
-**Last verified: v1.18.0, 2026-04-26.** Update this file every time the deploy process changes.
+**Last verified: v1.19.0, 2026-04-26.** Update this file every time the deploy process changes.
 
 This file is the single source of truth for deploying Replanish. The two deploy targets (Vercel for frontend, Supabase for edge functions + migrations) each have a different command and a different "is it actually live?" check. Skipping or confusing them is the most common cause of "I deployed but the change isn't there."
 
@@ -100,7 +100,9 @@ npm run deploy:functions
 
 **v1.17.0+ migration application:** `npx supabase db push` will fail when local migrations include duplicate-version files (two `019_*.sql` exist). The reliable workaround that worked for migration 030 is `npx supabase db query --linked -f supabase/migrations/030_recipe_bank.sql` — runs the SQL directly via the Management API, bypasses the schema_migrations conflict. Use `npx supabase migration repair --status applied <version>` first if you want `db push` to track the row going forward.
 
-**v1.18.0+ async job queue:** migration 031 must be applied before deploying `meal-plan-worker`. Use `npx supabase db query --linked -f supabase/migrations/031_meal_plan_jobs.sql`. The migration adds `meal_plan_jobs` + `meal_plan_job_slots` + the `claim_next_meal_plan_job()` RPC + adds both tables to the `supabase_realtime` publication (for postgres_changes subscriptions). The `npm run deploy:functions` script now includes `meal-plan-worker` (4 functions total: meal-engine, plan-event, ai-chat, meal-plan-worker). The worker is invoked immediately after job-create via `triggerWorker()` from client; cron (every 2 min) is a v1.19.0 safety net that hasn't shipped yet — current setup relies entirely on the immediate trigger.
+**v1.18.0+ async job queue:** migration 031 must be applied before deploying `meal-plan-worker`. Use `npx supabase db query --linked -f supabase/migrations/031_meal_plan_jobs.sql`. The migration adds `meal_plan_jobs` + `meal_plan_job_slots` + the `claim_next_meal_plan_job()` RPC + adds both tables to the `supabase_realtime` publication (for postgres_changes subscriptions). The `npm run deploy:functions` script now includes `meal-plan-worker` and `recipe-bank-refresher` (5 functions total as of v1.19.0: meal-engine, plan-event, ai-chat, meal-plan-worker, recipe-bank-refresher). The worker is invoked immediately after job-create via `triggerWorker()` from client.
+
+**v1.19.0+ recipe-bank cron:** migration 032 (`supabase/migrations/032_pg_cron_recipe_bank_refresher.sql`) registers a `pg_cron` job named `recipe-bank-refresher` running `0 */6 * * *` that POSTs to the `recipe-bank-refresher` edge function. Apply via `npx supabase db query --linked -f supabase/migrations/032_pg_cron_recipe_bank_refresher.sql`. Idempotent — safe to re-run. Verify after with `npx supabase db query --linked "SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'recipe-bank-refresher';"` — should return `active: true`.
 
 **v1.17.0+ recipe-bank seeding:** two paths after migration 030 is applied.
 - Quick (no key needed): `npx supabase db query --linked -f supabase/seeds/recipe_bank_starter.sql` — inserts 12 hand-crafted starters covering common dinner mains + a few breakfasts/lunches.
