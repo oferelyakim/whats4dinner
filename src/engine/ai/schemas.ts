@@ -33,6 +33,23 @@ export const RankResultSchema = z.object({
 })
 export type RankResult = z.infer<typeof RankResultSchema>
 
+// v1.19.0 — day-plan op output: one entry per slot, in input order.
+// Lenient on searchKeywords (mirrors DishResultSchema).
+export const DayPlanResultSchema = z.object({
+  slots: z
+    .array(
+      z.object({
+        slotId: z.string().min(1),
+        ingredient: z.string().min(1),
+        dishName: z.string().min(1),
+        searchKeywords: z.array(z.string().min(1)).default([]),
+        rationale: z.string().optional().default(''),
+      }),
+    )
+    .default([]),
+})
+export type DayPlanResult = z.infer<typeof DayPlanResultSchema>
+
 // Lenient on numeric + url fields: any malformed value collapses to `undefined`
 // instead of failing the whole-recipe parse. Server should normalize first
 // (see `repairAndValidate` in supabase/functions/meal-engine/index.ts), but

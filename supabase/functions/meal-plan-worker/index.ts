@@ -28,11 +28,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-const APP_VERSION = '1.18.0'
-const DEPLOYED_AT = '2026-04-25T02:00:00Z'
+const APP_VERSION = '1.18.2'
+const DEPLOYED_AT = '2026-04-26T13:00:00Z'
 
 const INVOCATION_BUDGET_MS = 60_000
 const STUCK_JOB_TIMEOUT_MS = 10 * 60_000
+// Per-slot stuck timeout. If a slot has been 'in_progress' for longer than
+// this, the worker that claimed it has either crashed (edge function timeout
+// killed the deno isolate) or stalled (slow Anthropic call). Roll it back to
+// 'pending' so the next worker invocation can retry it. v1.18.1.
+const STUCK_SLOT_TIMEOUT_MS = 3 * 60_000
 const MAX_SLOT_ATTEMPTS = 3
 
 const corsHeaders = {
@@ -222,6 +227,19 @@ serve(async (req) => {
     .eq('status', 'running')
     .lt('started_at', stuckCutoff)
 
+  // 1b. Sweep stuck slots — those left 'in_progress' by a crashed worker
+  // beyond the per-slot timeout. Roll them back to 'pending' (without
+  // bumping attempts; the previous claim already bumped it) so the next
+  // worker invocation can retry. Without this, a single edge-function
+  // process kill leaves a slot orphaned forever and blocks job completion.
+  // v1.18.1.
+  const stuckSlotCutoff = new Date(Date.now() - STUCK_SLOT_TIMEOUT_MS).toISOString()
+  await supabase
+    .from('meal_plan_job_slots')
+    .update({ status: 'pending', started_at: null })
+    .eq('status', 'in_progress')
+    .lt('started_at', stuckSlotCutoff)
+
   // 2. Claim one queued/running job.
   const { data: claimedJob, error: claimErr } = await supabase.rpc('claim_next_meal_plan_job')
   if (claimErr) {
@@ -292,10 +310,13 @@ serve(async (req) => {
         .update({ status: 'done', result, finished_at: new Date().toISOString() })
         .eq('id', slot.id)
 
-      // Bump job counter.
-      await supabase.rpc('exec_sql_inc_completed', { p_job_id: jobId }).catch(async () => {
-        // Fall back to a manual increment if the RPC doesn't exist (it isn't
-        // shipped — we use a direct UPDATE instead).
+      // Bump job counter (manual SELECT+UPDATE — no RPC).
+      // The earlier `.rpc(...).catch(...)` form crashed with "supabase.rpc(...)
+      // .catch is not a function" because the builder isn't a Promise until
+      // you await it; the catch then bubbled out of the success path and was
+      // caught by the outer handler, which marked the just-completed slot as
+      // failed. v1.18.1 hot-fix.
+      {
         const { data: cur } = await supabase
           .from('meal_plan_jobs')
           .select('completed_slots')
@@ -305,7 +326,7 @@ serve(async (req) => {
           .from('meal_plan_jobs')
           .update({ completed_slots: (cur?.completed_slots ?? 0) + 1 })
           .eq('id', jobId)
-      })
+      }
 
       processedThisRun++
     } catch (err) {

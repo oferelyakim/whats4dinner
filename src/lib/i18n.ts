@@ -915,6 +915,17 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.intake.mealTypeSnackBar': { en: 'Snack Bar', he: 'בר חטיפים', es: 'Barra de snacks' },
   'plan.intake.mealTypeTapas': { en: 'Tapas', he: 'טאפס', es: 'Tapas' },
 
+  // Async meal-plan job (v1.18.0+ progress UI). `{completed}` / `{total}` /
+  // `{count}` are interpolated at the call site (i18n.t has no built-in
+  // template engine — caller does .replace).
+  'plan.job.progress': { en: 'Generating in background — {completed}/{total} slots ready', he: 'יוצר ברקע — {completed}/{total} משבצות מוכנות', es: 'Generando en segundo plano — {completed}/{total} listas' },
+  'plan.job.completed': { en: 'Plan complete', he: 'התוכנית מוכנה', es: 'Plan completo' },
+  'plan.job.failed': { en: 'Plan finished with errors', he: 'התוכנית הסתיימה עם שגיאות', es: 'El plan terminó con errores' },
+  'plan.job.cancelled': { en: 'Cancelled', he: 'בוטל', es: 'Cancelado' },
+  'plan.job.failedCount': { en: '{count} failed', he: '{count} נכשלו', es: '{count} fallidas' },
+  'plan.job.cancelButton': { en: 'Cancel', he: 'ביטול', es: 'Cancelar' },
+  'plan.job.queuedServer': { en: 'Queued — server is filling this slot…', he: 'בתור — השרת ממלא משבצת זו…', es: 'En cola — el servidor está completando…' },
+
   // Event AI planner
   'event.aiPlan': { en: 'AI Plan Event', he: 'תכנן עם AI', es: 'Planificar con IA' },
   'event.aiPlanTitle': { en: 'Plan this Event', he: 'תכנן את האירוע', es: 'Planificar este evento' },

@@ -6,6 +6,7 @@ import type { MealPlan } from '../types'
 import { DayCard } from './DayCard'
 import { RecipeView } from './RecipeView'
 import { supabase } from '@/services/supabase'
+import { useI18n } from '@/lib/i18n'
 import {
   cancelJob,
   getJob,
@@ -24,6 +25,7 @@ function addDays(iso: string, n: number): string {
 
 export function PlanV2View() {
   const engine = useEngine()
+  const t = useI18n((s) => s.t)
   const [plans, setPlans] = useState<MealPlan[]>([])
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
@@ -295,26 +297,30 @@ export function PlanV2View() {
             <div className="text-rp-ink-mute flex items-center gap-2">
               <span>
                 {jobProgress.status === 'completed'
-                  ? 'Plan complete'
+                  ? t('plan.job.completed')
                   : jobProgress.status === 'failed'
-                    ? 'Plan finished with errors'
+                    ? t('plan.job.failed')
                     : jobProgress.status === 'cancelled'
-                      ? 'Cancelled'
-                      : `Generating in background — ${jobProgress.completed}/${jobProgress.total} slots ready`}
+                      ? t('plan.job.cancelled')
+                      : t('plan.job.progress')
+                          .replace('{completed}', String(jobProgress.completed))
+                          .replace('{total}', String(jobProgress.total))}
               </span>
               {jobProgress.failed > 0 && (
-                <span className="text-amber-700">· {jobProgress.failed} failed</span>
+                <span className="text-amber-700">
+                  · {t('plan.job.failedCount').replace('{count}', String(jobProgress.failed))}
+                </span>
               )}
             </div>
             {(jobProgress.status === 'queued' || jobProgress.status === 'running') && (
               <button
                 onClick={() => void handleCancelJob()}
                 className="flex items-center gap-1 text-rp-ink-mute hover:text-rp-ink"
-                aria-label="Cancel generation"
-                title="Cancel"
+                aria-label={t('plan.job.cancelButton')}
+                title={t('plan.job.cancelButton')}
               >
                 <XIcon className="h-3 w-3" />
-                Cancel
+                {t('plan.job.cancelButton')}
               </button>
             )}
           </div>

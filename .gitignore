@@ -38,3 +38,6 @@ e2e/.auth/
 playwright-report/
 test-results/
 blob-report/
+
+# Live-test runtime artifact (snapshot of latest run)
+scripts/test-live-meal-plan.last-run.json

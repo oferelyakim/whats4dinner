@@ -22,6 +22,7 @@ import { buildEnvelope, type SlotEnvelope } from './variety/envelope'
 import { mergeEnvelope, parseUserHint } from './variety/precedence'
 import { AbortedByUserError, RateLimitedError } from './errors'
 import { callOp } from './ai/client'
+import { DayPlanResultSchema } from './ai/schemas'
 import { z } from 'zod'
 
 export { AbortedByUserError, RateLimitedError } from './errors'
@@ -813,6 +814,14 @@ export class MealPlanEngine {
 
   async generateDay(dayId: string): Promise<DayView> {
     const meals = await db.meals.where('dayId').equals(dayId).sortBy('position')
+    // v1.19.0: try a batched Stage A+B for the whole day in one Anthropic
+    // call. Slots that come back populated start the per-slot pipeline at
+    // Stage C. Slots not returned (or any failure path) flow through Stage A
+    // per-slot below. Pure optimisation — no correctness dependency.
+    await this.generateDayBatched(dayId).catch((err) => {
+      console.warn('[generateDay] batched stage A+B threw, continuing per-slot:', err)
+      return 0
+    })
     await Promise.all(meals.map((m) => this.generateMeal(m.id)))
     const fresh: MealView[] = []
     for (const meal of meals) {
@@ -1027,6 +1036,170 @@ export class MealPlanEngine {
       plannedAt: now(),
     })
     return true
+  }
+
+  /**
+   * v1.19.0 — Day-level batched Stage A+B via meal-engine `day-plan` op.
+   *
+   * Cuts a 7-day plan with all-empty days from ~14 Anthropic calls (Stage A
+   * per slot + Stage B per slot) down to 7 calls (one per day) when the bank
+   * misses most slots. Stage C still runs per-slot (web search + recipe
+   * fetch can't be batched safely).
+   *
+   * Returns the count of slots successfully advanced to `dish_named`. Slots
+   * that come back from the AI are written directly with their ingredient +
+   * dishName + searchKeywords; other slots are left untouched and the
+   * existing per-slot pipeline (`generateMeal`) handles them.
+   *
+   * Falls back gracefully on any failure — the caller's per-slot generation
+   * is invoked next anyway, so this is a pure optimisation, never a
+   * correctness path.
+   */
+  async generateDayBatched(dayId: string): Promise<number> {
+    const day = await db.days.get(dayId)
+    if (!day) return 0
+    const meals = await db.meals.where('dayId').equals(dayId).sortBy('position')
+    if (meals.length === 0) return 0
+
+    const prefs = await this.getPrefs()
+    const recentDishes = await this.getRecentDishNames(day.planId, prefs.recentDishesWindow)
+
+    // Collect candidate slots: empty/error, not locked, not bank-filled, no
+    // user-hint (hints take precedence; per-slot path applies them via
+    // parseUserHint + mergeEnvelope, which day-plan can't easily replicate).
+    type CandidateSlot = {
+      slotId: string
+      mealId: string
+      mealType: string
+      role: string
+      envelope: SlotEnvelopeSnapshot
+    }
+    const candidates: CandidateSlot[] = []
+    const mealsForBatch: { mealId: string; type: string; slots: { slotId: string; role: string; envelope: SlotEnvelopeSnapshot }[] }[] = []
+
+    for (const meal of meals) {
+      const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
+      const mealSlots: { slotId: string; role: string; envelope: SlotEnvelopeSnapshot }[] = []
+      for (const slot of slots) {
+        if (slot.locked) continue
+        if (slot.status === 'ready') continue
+        // Per-slot path handles error/error_rate_limited via its resume logic.
+        if (slot.status === 'error' || slot.status === 'error_rate_limited') continue
+        // Slots already past Stage A — skip; per-slot pipeline picks up.
+        if (slot.status !== 'empty') continue
+        // User hints route through per-slot for full envelope-merge precedence.
+        if (slot.replaceHint || slot.notes) continue
+
+        // Build envelope (same path as generateSlot's Stage A entry).
+        let envelope: SlotEnvelope
+        try {
+          envelope = await buildEnvelope({
+            slotId: slot.id,
+            mealId: meal.id,
+            dayId: day.id,
+            planId: day.planId,
+            slotRole: slot.role,
+            dietaryTags: prefs.dietaryConstraints,
+            dislikedNames: prefs.dislikedIngredients,
+            isWeekend: this.isWeekend(day.date),
+          })
+        } catch {
+          continue
+        }
+        const envSnap: SlotEnvelopeSnapshot = {
+          cuisineId: envelope.cuisineId,
+          cuisineLabel: envelope.cuisineLabel,
+          cuisineRegion: envelope.cuisineRegion,
+          proteinName: envelope.proteinName,
+          proteinFamily: envelope.proteinFamily,
+          styleId: envelope.styleId,
+          styleLabel: envelope.styleLabel,
+          flavorId: envelope.flavorId,
+          flavorLabel: envelope.flavorLabel,
+        }
+        // Persist envelope so the UI / per-slot fallback see the same one.
+        await this.patchSlot(slot.id, { envelope: envSnap })
+        candidates.push({ slotId: slot.id, mealId: meal.id, mealType: meal.type, role: slot.role, envelope: envSnap })
+        mealSlots.push({ slotId: slot.id, role: slot.role, envelope: envSnap })
+      }
+      if (mealSlots.length > 0) {
+        mealsForBatch.push({ mealId: meal.id, type: meal.type, slots: mealSlots })
+      }
+    }
+
+    if (candidates.length < 2) return 0 // Not worth a batch call for 0-1 slots.
+
+    let parsed
+    try {
+      parsed = await callOp(
+        'day-plan',
+        {
+          day: {
+            date: day.date,
+            theme: day.theme,
+            isWeekend: this.isWeekend(day.date),
+          },
+          prefs: {
+            dietaryConstraints: prefs.dietaryConstraints,
+            dislikedIngredients: prefs.dislikedIngredients,
+            pantryItems: prefs.pantryItems,
+          },
+          recentDishes,
+          meals: mealsForBatch,
+        },
+        DayPlanResultSchema,
+      )
+    } catch (err) {
+      // RateLimited or any error → fall back to per-slot pipeline (caller's
+      // generateMeal pass picks these up). Don't throw — this is a pure
+      // optimisation path. Log for diagnostics.
+      console.warn('[generateDayBatched] day-plan failed, falling back to per-slot:', err)
+      return 0
+    }
+
+    // Walk returned slots, write Stage A+B output. Defensive lookup by slotId
+    // (don't trust position even though the op contract says ordered).
+    const byId = new Map<string, CandidateSlot>()
+    for (const c of candidates) byId.set(c.slotId, c)
+    let advanced = 0
+    for (const r of parsed.slots) {
+      const cand = byId.get(r.slotId)
+      if (!cand) continue
+      // Dedup keywords client-side (server already does, but belt+braces).
+      const seenKw = new Set<string>()
+      const keywords: string[] = []
+      for (const k of r.searchKeywords) {
+        const norm = k.trim().toLowerCase()
+        if (!norm || seenKw.has(norm)) continue
+        seenKw.add(norm)
+        keywords.push(k.trim())
+      }
+      const finalKeywords = keywords.length > 0 ? keywords.slice(0, 5) : [r.dishName]
+
+      await this.patchSlot(cand.slotId, {
+        status: 'dish_named',
+        ingredient: r.ingredient,
+        dishName: r.dishName,
+        searchKeywords: finalKeywords,
+      })
+      // Mirror generateSlot's post-Stage-B dishHistory write so subsequent
+      // generations see this slot in their anti-repeat window.
+      await db.dishHistory.add({
+        id: uid(),
+        slotId: cand.slotId,
+        planId: day.planId,
+        dishName: r.dishName,
+        ingredient: r.ingredient,
+        proteinName: cand.envelope.proteinName,
+        proteinFamily: cand.envelope.proteinFamily,
+        cuisineId: cand.envelope.cuisineId,
+        styleId: cand.envelope.styleId,
+        flavorId: cand.envelope.flavorId,
+        plannedAt: now(),
+      })
+      advanced++
+    }
+    return advanced
   }
 
   /**

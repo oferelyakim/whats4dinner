@@ -4,6 +4,7 @@ import type { Slot } from '../types'
 import { useSlot } from '../hooks/useSlot'
 import { getEngine } from '../MealPlanEngine'
 import { cn } from '@/lib/cn'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   slotId: string
@@ -26,6 +27,7 @@ const STAGE_LABEL: Record<Slot['status'], string> = {
 
 export function SlotCard({ slotId, onOpenRecipe }: Props) {
   const slot = useSlot(slotId)
+  const t = useI18n((s) => s.t)
   const [showHint, setShowHint] = useState(false)
   const [hint, setHint] = useState('')
 
@@ -119,7 +121,7 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
           {slot.status === 'queued_server' && (
             <div className="flex items-center gap-1.5 text-sm text-rp-ink-mute">
               <span className="inline-block h-2 w-2 rounded-full bg-rp-brand/40 animate-pulse" />
-              <span className="text-[12px]">Queued — server is filling this slot…</span>
+              <span className="text-[12px]">{t('plan.job.queuedServer')}</span>
             </div>
           )}
 
