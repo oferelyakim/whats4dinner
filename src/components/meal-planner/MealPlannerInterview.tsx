@@ -21,7 +21,7 @@
 // FreeformInput, NumberPairInput, MultiSelectInput, ChoiceInput, ReviewStep,
 // BusyState. Only the main component logic changes.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, RefreshCcw, Sparkles, X } from 'lucide-react'
@@ -486,11 +486,41 @@ export function MealPlannerInterview({
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
+// v2.2.0 — funny thinking sentences that rotate every 2.5s while AI is busy.
+// Adds personality + reassures the user that work is happening, especially
+// when bank-fill is fast (~1s) and Anthropic-fallback is slower (~10s).
+const BUSY_PHRASE_KEYS = [
+  'interview.busy.aisles',
+  'interview.busy.tomatoes',
+  'interview.busy.cards',
+  'interview.busy.grandma',
+  'interview.busy.basil',
+  'interview.busy.butcher',
+  'interview.busy.herbs',
+  'interview.busy.season',
+  'interview.busy.table',
+  'interview.busy.dish',
+] as const
+
 function BusyState({ message }: { message: string }) {
+  const t = useI18n((s) => s.t)
+  const [phraseIdx, setPhraseIdx] = useState(() =>
+    Math.floor(Math.random() * BUSY_PHRASE_KEYS.length),
+  )
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setPhraseIdx((i) => (i + 1) % BUSY_PHRASE_KEYS.length)
+    }, 2500)
+    return () => window.clearInterval(id)
+  }, [])
+  const phrase = t(BUSY_PHRASE_KEYS[phraseIdx])
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3">
+    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
       <RefreshCcw className="h-8 w-8 text-rp-brand animate-spin" />
       <p className="text-rp-ink/70 font-display italic text-base">{message}</p>
+      <p className="text-rp-ink/50 text-sm transition-opacity duration-300" key={phraseIdx}>
+        {phrase}
+      </p>
     </div>
   )
 }
@@ -606,7 +636,17 @@ function QuestionStep({
           }}
         />
       )}
-      {question.kind === 'preset_picker' && <PresetPickerNote />}
+      {question.kind === 'preset_picker' && (
+        <PresetPerDayInput
+          selectedDates={answers.q_days?.selectedDates ?? defaultWeekDates()}
+          value={
+            (draft as Record<string, string | null> | undefined) ??
+            answers.q_preset_per_day ??
+            {}
+          }
+          onChange={(v) => setDraft(v)}
+        />
+      )}
     </div>
   )
 }
@@ -868,12 +908,64 @@ function ChoiceInput({
   )
 }
 
-function PresetPickerNote() {
+function PresetPerDayInput({
+  selectedDates,
+  value,
+  onChange,
+}: {
+  selectedDates: string[]
+  value: Record<string, string | null>
+  onChange: (v: Record<string, string | null>) => void
+}) {
   const t = useI18n((s) => s.t)
+  // v2.2.0: real picker UI replacing the blank PresetPickerNote stub.
+  // Each selected date gets a row with a select dropdown of theme presets.
+  // Default value: null (no preset — user fills the day manually or later).
+  const themes: { id: string; labelKey: string }[] = [
+    { id: 'sys-day-meatless-monday', labelKey: 'interview.theme.meatlessMonday' },
+    { id: 'sys-day-taco-tuesday', labelKey: 'interview.theme.tacoTuesday' },
+    { id: 'sys-day-pasta-wednesday', labelKey: 'interview.theme.pastaWednesday' },
+    { id: 'sys-day-pizza-friday', labelKey: 'interview.theme.pizzaFriday' },
+    { id: 'sys-day-slow-cooker', labelKey: 'interview.theme.slowCooker' },
+    { id: 'sys-day-one-pot', labelKey: 'interview.theme.onePot' },
+    { id: 'sys-day-burger', labelKey: 'interview.theme.burger' },
+    { id: 'sys-day-greek', labelKey: 'interview.theme.greek' },
+    { id: 'sys-day-asian', labelKey: 'interview.theme.asian' },
+  ]
   return (
-    <p className="text-sm text-rp-ink/60">
-      {t('interview.q.presetPerDayHelp')}
-    </p>
+    <div className="space-y-2">
+      <p className="text-sm text-rp-ink/60">{t('interview.q.presetPerDayHelp')}</p>
+      {selectedDates.map((iso) => {
+        const d = new Date(iso + 'T12:00:00')
+        const label = d.toLocaleDateString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        })
+        return (
+          <div
+            key={iso}
+            className="flex items-center justify-between gap-2 rounded-xl border border-rp-ink/10 px-3 py-2.5"
+          >
+            <span className="text-sm text-rp-ink min-w-0 truncate">{label}</span>
+            <select
+              value={value[iso] ?? ''}
+              onChange={(e) => {
+                onChange({ ...value, [iso]: e.target.value || null })
+              }}
+              className="text-sm bg-rp-bg-soft text-rp-ink rounded-lg px-2 py-1.5 border border-rp-ink/10 focus:outline-none focus:ring-1 focus:ring-rp-brand"
+            >
+              <option value="">— {t('interview.preset.none')} —</option>
+              {themes.map((th) => (
+                <option key={th.id} value={th.id}>
+                  {t(th.labelKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 

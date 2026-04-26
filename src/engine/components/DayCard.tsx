@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Plus, Layers, Trash2 } from 'lucide-react'
-import type { DayView } from '../types'
+import type { DayView, Preset, PresetSlot } from '../types'
 import type { InterviewResult } from '../interview/types'
 import { MealCard } from './MealCard'
 import { getEngine } from '../MealPlanEngine'
 import { PresetPicker } from './PresetPicker'
+import { PresetConfirmDialog } from '@/components/meal-planner/PresetConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
 import { useI18n } from '@/lib/i18n'
+import { db } from '../db'
 
 interface Props {
   day: DayView
@@ -24,6 +26,7 @@ interface Props {
 
 export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: Props) {
   const [showPresets, setShowPresets] = useState(false)
+  const [confirmPreset, setConfirmPreset] = useState<Preset | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [theme, setTheme] = useState(day.theme ?? '')
   const engine = getEngine()
@@ -82,7 +85,14 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
       </div>
 
       <button
-        onClick={() => void engine.addMeal(day.id, 'meal')}
+        onClick={() => {
+          // v2.2.0: pick the next missing meal type so Add meal does something
+          // sensible. Cycle: dinner → lunch → breakfast → snack → dinner.
+          const existing = new Set(day.meals.map((m) => m.type.toLowerCase()))
+          const order = ['dinner', 'lunch', 'breakfast', 'snack'] as const
+          const next = order.find((t) => !existing.has(t)) ?? 'dinner'
+          void engine.addMeal(day.id, next)
+        }}
         className="w-full py-2 rounded-lg border border-dashed border-rp-hairline text-xs text-rp-ink-mute hover:bg-rp-bg-soft flex items-center justify-center gap-1"
       >
         <Plus className="h-3 w-3" />
@@ -93,8 +103,50 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
         open={showPresets}
         onOpenChange={setShowPresets}
         scope="day"
-        onPick={(id) => void engine.applyPreset(id, { dayId: day.id })}
+        onPick={(id) => {
+          setShowPresets(false)
+          void db.presets.get(id).then((p) => {
+            if (p) setConfirmPreset(p)
+          })
+        }}
       />
+
+      {confirmPreset && (
+        <PresetConfirmDialog
+          open={confirmPreset !== null}
+          onOpenChange={(open) => { if (!open) setConfirmPreset(null) }}
+          preset={confirmPreset}
+          scope="day"
+          onAddToPlan={async (adjusted) => {
+            // adjusted is { mealShapes: ... } for day scope
+            const { mealShapes } = adjusted as { mealShapes: { type: string; slots: PresetSlot[] }[] }
+            const syntheticId = `__confirm_${confirmPreset.id}`
+            const synthetic: Preset = {
+              ...confirmPreset,
+              id: syntheticId,
+              mealShapes,
+            }
+            await db.presets.put(synthetic)
+            await engine.applyPreset(syntheticId, { dayId: day.id })
+            await db.presets.delete(syntheticId)
+          }}
+          onGenerateAll={async (adjusted) => {
+            const { mealShapes } = adjusted as { mealShapes: { type: string; slots: PresetSlot[] }[] }
+            const syntheticId = `__confirm_${confirmPreset.id}`
+            const synthetic: Preset = {
+              ...confirmPreset,
+              id: syntheticId,
+              mealShapes,
+            }
+            await db.presets.put(synthetic)
+            await engine.applyPreset(syntheticId, { dayId: day.id })
+            await db.presets.delete(syntheticId)
+            // Fire bank/AI fill for every meal that was just created for this day
+            const meals = await db.meals.where('dayId').equals(day.id).toArray()
+            await Promise.all(meals.map((m) => engine.generateMeal(m.id)))
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={showDeleteConfirm}

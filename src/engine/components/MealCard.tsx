@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Plus, Wand2, Layers, Trash2, Eraser } from 'lucide-react'
-import type { MealView } from '../types'
+import type { MealView, Preset, PresetSlot } from '../types'
 import { SlotCard } from './SlotCard'
 import { getEngine } from '../MealPlanEngine'
 import { PresetPicker } from './PresetPicker'
+import { PresetConfirmDialog } from '@/components/meal-planner/PresetConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useI18n } from '@/lib/i18n'
+import { db } from '../db'
 
 interface Props {
   meal: MealView
@@ -15,6 +17,7 @@ interface Props {
 
 export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
   const [showPresets, setShowPresets] = useState(false)
+  const [confirmPreset, setConfirmPreset] = useState<Preset | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const engine = getEngine()
   const t = useI18n((s) => s.t)
@@ -79,8 +82,53 @@ export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
         open={showPresets}
         onOpenChange={setShowPresets}
         scope="meal"
-        onPick={(id) => void engine.applyPreset(id, { mealId: meal.id })}
+        onPick={(id) => {
+          setShowPresets(false)
+          // Resolve the preset from Dexie so we can pass the full shape to the
+          // confirm dialog without fetching again inside the dialog.
+          void db.presets.get(id).then((p) => {
+            if (p) setConfirmPreset(p)
+          })
+        }}
       />
+
+      {confirmPreset && (
+        <PresetConfirmDialog
+          open={confirmPreset !== null}
+          onOpenChange={(open) => { if (!open) setConfirmPreset(null) }}
+          preset={confirmPreset}
+          scope="meal"
+          onAddToPlan={async (adjusted) => {
+            // adjusted is PresetSlot[] for meal scope
+            const slots = adjusted as PresetSlot[]
+            // Use a synthetic copy of the preset with the adjusted slots so
+            // applyPreset sees the user's choices without mutating the stored preset.
+            const syntheticId = `__confirm_${confirmPreset.id}`
+            const synthetic: Preset = {
+              ...confirmPreset,
+              id: syntheticId,
+              slots,
+            }
+            await db.presets.put(synthetic)
+            await engine.applyPreset(syntheticId, { mealId: meal.id })
+            await db.presets.delete(syntheticId)
+          }}
+          onGenerateAll={async (adjusted) => {
+            const slots = adjusted as PresetSlot[]
+            const syntheticId = `__confirm_${confirmPreset.id}`
+            const synthetic: Preset = {
+              ...confirmPreset,
+              id: syntheticId,
+              slots,
+            }
+            await db.presets.put(synthetic)
+            await engine.applyPreset(syntheticId, { mealId: meal.id })
+            await db.presets.delete(syntheticId)
+            // Fire bank/AI fill for all slots in the meal
+            void engine.generateMeal(meal.id)
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={showDeleteConfirm}

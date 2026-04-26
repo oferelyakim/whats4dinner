@@ -1405,12 +1405,33 @@ export class MealPlanEngine {
           const key = `${iso}|${meal.type}|${slot.role}|${idx}`
           const candidates = candidatesByKey.get(key) ?? []
 
+          // v2.2.0: respect the slot's existing cuisine constraint (set by
+          // a preset like "Greek night"). If slot.notes parses to a cuisine,
+          // skip AI candidates whose own cuisine hint conflicts. The user
+          // reported: applied Greek preset, AI proposed Korean kimchi +
+          // Japanese katsu — those override slot.notes='greek' via the
+          // replaceHint chain. Filtering here prevents that.
+          const slotCuisineHint = slot.notes
+            ? parseUserHint(slot.notes).cuisineId
+            : undefined
+
           let filled = false
           for (const candidate of candidates) {
+            if (slotCuisineHint) {
+              const candidateCuisineHint = parseUserHint(candidate).cuisineId
+              if (candidateCuisineHint && candidateCuisineHint !== slotCuisineHint) {
+                continue
+              }
+            }
             // Set the candidate as a one-shot hint so tryFillSlotFromBank's
             // user-hint parser routes the cuisine/protein constraint into the
-            // bank query.
-            await this.patchSlot(slot.id, { replaceHint: candidate })
+            // bank query. (When slotCuisineHint is set, prepend it so the
+            // bank query keeps the preset's cuisine in addition to whatever
+            // the candidate adds.)
+            const hint = slotCuisineHint
+              ? `${slot.notes} ${candidate}`
+              : candidate
+            await this.patchSlot(slot.id, { replaceHint: hint })
             filled = await this.tryFillSlotFromBank(
               slot.id,
               dietaryConstraints,
@@ -1424,7 +1445,8 @@ export class MealPlanEngine {
           }
           if (!filled) {
             // Reset hint (so it doesn't taint future generations) and queue
-            // through the residual path.
+            // through the residual path. slot.notes (preset cuisine) stays
+            // in place so the worker's envelope still respects it.
             await this.patchSlot(slot.id, { replaceHint: undefined })
             misses.push(slot.id)
           }
@@ -1930,6 +1952,12 @@ export class MealPlanEngine {
 
   private async touchPlan(planId: string): Promise<void> {
     await db.plans.update(planId, { updatedAt: now() })
+    // v2.2.0: emit plan:updated so usePlan() re-renders. Without this,
+    // addMeal / removeMeal / removeDay / addDay / clearMealPreset / setDayTheme
+    // all silently mutate the DB but the UI stays stale until something else
+    // triggers a refresh.
+    const view = await this.getPlan(planId)
+    if (view) this.bus.emit('plan:updated', view)
   }
 }
 
