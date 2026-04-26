@@ -45,11 +45,14 @@ export function RecipeView({ recipeId, onClose }: Props) {
                 <Dialog.Title className="font-display italic text-2xl text-rp-ink">
                   {recipe.title}
                 </Dialog.Title>
-                <div className="flex items-center gap-2 mt-1.5 text-xs text-rp-ink-mute">
-                  {recipe.source === 'ai-fallback' ? (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rp-brand/10 text-rp-brand">
+                <div className="flex items-center gap-2 mt-1.5 text-xs text-rp-ink-mute flex-wrap">
+                  {recipe.source === 'composed' || recipe.source === 'ai-fallback' ? (
+                    <span
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rp-brand/10 text-rp-brand"
+                      title="Web search couldn't find a match for this dish, so AI composed a recipe based on the dish name and your preferences. Use 'Replace' to try again."
+                    >
                       <Sparkles className="h-3 w-3" />
-                      AI-generated
+                      Composed by AI
                     </span>
                   ) : (
                     <>

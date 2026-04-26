@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, RefreshCw, Loader2, AlertCircle, Unlock, Sparkles, X } from 'lucide-react'
+import { Lock, RefreshCw, Loader2, AlertCircle, Clock, Unlock, Sparkles, X } from 'lucide-react'
 import type { Slot } from '../types'
 import { useSlot } from '../hooks/useSlot'
 import { getEngine } from '../MealPlanEngine'
@@ -20,6 +20,7 @@ const STAGE_LABEL: Record<Slot['status'], string> = {
   recipe_fetched: 'Recipe fetched',
   ready: '',
   error: '',
+  error_rate_limited: '',
 }
 
 export function SlotCard({ slotId, onOpenRecipe }: Props) {
@@ -50,9 +51,11 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
         'rounded-xl border p-3 bg-rp-card transition-all',
         slot.status === 'error'
           ? 'border-danger/40 bg-danger/5'
-          : slot.locked
-            ? 'border-rp-brand/40'
-            : 'border-rp-hairline',
+          : slot.status === 'error_rate_limited'
+            ? 'border-amber-400/40 bg-amber-50/50'
+            : slot.locked
+              ? 'border-rp-brand/40'
+              : 'border-rp-hairline',
       )}
     >
       <div className="flex items-start gap-2">
@@ -100,7 +103,21 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
             </div>
           )}
 
-          {slot.status !== 'ready' && slot.status !== 'error' && (
+          {slot.status === 'error_rate_limited' && (
+            <div className="flex items-start gap-1.5 text-sm text-amber-700">
+              <Clock className="h-4 w-4 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium">Rate-limited</p>
+                <p className="text-[11px] text-amber-700/80 break-words">
+                  {slot.errorMessage ?? 'Auto-resuming shortly…'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {slot.status !== 'ready' &&
+            slot.status !== 'error' &&
+            slot.status !== 'error_rate_limited' && (
             <div className="flex items-center gap-1.5 text-sm text-rp-ink-mute">
               {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               <span>

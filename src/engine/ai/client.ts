@@ -1,11 +1,22 @@
 import { supabase } from '@/services/supabase'
 import { z } from 'zod'
-import { AbortedByUserError } from '../errors'
+import { AbortedByUserError, RateLimitedError } from '../errors'
 
 export interface MealEngineCallResult<T> {
   ok: boolean
   data?: T
   error?: string
+}
+
+/**
+ * v1.16.0: edge function now returns `_meta` with token usage so the
+ * client-side TokenBudgetQueue can throttle proactively.
+ */
+export interface CallMeta {
+  tokensIn?: number
+  tokensOut?: number
+  retryAfterMs?: number
+  attempts?: number
 }
 
 function getSupabaseFnUrl(): string {
@@ -46,6 +57,26 @@ async function call(op: string, body: unknown, signal?: AbortSignal): Promise<un
       throw new AbortedByUserError()
     }
     throw err
+  }
+
+  // v1.16.0: 429 has a structured body — surface retryAfterMs so the engine
+  // can mark the slot as `error_rate_limited` and auto-resume after backoff.
+  if (res.status === 429) {
+    const text = await res.text().catch(() => '')
+    let retryAfterMs = 0
+    try {
+      const parsed = JSON.parse(text) as { retryAfterMs?: number; message?: string }
+      retryAfterMs = parsed.retryAfterMs ?? 0
+    } catch {
+      // header fallback
+      const headerVal = res.headers.get('retry-after')
+      if (headerVal) {
+        const seconds = Number(headerVal)
+        if (Number.isFinite(seconds)) retryAfterMs = seconds * 1000
+      }
+    }
+    if (retryAfterMs <= 0) retryAfterMs = 5000
+    throw new RateLimitedError(`meal-engine ${op} rate-limited`, retryAfterMs)
   }
 
   if (!res.ok) {

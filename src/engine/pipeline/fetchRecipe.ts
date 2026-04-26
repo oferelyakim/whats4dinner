@@ -2,19 +2,37 @@ import { callOp } from '../ai/client'
 import { z } from 'zod'
 import type { Recipe } from '../types'
 
+// Lenient on numeric + url fields — see schemas.ts for rationale.
+// `composed` is the v1.16.0 last-resort source flag (Sonnet-generated when
+// web search yields nothing usable).
+const SafeImageUrl = z
+  .string()
+  .url()
+  .refine(
+    (s) => {
+      const lower = s.toLowerCase()
+      if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('file:')) {
+        return false
+      }
+      if (lower.startsWith('data:') && s.length > 16_000) return false
+      return true
+    },
+    { message: 'unsafe scheme' },
+  )
+
 const ServerRecipeSchema = z.object({
   title: z.string().min(1),
-  source: z.enum(['web', 'ai-fallback']),
-  url: z.string().url().optional(),
+  source: z.enum(['web', 'ai-fallback', 'composed']),
+  url: z.string().url().optional().catch(undefined),
   sourceDomain: z.string().optional(),
   ingredients: z
     .array(z.object({ item: z.string().min(1), quantity: z.string().optional() }))
     .min(1),
   steps: z.array(z.string().min(1)).min(1),
-  prepTimeMin: z.number().int().nonnegative().optional(),
-  cookTimeMin: z.number().int().nonnegative().optional(),
-  servings: z.number().int().positive().optional(),
-  imageUrl: z.string().url().optional(),
+  prepTimeMin: z.coerce.number().int().nonnegative().max(1440).optional().catch(undefined),
+  cookTimeMin: z.coerce.number().int().nonnegative().max(1440).optional().catch(undefined),
+  servings: z.coerce.number().int().positive().max(100).optional().catch(undefined),
+  imageUrl: SafeImageUrl.optional().catch(undefined),
 })
 
 const FetchResponseSchema = z.object({

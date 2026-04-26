@@ -8,6 +8,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { SkinProvider } from '@/components/SkinProvider'
 import { ReviewPrompt } from '@/components/ReviewPrompt'
 import { supabase } from '@/services/supabase'
+import { probeEdgeVersions } from '@/services/edgeVersionProbe'
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -81,6 +82,14 @@ export default function App() {
     }
     window.addEventListener('online', handleOnline)
     return () => window.removeEventListener('online', handleOnline)
+  }, [])
+
+  useEffect(() => {
+    // v1.16.0: ping each edge function once on boot so a stale Supabase
+    // deploy gets surfaced before the user clicks an AI button. Result is
+    // stored in localStorage; AI dialogs read it for a "server-version
+    // mismatch" banner. Silent on success.
+    void probeEdgeVersions()
   }, [])
 
   useEffect(() => {

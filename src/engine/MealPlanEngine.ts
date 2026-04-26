@@ -20,9 +20,9 @@ import { generateDish } from './pipeline/generateDish'
 import { findAndFetchRecipe } from './pipeline/fetchRecipe'
 import { buildEnvelope, type SlotEnvelope } from './variety/envelope'
 import { mergeEnvelope, parseUserHint } from './variety/precedence'
-import { AbortedByUserError } from './errors'
+import { AbortedByUserError, RateLimitedError } from './errors'
 
-export { AbortedByUserError } from './errors'
+export { AbortedByUserError, RateLimitedError } from './errors'
 
 const uid = () => crypto.randomUUID()
 const now = () => Date.now()
@@ -38,7 +38,24 @@ const DEFAULT_PREFS: UserPreferences = {
 // ─── Constants for reliability watchdog ────────────────────────────────────
 
 const STUCK_THRESHOLD_MS = 120_000 // 2 minutes — anything older auto-resets
-const MAX_CONCURRENT_GENERATIONS = 2
+
+/**
+ * v1.16.0: down from 2 → 1.
+ * The user's Anthropic Tier 1 cap is 50K input tokens/min on Haiku 4.5.
+ * Sonnet (used by composeFallbackRecipe) has a separate 50K/min budget so
+ * mixing models actually doubles the effective throughput on a fresh plan.
+ * One-at-a-time also makes retry-after handling sane: a single back-off
+ * pauses the entire pipeline cleanly, no straggler races.
+ */
+const MAX_CONCURRENT_GENERATIONS = 1
+
+/**
+ * v1.16.0: when the queue receives a RateLimitedError, every other queued
+ * job is paused until this timestamp. Set by the catch handler in
+ * `queueGenerate`; consulted by `pump`. Slots-in-flight that already started
+ * before this is set keep running — they have their own per-call retry.
+ */
+let queuePausedUntil = 0
 
 export class MealPlanEngine {
   bus = new EventBus()
@@ -417,6 +434,23 @@ export class MealPlanEngine {
     if (slot.status === 'ready') return slot
     if (slot.locked) return slot
 
+    // v1.16.0: when resuming after a rate-limit pause, restore the slot to
+    // its last-good-state so Stage A/B/C entry conditions trigger correctly.
+    // The errorStage tells us which stage was about to run when we got 429'd.
+    if (slot.status === 'error_rate_limited') {
+      const resumeStatus =
+        slot.errorStage === 'ingredient'
+          ? 'empty'
+          : slot.errorStage === 'dish'
+            ? 'ingredient_chosen'
+            : 'dish_named'
+      slot = await this.patchSlot(slotId, {
+        status: resumeStatus,
+        errorMessage: undefined,
+        errorStage: undefined,
+      })
+    }
+
     // If a generation is already in flight for this slot, skip — let the
     // running call complete. (Tests rely on idempotency at the status level
     // so we don't actually return early on `generating_*`.)
@@ -511,6 +545,10 @@ export class MealPlanEngine {
             })
             return slot
           }
+          if (err instanceof RateLimitedError) {
+            slot = await this.handleRateLimited(slotId, 'ingredient', err)
+            return slot
+          }
           const message = err instanceof Error ? err.message : String(err)
           slot = await this.patchSlot(slotId, {
             status: 'error',
@@ -574,6 +612,10 @@ export class MealPlanEngine {
             })
             return slot
           }
+          if (err instanceof RateLimitedError) {
+            slot = await this.handleRateLimited(slotId, 'dish', err)
+            return slot
+          }
           const message = err instanceof Error ? err.message : String(err)
           slot = await this.patchSlot(slotId, {
             status: 'error',
@@ -621,6 +663,10 @@ export class MealPlanEngine {
               status: 'dish_named',
               generatingStartedAt: undefined,
             })
+            return slot
+          }
+          if (err instanceof RateLimitedError) {
+            slot = await this.handleRateLimited(slotId, 'recipe', err)
             return slot
           }
           const message = err instanceof Error ? err.message : String(err)
@@ -704,10 +750,51 @@ export class MealPlanEngine {
   }
 
   private pump(): void {
+    // v1.16.0: when a 429 hit any slot recently, pause the queue entirely
+    // until `queuePausedUntil`. Slot already in flight finish (their per-call
+    // retry-after handles the wait); queue resumes via setTimeout.
+    const now = Date.now()
+    if (now < queuePausedUntil) {
+      const wait = queuePausedUntil - now
+      setTimeout(() => this.pump(), wait + 50)
+      return
+    }
     while (this.inflight < MAX_CONCURRENT_GENERATIONS && this.queue.length > 0) {
       const job = this.queue.shift()!
       void job()
     }
+  }
+
+  /**
+   * v1.16.0: when a Stage hits a true Anthropic 429, mark the slot
+   * `error_rate_limited` (preserving any earlier stage outputs), pause the
+   * queue globally, and schedule an automatic resume after the retry-after
+   * window. The user sees a "rate-limited — retrying in Xs" countdown
+   * instead of a hard error they have to retry by hand.
+   */
+  private async handleRateLimited(
+    slotId: string,
+    stage: ErrorStage,
+    err: RateLimitedError,
+  ): Promise<Slot> {
+    const wait = Math.max(2000, Math.min(60_000, err.retryAfterMs))
+    queuePausedUntil = Math.max(queuePausedUntil, Date.now() + wait)
+    const slot = await this.patchSlot(slotId, {
+      status: 'error_rate_limited',
+      errorStage: stage,
+      errorMessage: `Rate-limited; retrying in ${Math.ceil(wait / 1000)}s`,
+      generatingStartedAt: undefined,
+    })
+    this.emitError(slotId, stage, slot.errorMessage ?? 'rate_limited', 0)
+    // Schedule auto-resume — generateSlot is idempotent and resumes from the
+    // last successful stage (Stage A retries from empty; Stage B from
+    // ingredient_chosen; Stage C from dish_named).
+    setTimeout(() => {
+      // Re-enqueue rather than calling directly so the global concurrency cap
+      // and queuePausedUntil checks still apply.
+      void this.queueGenerate(slotId)
+    }, wait + 250)
+    return slot
   }
 
   /** Generates all empty/error/intermediate slots in a meal in parallel-with-cap, skipping locked + ready. */

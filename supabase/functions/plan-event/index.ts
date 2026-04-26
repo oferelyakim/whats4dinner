@@ -1,10 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { loadCircleContext } from '../_shared/circle-context.ts'
+import { anthropicWithRetry, AnthropicRateLimitError } from '../_shared/anthropic.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
 }
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
@@ -13,6 +15,46 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const INPUT_COST_PER_1M = 1.00
 const OUTPUT_COST_PER_1M = 5.00
+const APP_VERSION = '1.16.0'
+const DEPLOYED_AT = '2026-04-25T00:00:00Z'
+
+// v1.16.0: minimum brief length to attempt AI planning. Below this, return
+// a clarifying question without burning a Claude call.
+const MIN_BRIEF_CHARS = 20
+
+/**
+ * v1.16.0: deterministic stub plan when Anthropic returns no tool_use.
+ * Better than throwing — the user gets *something* and a Refresh button.
+ * Quantities scale linearly off headcount; copy is intentionally minimal.
+ */
+function buildStubPlan(opts: { headcountAdults: number; headcountKids: number; budget: string; title: string }) {
+  const total = opts.headcountAdults + opts.headcountKids
+  const safeTotal = Math.max(1, total)
+  const dishCount = Math.max(1, Math.ceil(safeTotal / 5))
+  return {
+    dishes: Array.from({ length: dishCount }).map((_, i) => ({
+      name: i === 0 ? 'Main course' : i === dishCount - 1 ? 'Dessert' : 'Side dish',
+      type: i === 0 ? 'main' : i === dishCount - 1 ? 'dessert' : 'side',
+      claimable: true,
+      notes: `Serves ~${Math.ceil(safeTotal / dishCount)}`,
+    })),
+    supplies: [
+      { name: 'Plates', quantity: `${safeTotal}`, claimable: false },
+      { name: 'Cups', quantity: `${safeTotal * 2}`, claimable: false },
+      { name: 'Napkins', quantity: `${safeTotal * 2}`, claimable: false },
+      { name: 'Utensils', quantity: `${safeTotal} sets`, claimable: false },
+    ],
+    tasks: [
+      { title: 'Send invites and confirm RSVPs', due_when: '2 weeks before', assignable: true },
+      { title: 'Shop for groceries', due_when: 'day before', assignable: true },
+      { title: 'Set up space and plate food', due_when: 'day of', assignable: false },
+    ],
+    activities: [],
+    timeline_summary: 'AI did not respond — this is a minimum starter plan. Hit refresh to try again.',
+    clarifying_question: null,
+    _fallback: true,
+  }
+}
 
 // ─── Tool Definition ─────────────────────────────────────────────────────────
 
@@ -141,7 +183,27 @@ For any social event, suggest 3–6 activities tuned to event type, headcount, a
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (!ANTHROPIC_API_KEY) return new Response(JSON.stringify({ error: 'AI not configured' }), { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
+  // v1.16.0: health probe so the client can detect a stale Supabase deploy.
+  // The v1.15.7 "still failing after fix" bug was exactly this: code fixed
+  // in source, never deployed. Now we can spot the gap from the client.
+  if (req.method === 'GET') {
+    const url = new URL(req.url)
+    if (url.searchParams.get('ping') === '1') {
+      return new Response(
+        JSON.stringify({
+          fn: 'plan-event',
+          version: APP_VERSION,
+          model: MODEL,
+          deployedAt: DEPLOYED_AT,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+    return new Response('Method Not Allowed', { status: 405, headers: corsHeaders })
+  }
+
+  if (!ANTHROPIC_API_KEY) return new Response(JSON.stringify({ error: 'AI not configured', code: 'NO_AI_KEY' }), { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
   try {
     const authHeader = req.headers.get('Authorization')
@@ -177,6 +239,37 @@ serve(async (req) => {
     // Load circle purpose + structured context (event details captured at setup, diet, etc.)
     const { block: circleContextBlock } = await loadCircleContext(supabase, circleId)
 
+    // v1.16.0: input-validation short-circuit. If the brief is too sparse to
+    // generate a useful plan, ask a clarifying question instead of burning
+    // a Claude call. Counts description + keyRequirements + event.description.
+    const briefLen = (description ?? '').length + (keyRequirements ?? '').length + (event?.description ?? '').length
+    if (briefLen < MIN_BRIEF_CHARS) {
+      const stubPlan = {
+        dishes: [],
+        supplies: [],
+        tasks: [],
+        activities: [],
+        timeline_summary: '',
+        clarifying_question: 'Tell me more — how many guests, any dietary needs, indoor or outdoor, and what kind of vibe (formal/casual)?',
+      }
+      return new Response(
+        JSON.stringify({
+          plan: stubPlan,
+          _ai_usage: {
+            model: 'none',
+            tokens_in: 0,
+            tokens_out: 0,
+            cost_usd: 0,
+            session_id: sessionId,
+            feature_context: featureContext,
+            scope: 'plan',
+            short_circuited: 'brief_too_short',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     // Build user message
     const totalHeadcount = (headcountAdults || event?.headcount_adults || 0) + (headcountKids || event?.headcount_kids || 0)
 
@@ -190,35 +283,35 @@ Budget: ${budget}
 Help needed: ${helpNeeded.length > 0 ? helpNeeded.join(', ') : 'general planning'}
 Key requirements: ${keyRequirements || 'none specified'}`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 4096,
-        system: EVENT_PLANNING_GUIDE,
-        tools: [EVENT_PLAN_TOOL],
-        tool_choice: { type: 'tool', name: 'generate_event_plan' },
-        messages: [{ role: 'user', content: userMessage }],
-      }),
+    // v1.16.0: shared retry helper replaces raw fetch — gives us 429/5xx
+    // retry + retry-after honoring + structured rate-limit error class.
+    const result = await anthropicWithRetry(ANTHROPIC_API_KEY, {
+      model: MODEL,
+      max_tokens: 4096,
+      system: EVENT_PLANNING_GUIDE,
+      tools: [EVENT_PLAN_TOOL],
+      tool_choice: { type: 'tool', name: 'generate_event_plan' },
+      messages: [{ role: 'user', content: userMessage }],
     })
 
-    if (!response.ok) {
-      const errBody = await response.text()
-      let errMsg: string
-      try { errMsg = JSON.stringify(JSON.parse(errBody)) } catch { errMsg = errBody }
-      throw new Error(`Claude API error ${response.status}: ${errMsg}`)
+    const toolUse = result.content?.find((block) => block.type === 'tool_use')
+    let plan: Record<string, unknown>
+    let isFallback = false
+    if (!toolUse || !toolUse.input) {
+      // v1.16.0: deterministic stub instead of throwing — user gets a usable
+      // starter plan with `_fallback: true`, can hit Refresh to try again.
+      console.warn('[plan-event] no tool_use; returning stub plan')
+      plan = buildStubPlan({
+        headcountAdults,
+        headcountKids,
+        budget,
+        title: event?.title ?? 'event',
+      })
+      isFallback = true
+    } else {
+      plan = toolUse.input
     }
 
-    const result = await response.json()
-    const toolUse = result.content?.find((block: { type: string }) => block.type === 'tool_use')
-    if (!toolUse) throw new Error('Claude did not call generate_event_plan tool')
-
-    const plan = toolUse.input
     const tokensIn = result.usage?.input_tokens || 0
     const tokensOut = result.usage?.output_tokens || 0
     const cost = (tokensIn / 1_000_000) * INPUT_COST_PER_1M + (tokensOut / 1_000_000) * OUTPUT_COST_PER_1M
@@ -234,11 +327,31 @@ Key requirements: ${keyRequirements || 'none specified'}`
           session_id: sessionId,
           feature_context: featureContext,
           scope: 'plan',
+          ...(isFallback ? { fallback: 'no_tool_use' } : {}),
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err: unknown) {
+    // v1.16.0: surface rate-limit errors with status 429 + retry-after.
+    if (err instanceof AnthropicRateLimitError) {
+      console.warn(`[plan-event] rate-limited; retry after ${err.retryAfterMs}ms`)
+      return new Response(
+        JSON.stringify({
+          error: 'rate_limited',
+          message: err.message,
+          retryAfterMs: err.retryAfterMs,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'retry-after': String(Math.ceil(err.retryAfterMs / 1000)),
+          },
+        },
+      )
+    }
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

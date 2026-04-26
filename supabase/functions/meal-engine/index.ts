@@ -15,16 +15,30 @@
 //   - "extract" (Stage D direct): explicit fallback extraction from supplied HTML
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import {
+  anthropicWithRetry,
+  AnthropicRateLimitError,
+  type AnthropicResponse,
+  type AnthropicCallMeta,
+} from '../_shared/anthropic.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
 }
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const MODEL = 'claude-haiku-4-5-20251001'
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+/**
+ * v1.16.0: composed-recipe fallback uses Sonnet 4.5 for higher quality on the
+ * worst-case path (no web recipe found). Marginal cost ~$0.018 extra per
+ * fallback slot — worth it because this is the user's last-resort experience.
+ * Override with COMPOSE_MODEL env var if needed (e.g. to revert to Haiku).
+ */
+const COMPOSE_MODEL = Deno.env.get('COMPOSE_MODEL') ?? 'claude-sonnet-4-5-20250929'
+const APP_VERSION = '1.16.0'
+const DEPLOYED_AT = '2026-04-25T00:00:00Z'
 
 // ─── Anthropic helpers ────────────────────────────────────────────────────
 
@@ -34,52 +48,17 @@ interface ToolDef {
   input_schema: Record<string, unknown>
 }
 
-interface AnthropicContentBlock {
-  type: string
-  text?: string
-  name?: string
-  input?: Record<string, unknown>
-  id?: string
-}
-
-interface AnthropicResponse {
-  content: AnthropicContentBlock[]
-  stop_reason: string
-  usage: { input_tokens: number; output_tokens: number }
-}
-
-const RETRY_DELAYS_MS = [0, 500, 1500]
-
+/**
+ * v1.16.0: thin wrapper around the shared `anthropicWithRetry` so the rest
+ * of this file stays unchanged. Surfaces rate-limit awareness through the
+ * module-level `lastCallMeta` so the dispatcher can include it in `_meta`
+ * on the response (clients use this to throttle).
+ */
+let lastCallMeta: AnthropicCallMeta | null = null
 async function anthropic(body: Record<string, unknown>): Promise<AnthropicResponse> {
-  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured')
-
-  let lastErr: unknown = null
-  for (let i = 0; i < RETRY_DELAYS_MS.length; i++) {
-    if (RETRY_DELAYS_MS[i] > 0) {
-      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[i]))
-    }
-    try {
-      const res = await fetch(ANTHROPIC_URL, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(body),
-      })
-      if (res.ok) return (await res.json()) as AnthropicResponse
-      const status = res.status
-      const text = await res.text().catch(() => '')
-      lastErr = new Error(`Anthropic ${status}: ${text}`)
-      // Non-retriable client errors short-circuit.
-      if (status !== 429 && status !== 529 && status < 500) throw lastErr
-    } catch (err) {
-      lastErr = err
-      if (i === RETRY_DELAYS_MS.length - 1) throw err
-    }
-  }
-  throw lastErr instanceof Error ? lastErr : new Error('Anthropic call failed')
+  const result = await anthropicWithRetry(ANTHROPIC_API_KEY ?? '', body)
+  lastCallMeta = result._meta
+  return result
 }
 
 function pickToolUse(resp: AnthropicResponse, name: string): Record<string, unknown> | null {
@@ -432,7 +411,7 @@ async function fetchHtml(url: string, timeoutMs = 8000): Promise<string | null> 
   }
 }
 
-function extractJsonLdRecipe(html: string): ExtractedRecipe | null {
+function extractJsonLdRecipe(html: string, baseUrl?: string): ExtractedRecipe | null {
   const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
   let m: RegExpExecArray | null
   while ((m = re.exec(html)) !== null) {
@@ -446,7 +425,7 @@ function extractJsonLdRecipe(html: string): ExtractedRecipe | null {
         const t = item['@type']
         const isRecipe = t === 'Recipe' || (Array.isArray(t) && (t as string[]).includes('Recipe'))
         if (!isRecipe) continue
-        const result = normalizeJsonLdRecipe(item)
+        const result = normalizeJsonLdRecipe(item, baseUrl)
         if (result) return result
       }
     } catch {
@@ -465,14 +444,162 @@ function asString(v: unknown): string | undefined {
   return undefined
 }
 
+/**
+ * v1.16.0: image URL normalizer that tolerates the messy reality of JSON-LD.
+ * Handles strings, `{url|contentUrl}` objects, arrays, relative + protocol-relative
+ * paths, oversized data: URIs (>16KB are dropped — they bloat Dexie). Final
+ * value is always either a valid absolute URL string or `undefined` — never throws.
+ */
+const MAX_DATA_URI_BYTES = 16_000
+function normalizeImageUrl(v: unknown, baseUrl?: string): string | undefined {
+  // Unwrap arrays — JSON-LD often returns image as `[{url:'...'}, '...']`.
+  if (Array.isArray(v)) {
+    for (const item of v) {
+      const out = normalizeImageUrl(item, baseUrl)
+      if (out) return out
+    }
+    return undefined
+  }
+  // Unwrap `{url|contentUrl}` objects.
+  let raw: unknown = v
+  if (raw && typeof raw === 'object') {
+    const r = raw as Record<string, unknown>
+    raw = (typeof r.url === 'string' && r.url) || (typeof r.contentUrl === 'string' && r.contentUrl) || undefined
+  }
+  if (typeof raw !== 'string') return undefined
+  let s = raw.trim()
+  if (!s) return undefined
+  // Drop oversized data URIs (would bloat Dexie + hit network when rendered).
+  if (s.startsWith('data:') && s.length > MAX_DATA_URI_BYTES) return undefined
+  // Drop unsafe schemes — only http(s), data:, blob: are allowed.
+  if (s.startsWith('javascript:') || s.startsWith('vbscript:') || s.startsWith('file:')) return undefined
+  // Resolve protocol-relative `//cdn/foo.jpg` → `https://cdn/foo.jpg`.
+  if (s.startsWith('//')) s = `https:${s}`
+  // Resolve relative paths against the recipe page URL.
+  if (baseUrl && !/^[a-z][a-z0-9+\-.]*:/i.test(s) && !s.startsWith('data:') && !s.startsWith('blob:')) {
+    try {
+      s = new URL(s, baseUrl).toString()
+    } catch {
+      return undefined
+    }
+  }
+  // Final validation.
+  try {
+    const u = new URL(s)
+    if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'data:' || u.protocol === 'blob:') {
+      return s
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * v1.16.0: extended duration parser. Accepts ISO-8601 (`PT1H30M`), human
+ * (`30 minutes`, `1 hr 15 min`), `H:MM` clock format, and plain numbers
+ * (treated as minutes). Clamps to [0, 24h]; returns `undefined` for garbage.
+ */
 function isoDurationToMin(iso: unknown): number | undefined {
+  if (typeof iso === 'number' && Number.isFinite(iso)) {
+    const min = Math.floor(iso)
+    return min > 0 && min <= 1440 ? min : undefined
+  }
   if (typeof iso !== 'string') return undefined
-  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/)
+  const s = iso.trim()
+  if (!s) return undefined
+  // ISO-8601 PT...
+  const isoMatch = s.match(/^P(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+)S)?)?$/i)
+  if (isoMatch) {
+    const h = isoMatch[1] ? parseFloat(isoMatch[1]) : 0
+    const m = isoMatch[2] ? parseFloat(isoMatch[2]) : 0
+    const total = Math.round(h * 60 + m)
+    return total > 0 && total <= 1440 ? total : undefined
+  }
+  // H:MM clock format.
+  const clockMatch = s.match(/^(\d+):(\d{1,2})$/)
+  if (clockMatch) {
+    const total = parseInt(clockMatch[1], 10) * 60 + parseInt(clockMatch[2], 10)
+    return total > 0 && total <= 1440 ? total : undefined
+  }
+  // Human format: "1 hr 30 min", "30 minutes", "2 hours", "90m".
+  let total = 0
+  const hMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i)
+  if (hMatch) total += Math.round(parseFloat(hMatch[1]) * 60)
+  const mMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)\b/i)
+  if (mMatch) total += Math.round(parseFloat(mMatch[1]))
+  if (total > 0) return total <= 1440 ? total : undefined
+  // Bare number → minutes.
+  const num = s.match(/^(\d+(?:\.\d+)?)$/)
+  if (num) {
+    const min = Math.round(parseFloat(num[1]))
+    return min > 0 && min <= 1440 ? min : undefined
+  }
+  return undefined
+}
+
+/**
+ * v1.16.0: every return path through opFindRecipe / opExtract / compose should
+ * pass through this function so the same imageUrl/time/servings normalization
+ * applies regardless of source. Single source of truth — keeps client-side
+ * zod transforms unloaded for the happy path.
+ */
+type RecipePayload = ExtractedRecipe & {
+  source: 'web' | 'ai-fallback' | 'composed'
+  url?: string
+  sourceDomain?: string
+}
+function repairAndValidate<T extends RecipePayload>(recipe: T, baseUrl?: string): T {
+  const out: T = { ...recipe }
+  // imageUrl — repair against the source page when relative.
+  out.imageUrl = normalizeImageUrl(out.imageUrl, baseUrl ?? out.url)
+  // times + servings — re-clamp in case AI extraction returned junk.
+  out.prepTimeMin = isoDurationToMin(out.prepTimeMin)
+  out.cookTimeMin = isoDurationToMin(out.cookTimeMin)
+  out.servings = parseServings(out.servings)
+  // sourceUrl — must be a valid http(s) URL or absent.
+  if (out.url) {
+    try {
+      const u = new URL(out.url)
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') out.url = undefined
+    } catch {
+      out.url = undefined
+    }
+  }
+  // Drop empty quantity strings (clutter, no signal).
+  if (Array.isArray(out.ingredients)) {
+    out.ingredients = out.ingredients
+      .filter((i) => i && typeof i === 'object' && typeof i.item === 'string' && i.item.trim().length > 0)
+      .map((i) => {
+        const q = typeof i.quantity === 'string' ? i.quantity.trim() : undefined
+        return q ? { item: i.item.trim(), quantity: q } : { item: i.item.trim() }
+      })
+  }
+  if (Array.isArray(out.steps)) {
+    out.steps = out.steps.filter((s) => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim())
+  }
+  return out
+}
+
+/**
+ * v1.16.0: forgiving servings parser. Accepts `4`, `"4-6"`, `"makes 12"`,
+ * `"serves 4 people"`, arrays. Clamps to [1, 100].
+ */
+function parseServings(v: unknown): number | undefined {
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    const n = Math.floor(v)
+    return n >= 1 && n <= 100 ? n : undefined
+  }
+  if (Array.isArray(v) && v.length > 0) return parseServings(v[0])
+  if (typeof v !== 'string') return undefined
+  const s = v.trim()
+  if (!s) return undefined
+  // Take the first integer in the string (handles "4-6", "serves 4", "makes 12 cookies").
+  const m = s.match(/(\d+)/)
   if (!m) return undefined
-  const h = m[1] ? parseInt(m[1], 10) : 0
-  const min = m[2] ? parseInt(m[2], 10) : 0
-  const total = h * 60 + min
-  return total > 0 ? total : undefined
+  const n = parseInt(m[1], 10)
+  if (!Number.isFinite(n)) return undefined
+  return n >= 1 && n <= 100 ? n : undefined
 }
 
 function asStringArray(v: unknown): string[] {
@@ -520,7 +647,7 @@ function flattenInstructions(v: unknown): string[] {
   return []
 }
 
-function normalizeJsonLdRecipe(item: Record<string, unknown>): ExtractedRecipe | null {
+function normalizeJsonLdRecipe(item: Record<string, unknown>, baseUrl?: string): ExtractedRecipe | null {
   const title = typeof item.name === 'string' ? item.name : undefined
   if (!title) return null
 
@@ -537,13 +664,8 @@ function normalizeJsonLdRecipe(item: Record<string, unknown>): ExtractedRecipe |
     steps,
     prepTimeMin: isoDurationToMin(item.prepTime),
     cookTimeMin: isoDurationToMin(item.cookTime),
-    servings:
-      typeof item.recipeYield === 'string'
-        ? parseInt(item.recipeYield, 10) || undefined
-        : typeof item.recipeYield === 'number'
-          ? Math.floor(item.recipeYield)
-          : undefined,
-    imageUrl: asString(item.image),
+    servings: parseServings(item.recipeYield),
+    imageUrl: normalizeImageUrl(item.image, baseUrl),
   }
 }
 
@@ -665,8 +787,12 @@ async function composeFallbackRecipe(
   dietary?: string[],
 ): Promise<ExtractedRecipe | null> {
   try {
+    // v1.16.0: Sonnet 4.5 for the last-resort path. ~3x marginal cost per
+    // fallback slot but the result is what the user actually sees when web
+    // search fails — quality > cost (per user instruction, "5¢ should be
+    // 10¢ if it raises the floor").
     const resp = await anthropic({
-      model: MODEL,
+      model: COMPOSE_MODEL,
       max_tokens: 1500,
       system: `Compose a clear, practical recipe for the requested dish. Honor dietary constraints. Return only by calling compose_recipe.`,
       tools: [FALLBACK_TOOL],
@@ -722,11 +848,14 @@ async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
   // 3. If we don't have enough budget left to fetch + parse, jump to fallback.
   if (remaining() < 10_000) {
     const composed = await composeFallbackRecipe(dishName, notes, dietary)
-    if (composed) return { recipe: { ...composed, source: 'ai-fallback' as const } }
+    if (composed) {
+      return { recipe: repairAndValidate({ ...composed, source: 'composed' as const }) }
+    }
     throw new Error('Out of time and no fallback could be composed')
   }
 
-  // 4. Fetch each in parallel and parse JSON-LD
+  // 4. Fetch each in parallel and parse JSON-LD (`c.url` is threaded as baseUrl
+  //     so relative imageUrl paths get resolved against the page they came from).
   if (filtered.length > 0) {
     const fetchTimeout = Math.max(3000, Math.min(8000, Math.floor(remaining() / 2)))
     await Promise.all(
@@ -734,7 +863,7 @@ async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
         const html = await fetchHtml(c.url, fetchTimeout)
         if (!html) return
         c.html = html
-        const json = extractJsonLdRecipe(html)
+        const json = extractJsonLdRecipe(html, c.url)
         if (json) {
           c.hasJsonLd = true
           c.jsonLd = json
@@ -745,54 +874,102 @@ async function opFindRecipe(input: Record<string, unknown>): Promise<unknown> {
 
   const withJsonLd = filtered.filter((c) => c.hasJsonLd && c.jsonLd)
 
-  // 5. Pick best from JSON-LD candidates
+  // 5. Pick best from JSON-LD candidates.
+  //    Deterministic short-circuits (v1.16.0) avoid an AI call when the answer
+  //    is obvious — saves ~300 tokens/slot when triggered.
+  const TIER1_DOMAINS = new Set([
+    'allrecipes.com',
+    'seriouseats.com',
+    'cooking.nytimes.com',
+    'nytimes.com',
+    'bonappetit.com',
+    'smittenkitchen.com',
+    'budgetbytes.com',
+    'food52.com',
+    'foodnetwork.com',
+    'simplyrecipes.com',
+    'thekitchn.com',
+  ])
+  function pickWinningJsonLd(cands: Candidate[]): Candidate {
+    if (cands.length === 1) return cands[0]
+    // Tier-1 domain wins when present.
+    const tier1 = cands.find((c) => TIER1_DOMAINS.has(c.domain))
+    if (tier1) return tier1
+    return cands[0]
+  }
+
   if (withJsonLd.length >= 2 && remaining() > 5000) {
-    const idx = await rankCandidates(dishName, withJsonLd)
-    const best = withJsonLd[idx]
+    // Skip AI rank when one candidate is on a tier-1 domain.
+    const tier1 = withJsonLd.find((c) => TIER1_DOMAINS.has(c.domain))
+    const best = tier1 ?? withJsonLd[await rankCandidates(dishName, withJsonLd)]
     return {
-      recipe: {
-        ...best.jsonLd!,
-        source: 'web' as const,
-        url: best.url,
-        sourceDomain: best.domain,
-      },
+      recipe: repairAndValidate(
+        {
+          ...best.jsonLd!,
+          source: 'web' as const,
+          url: best.url,
+          sourceDomain: best.domain,
+        },
+        best.url,
+      ),
     }
   }
 
   if (withJsonLd.length >= 1) {
-    const best = withJsonLd[0]
+    const best = pickWinningJsonLd(withJsonLd)
     return {
-      recipe: {
-        ...best.jsonLd!,
-        source: 'web' as const,
-        url: best.url,
-        sourceDomain: best.domain,
-      },
+      recipe: repairAndValidate(
+        {
+          ...best.jsonLd!,
+          source: 'web' as const,
+          url: best.url,
+          sourceDomain: best.domain,
+        },
+        best.url,
+      ),
     }
   }
 
-  // 6. Stage D extraction on the strongest candidate's HTML — only if budget allows
+  // 6. Stage D extraction on the strongest candidate's HTML — only if budget allows.
+  //    Score by (length, mentions of ingredient/dishName) so we pick the page
+  //    most likely to contain real recipe content, not the first that fetched.
   if (remaining() > 8000) {
-    const strongest = filtered.find((c) => c.html)
+    const ingredient = String(input.ingredient ?? '').toLowerCase()
+    const dishLower = dishName.toLowerCase()
+    const score = (html: string): number => {
+      let s = Math.min(html.length, 60_000) // length cap so a 200KB blog doesn't dominate
+      const lower = html.toLowerCase()
+      if (ingredient && lower.includes(ingredient)) s += 10_000
+      if (dishLower && lower.includes(dishLower)) s += 5000
+      return s
+    }
+    const ranked = filtered
+      .filter((c) => c.html)
+      .sort((a, b) => score(b.html!) - score(a.html!))
+    const strongest = ranked[0]
     if (strongest && strongest.html) {
       const extracted = await extractRecipeFromHtml(strongest.url, strongest.html)
       if (extracted) {
         return {
-          recipe: {
-            ...extracted,
-            source: 'web' as const,
-            url: strongest.url,
-            sourceDomain: strongest.domain,
-          },
+          recipe: repairAndValidate(
+            {
+              ...extracted,
+              source: 'web' as const,
+              url: strongest.url,
+              sourceDomain: strongest.domain,
+            },
+            strongest.url,
+          ),
         }
       }
     }
   }
 
-  // 7. Last-resort: AI-composed recipe
+  // 7. Last-resort: AI-composed recipe (Sonnet — see composeFallbackRecipe).
+  //    `source: 'composed'` so the UI can show a "Composed by AI" badge.
   const composed = await composeFallbackRecipe(dishName, notes, dietary)
   if (composed) {
-    return { recipe: { ...composed, source: 'ai-fallback' as const } }
+    return { recipe: repairAndValidate({ ...composed, source: 'composed' as const }) }
   }
 
   throw new Error('Could not produce a recipe for this dish')
@@ -805,19 +982,50 @@ async function opExtract(input: Record<string, unknown>): Promise<unknown> {
   const html = String(input.htmlContent ?? '')
   if (!html) throw new Error('htmlContent is required')
 
-  const json = extractJsonLdRecipe(html)
+  const json = extractJsonLdRecipe(html, url)
   if (json) {
-    return { recipe: { ...json, source: 'web' as const, url, sourceDomain: getDomain(url) } }
+    return {
+      recipe: repairAndValidate(
+        { ...json, source: 'web' as const, url, sourceDomain: getDomain(url) },
+        url,
+      ),
+    }
   }
   const extracted = await extractRecipeFromHtml(url, html)
   if (!extracted) throw new Error('Could not extract recipe from HTML')
-  return { recipe: { ...extracted, source: 'web' as const, url, sourceDomain: getDomain(url) } }
+  return {
+    recipe: repairAndValidate(
+      { ...extracted, source: 'web' as const, url, sourceDomain: getDomain(url) },
+      url,
+    ),
+  }
 }
 
 // ─── Dispatcher ───────────────────────────────────────────────────────────
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
+
+  // v1.16.0: health probe — `?ping=1` returns version/model so the client can
+  // detect a stale Supabase deploy (the v1.15.7 plan-event "still failing"
+  // bug was this exact pattern: code fixed in source, never deployed).
+  if (req.method === 'GET') {
+    const url = new URL(req.url)
+    if (url.searchParams.get('ping') === '1') {
+      return new Response(
+        JSON.stringify({
+          fn: 'meal-engine',
+          version: APP_VERSION,
+          model: MODEL,
+          composeModel: COMPOSE_MODEL,
+          deployedAt: DEPLOYED_AT,
+        }),
+        { headers: { ...corsHeaders, 'content-type': 'application/json' } },
+      )
+    }
+    return new Response('Method Not Allowed', { status: 405, headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders })
   }
@@ -833,6 +1041,9 @@ serve(async (req) => {
   }
 
   const op = String(body.op ?? '')
+  // Reset per-request meta so the dispatcher only surfaces token usage from
+  // *this* op's Anthropic calls.
+  lastCallMeta = null
   try {
     let result: unknown
     switch (op) {
@@ -854,10 +1065,35 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'content-type': 'application/json' },
         })
     }
-    return new Response(JSON.stringify(result), {
+    // v1.16.0: surface token usage so the client TokenBudgetQueue can throttle.
+    const enriched =
+      result && typeof result === 'object'
+        ? { ...result, _meta: lastCallMeta ?? undefined }
+        : result
+    return new Response(JSON.stringify(enriched), {
       headers: { ...corsHeaders, 'content-type': 'application/json' },
     })
   } catch (err) {
+    // v1.16.0: surface rate-limit errors with status 429 + retry-after so the
+    // client can proactively back off instead of just seeing a generic 500.
+    if (err instanceof AnthropicRateLimitError) {
+      console.warn(`[meal-engine] op=${op} rate-limited; retry after ${err.retryAfterMs}ms`)
+      return new Response(
+        JSON.stringify({
+          error: 'rate_limited',
+          message: err.message,
+          retryAfterMs: err.retryAfterMs,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'content-type': 'application/json',
+            'retry-after': String(Math.ceil(err.retryAfterMs / 1000)),
+          },
+        },
+      )
+    }
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[meal-engine] op=${op} error:`, message)
     return new Response(JSON.stringify({ error: message }), {

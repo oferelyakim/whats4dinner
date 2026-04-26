@@ -33,6 +33,12 @@ export type SlotStatus =
   | 'recipe_fetched'
   | 'ready'
   | 'error'
+  /**
+   * v1.16.0: a stage hit a true Anthropic 429 after retries.
+   * Slot keeps its prior outputs (ingredient/dish if those stages succeeded)
+   * and the watchdog auto-resumes after the retry-after delay.
+   */
+  | 'error_rate_limited'
 
 export type ErrorStage = 'ingredient' | 'dish' | 'recipe'
 
@@ -94,7 +100,13 @@ export interface RecipeIngredient {
 
 export interface Recipe {
   id: string
-  source: 'web' | 'ai-fallback'
+  /**
+   * - `web`: extracted from a real recipe page (JSON-LD or AI extraction).
+   * - `ai-fallback`: legacy v3 value — kept for backwards-compat with rows in Dexie.
+   * - `composed`: v1.16.0 — Sonnet-composed fallback when web search yields nothing.
+   *   UI surfaces a "Composed by AI" badge for this source.
+   */
+  source: 'web' | 'ai-fallback' | 'composed'
   url?: string
   sourceDomain?: string
   title: string

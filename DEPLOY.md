@@ -1,6 +1,6 @@
 # Replanish — Deploy Runbook
 
-**Last verified: v1.15.6, 2026-04-25.** Update this file every time the deploy process changes.
+**Last verified: v1.16.0, 2026-04-25.** Update this file every time the deploy process changes.
 
 This file is the single source of truth for deploying Replanish. The two deploy targets (Vercel for frontend, Supabase for edge functions + migrations) each have a different command and a different "is it actually live?" check. Skipping or confusing them is the most common cause of "I deployed but the change isn't there."
 
@@ -88,6 +88,15 @@ You can deploy multiple in one command:
 ```bash
 npx supabase functions deploy ai-chat plan-event meal-engine --no-verify-jwt
 ```
+
+**v1.16.0+ shortcut:** `npm run deploy:functions` ships `meal-engine`, `plan-event`, and `ai-chat` together. Use this whenever you change any of those three. From the **main repo path** (the worktree script invocation just shells out):
+
+```bash
+cd C:/Users/OferElyakim/oferProjects/Replanish_App
+npm run deploy:functions
+```
+
+**v1.16.0+ version probe:** both `meal-engine` and `plan-event` now expose `GET ?ping=1` returning `{ fn, version, model, deployedAt }`. The client calls these on every app boot and surfaces a console warning + localStorage flag if the deployed version doesn't match the bundled `APP_VERSION`. If a user reports an AI feature failing right after a deploy, ask them to open DevTools console — `[edgeVersionProbe] mismatch detected: …` is the unambiguous signal that step 2 was skipped.
 
 **Verify the function is live:**
 
