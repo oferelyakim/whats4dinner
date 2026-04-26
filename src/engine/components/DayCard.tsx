@@ -1,20 +1,33 @@
 import { useState } from 'react'
-import { Plus, Layers } from 'lucide-react'
+import { Plus, Layers, Trash2 } from 'lucide-react'
 import type { DayView } from '../types'
+import type { InterviewResult } from '../interview/types'
 import { MealCard } from './MealCard'
 import { getEngine } from '../MealPlanEngine'
 import { PresetPicker } from './PresetPicker'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   day: DayView
   onOpenRecipe?: (recipeId: string) => void
   onOpenSlot?: (slotId: string) => void
+  /**
+   * v2.1.0 — when present, mounts a per-day "Plan this day with AI" banner
+   * inside the day card. Approving the day-scoped interview calls back here
+   * so PlanV2View can drive engine.applyInterviewResult + Realtime
+   * subscription. Not provided → no banner (manual planning only).
+   */
+  onInterviewApprove?: (result: InterviewResult) => Promise<void>
 }
 
-export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
+export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: Props) {
   const [showPresets, setShowPresets] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [theme, setTheme] = useState(day.theme ?? '')
   const engine = getEngine()
+  const t = useI18n((s) => s.t)
 
   const date = new Date(day.date + 'T12:00:00')
   const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
@@ -42,7 +55,25 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
           <Layers className="h-3 w-3" />
           Day preset
         </button>
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          aria-label={t('plan.day.delete')}
+          title={t('plan.day.delete')}
+          className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
+
+      {onInterviewApprove && (
+        <MealPlannerBanner
+          planId={day.planId}
+          circleId={null}
+          scope="day"
+          targetDayDate={day.date}
+          onApprove={onInterviewApprove}
+        />
+      )}
 
       <div className="space-y-4">
         {day.meals.map((meal) => (
@@ -63,6 +94,17 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
         onOpenChange={setShowPresets}
         scope="day"
         onPick={(id) => void engine.applyPreset(id, { dayId: day.id })}
+      />
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title={t('plan.day.deleteConfirm.title')}
+        description={t('plan.day.deleteConfirm.body')}
+        confirmLabel={t('confirm.delete')}
+        cancelLabel={t('confirm.cancel')}
+        destructive
+        onConfirm={() => engine.removeDay(day.id)}
       />
     </div>
   )

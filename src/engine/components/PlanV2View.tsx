@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
-import { Plus, Wand2, Trash2, LayoutGrid, X as XIcon } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { Trash2, X as XIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEngine } from '../hooks/useEngine'
 import { usePlan } from '../hooks/usePlan'
 import type { MealPlan } from '../types'
 import { DayCard } from './DayCard'
 import { RecipeView } from './RecipeView'
-import { supabase } from '@/services/supabase'
 import { useI18n } from '@/lib/i18n'
 import {
   cancelJob,
@@ -16,14 +15,42 @@ import {
 import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
 import type { InterviewResult } from '@/engine/interview/types'
 
+// ── Week helpers ──────────────────────────────────────────────────────────────
+
 function isoToday(): string {
   return new Date().toISOString().split('T')[0]
 }
-function addDays(iso: string, n: number): string {
+
+function startOfWeekMon(iso: string): string {
   const d = new Date(iso + 'T12:00:00')
-  d.setDate(d.getDate() + n)
+  const dow = d.getDay() // 0=Sun..6=Sat
+  const offsetToMonday = (dow + 6) % 7
+  d.setDate(d.getDate() - offsetToMonday)
   return d.toISOString().split('T')[0]
 }
+
+function visibleWeekDates(weekOffset: number): string[] {
+  const today = isoToday()
+  const baseMonday = startOfWeekMon(today)
+  const startD = new Date(baseMonday + 'T12:00:00')
+  startD.setDate(startD.getDate() + weekOffset * 7)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(startD)
+    d.setDate(startD.getDate() + i)
+    return d.toISOString().split('T')[0]
+  })
+}
+
+function formatWeekLabel(mondayIso: string): string {
+  const d = new Date(mondayIso + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// ── Min / max visible week offsets ────────────────────────────────────────────
+const MIN_WEEK_OFFSET = -1 // 1 week back
+const MAX_WEEK_OFFSET = 3  // 3 weeks ahead
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function PlanV2View() {
   const engine = useEngine()
@@ -44,6 +71,10 @@ export function PlanV2View() {
     status: MealPlanJobRow['status']
   } | null>(null)
 
+  // v2.1.0 — week navigation (default = current week)
+  const [viewWeekOffset, setViewWeekOffset] = useState(0)
+
+  // ── Bootstrap plan ──────────────────────────────────────────────────────────
   useEffect(() => {
     void engine.listPlans().then(async (list) => {
       setPlans(list)
@@ -134,66 +165,58 @@ export function PlanV2View() {
     }
   }, [activePlanId, engine])
 
-  async function addWeek(numDays = 7) {
+  // v2.1.0 — Auto-populate visible week. On activePlanId or viewWeekOffset
+  // change, ensure all 7 dates of the visible week have a Day row in Dexie.
+  // Idempotent: engine.addDay does nothing if the date already exists.
+  useEffect(() => {
     if (!activePlanId) return
-    const start = isoToday()
-    for (let i = 0; i < numDays; i++) {
-      const date = addDays(start, i)
-      await engine.addDay(activePlanId, date)
-    }
-    await refresh()
-  }
-
-  /**
-   * v1.17.0: one-click apply the "Standard day" preset (breakfast 1 + lunch 2 +
-   * dinner 3 = 6 slots) to every day in the active plan. Eliminates the
-   * "click each day" pain the user reported on /plan-v2.
-   */
-  async function applyStandardWeek() {
-    if (!plan || plan.days.length === 0) return
-    await engine.applyPreset('sys-day-standard', {
-      dayIds: plan.days.map((d) => d.id),
-    })
-    await refresh()
-  }
-
-  async function generateAll() {
-    if (!activePlanId) return
-    // v1.18.0 quick UX: if every day still has just the auto-default
-    // (1 Dinner meal, 1 main slot), auto-apply the Standard week preset
-    // BEFORE generating. The user reported "1 dish per day" because they
-    // didn't realize they had to click Standard week — this removes that
-    // friction. They can still un-do via the per-day controls.
-    const cur = plan
-    if (cur && cur.days.length > 0) {
-      const everyDayIsDefault = cur.days.every((d) => {
-        if (d.meals.length !== 1) return false
-        const m = d.meals[0]
-        if (m.type.toLowerCase() !== 'dinner') return false
-        if (m.slots.length !== 1) return false
-        if (m.slots[0].role !== 'main') return false
-        if (m.slots[0].status === 'ready') return false
-        return true
-      })
-      if (everyDayIsDefault) {
-        await engine.applyPreset('sys-day-standard', {
-          dayIds: cur.days.map((d) => d.id),
-        })
-        await refresh()
+    const dates = visibleWeekDates(viewWeekOffset)
+    void (async () => {
+      for (const date of dates) {
+        await engine.addDay(activePlanId, date)
       }
-    }
-    // v1.18.0 — when online + signed-in, prefer the async server-side path.
-    // Closes-tab-safe; rate-limit-safe via worker retry. Falls back to
-    // local generation when offline or unauthenticated.
-    try {
-      const session = await supabase.auth.getSession()
-      if (session.data.session) {
-        const { jobId, totalQueued } = await engine.generatePlanAsync(activePlanId, null)
+      await refresh()
+    })()
+  // refresh is stable (usePlan returns a memoised ref); engine ref is stable too.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlanId, viewWeekOffset, engine])
+
+  // ── Job cancel ──────────────────────────────────────────────────────────────
+
+  async function handleCancelJob() {
+    if (!activeJobId) return
+    await cancelJob(activeJobId)
+    setActiveJobId(null)
+    setJobProgress(null)
+    await refresh()
+  }
+
+  // ── Clear plan ──────────────────────────────────────────────────────────────
+
+  async function clearPlan() {
+    if (!activePlanId) return
+    await engine.deletePlan(activePlanId)
+    const next = await engine.createPlan(isoToday())
+    setActivePlanId(next.id)
+    setPlans([next])
+  }
+
+  // v2.0.0 — interview approval handler. Applies day-presets, runs bank-fill
+  // per slot using the AI's candidate dish names, queues residual misses
+  // through the existing async worker.
+  const handleInterviewApprove = useCallback(
+    async (result: InterviewResult) => {
+      if (!activePlanId) return
+      try {
+        const { jobId, totalQueued, bankFilled } = await engine.applyInterviewResult(
+          activePlanId,
+          null,
+          result,
+        )
+        console.info(`[interview] applied: bankFilled=${bankFilled} queued=${totalQueued}`)
         if (jobId && totalQueued > 0) {
           setActiveJobId(jobId)
           setJobProgress({ completed: 0, failed: 0, total: totalQueued, status: 'queued' })
-          // Subscribe locally for the progress bar (engine has its own
-          // subscription that writes Dexie; this one drives just the UI).
           const sub = subscribeJob(
             jobId,
             () => undefined,
@@ -222,124 +245,40 @@ export function PlanV2View() {
               }
             },
           )
-          // No await — fire and forget; Realtime drives updates.
-          await refresh()
-          return
         }
-        // Bank covered everything — no queued work, just refresh the UI.
         await refresh()
-        return
+      } catch (err) {
+        console.error('[interview] applyInterviewResult failed', err)
       }
-      // Offline / unauthenticated: fall back to local AI generation.
-      await engine.generatePlan(activePlanId)
-    } catch (err) {
-      console.error('[generateAll] async path failed; falling back', err)
-      await engine.generatePlan(activePlanId)
-    }
-  }
+    },
+    [activePlanId, engine, refresh],
+  )
 
-  async function handleCancelJob() {
-    if (!activeJobId) return
-    await cancelJob(activeJobId)
-    setActiveJobId(null)
-    setJobProgress(null)
-    await refresh()
-  }
+  // ── Derived: days for the visible week only ─────────────────────────────────
 
-  async function clearPlan() {
-    if (!activePlanId) return
-    await engine.deletePlan(activePlanId)
-    const next = await engine.createPlan(isoToday())
-    setActivePlanId(next.id)
-    setPlans([next])
-  }
+  const weekDates = visibleWeekDates(viewWeekOffset)
+  const weekDateSet = new Set(weekDates)
+  const visibleDays = (plan?.days ?? []).filter((d) => weekDateSet.has(d.date))
 
-  // v2.0.0 — interview approval handler. Applies day-presets, runs bank-fill
-  // per slot using the AI's candidate dish names, queues residual misses
-  // through the existing async worker.
-  async function handleInterviewApprove(result: InterviewResult) {
-    if (!activePlanId) return
-    try {
-      const { jobId, totalQueued, bankFilled } = await engine.applyInterviewResult(
-        activePlanId,
-        null,
-        result,
-      )
-      console.info(`[interview] applied: bankFilled=${bankFilled} queued=${totalQueued}`)
-      if (jobId && totalQueued > 0) {
-        setActiveJobId(jobId)
-        setJobProgress({ completed: 0, failed: 0, total: totalQueued, status: 'queued' })
-        const sub = subscribeJob(
-          jobId,
-          () => undefined,
-          (jobRow) => {
-            setJobProgress((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    completed: jobRow.completed_slots ?? prev.completed,
-                    failed: jobRow.failed_slots ?? prev.failed,
-                    status: jobRow.status ?? prev.status,
-                  }
-                : prev,
-            )
-            if (
-              jobRow.status === 'completed' ||
-              jobRow.status === 'failed' ||
-              jobRow.status === 'cancelled'
-            ) {
-              setTimeout(() => {
-                setActiveJobId(null)
-                setJobProgress(null)
-                void refresh()
-              }, 1500)
-              sub.unsubscribe()
-            }
-          },
-        )
-      }
-      await refresh()
-    } catch (err) {
-      console.error('[interview] applyInterviewResult failed', err)
-    }
-  }
+  // Monday of the visible week for the label
+  const weekMonday = weekDates[0]
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="px-4 py-4 space-y-4 max-w-3xl mx-auto">
+
+      {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display italic text-3xl text-rp-ink">Meal plan</h1>
-          <p className="text-xs text-rp-ink-mute">v2 engine — slot-based, offline-first</p>
+          <h1 className="font-display italic text-3xl text-rp-ink">
+            {t('food.mealPlan')}
+          </h1>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          <button
-            onClick={() => void addWeek(7)}
-            className="px-3 py-2 rounded-lg bg-rp-bg-soft text-rp-ink text-xs font-medium flex items-center gap-1"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add 7 days
-          </button>
-          <button
-            onClick={() => void applyStandardWeek()}
-            className="px-3 py-2 rounded-lg bg-rp-bg-soft text-rp-ink text-xs font-medium flex items-center gap-1"
-            disabled={!plan || plan.days.length === 0}
-            title="Apply 'Standard day' preset (breakfast + lunch + dinner) to every day"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            Standard week
-          </button>
-          <button
-            onClick={() => void generateAll()}
-            className="px-3 py-2 rounded-lg bg-rp-bg-soft text-rp-ink text-xs font-medium flex items-center gap-1"
-            disabled={!plan || plan.days.length === 0}
-            title="Apply Standard week + bank-fill (no AI questions)"
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-            Quick fill
-          </button>
+        <div className="flex gap-1.5">
           <button
             onClick={() => void clearPlan()}
-            aria-label="Clear plan"
+            aria-label={t('common.delete')}
             className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -347,14 +286,43 @@ export function PlanV2View() {
         </div>
       </div>
 
-      {/* v2.0.0 — AI banner. Free users see disabled state + upgrade CTA;
-          paid users open the MealPlannerInterview dialog. */}
+      {/* Week navigation row */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={() => setViewWeekOffset((o) => o - 1)}
+          disabled={viewWeekOffset <= MIN_WEEK_OFFSET}
+          aria-label={t('plan.week.prev')}
+          className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+        </button>
+        <span className="text-sm font-medium text-rp-ink">
+          {t('plan.week.label').replace(
+            '{date}',
+            formatWeekLabel(weekMonday),
+          )}
+        </span>
+        <button
+          onClick={() => setViewWeekOffset((o) => o + 1)}
+          disabled={viewWeekOffset >= MAX_WEEK_OFFSET}
+          aria-label={t('plan.week.next')}
+          className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+        </button>
+      </div>
+
+      {/* v2.1.0 — per-week AI banner. Passes scope="week" so the
+          MealPlannerInterview can adapt its questionnaire accordingly.
+          The parallel MealPlannerBanner/Interview agent adds the scope prop. */}
       <MealPlannerBanner
         planId={activePlanId}
         circleId={null}
+        scope="week"
         onApprove={handleInterviewApprove}
       />
 
+      {/* Async job progress bar */}
       {jobProgress && activeJobId && (
         <div className="rounded-xl bg-rp-bg-soft border border-rp-hairline p-3 space-y-2">
           <div className="flex items-center justify-between text-xs">
@@ -411,25 +379,15 @@ export function PlanV2View() {
         </div>
       )}
 
-      {plan && plan.days.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-rp-hairline p-8 text-center">
-          <p className="text-rp-ink-mute mb-3">No days yet. Add a week to get started.</p>
-          <button
-            onClick={() => void addWeek(7)}
-            className="px-4 py-2 rounded-lg bg-rp-brand text-white text-sm font-medium"
-          >
-            Add 7 days
-          </button>
-        </div>
-      )}
-
+      {/* Day cards — only the 7 days of the visible week */}
       <div className="space-y-3">
-        {plan?.days.map((day) => (
+        {visibleDays.map((day) => (
           <DayCard
             key={day.id}
             day={day}
             onOpenRecipe={setOpenRecipeId}
             onOpenSlot={setOpenSlotId}
+            onInterviewApprove={handleInterviewApprove}
           />
         ))}
       </div>

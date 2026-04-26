@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Lock, RefreshCw, Loader2, AlertCircle, Clock, Unlock, Sparkles, X } from 'lucide-react'
+import { Lock, RefreshCw, Loader2, AlertCircle, Clock, Unlock, Sparkles, X, Trash2 } from 'lucide-react'
 import type { Slot } from '../types'
 import { useSlot } from '../hooks/useSlot'
 import { getEngine } from '../MealPlanEngine'
 import { cn } from '@/lib/cn'
 import { useI18n } from '@/lib/i18n'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface Props {
   slotId: string
@@ -36,6 +37,7 @@ export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
   const t = useI18n((s) => s.t)
   const [showHint, setShowHint] = useState(false)
   const [hint, setHint] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   if (!slot) return <div className="rounded-xl bg-rp-bg-soft animate-pulse h-20" />
 
@@ -183,6 +185,15 @@ export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
               {slot.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
             </button>
           )}
+          {!slot.locked && !isLoading && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              aria-label={t('plan.slot.delete')}
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-red-50 hover:text-red-600 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
           {slot.status === 'empty' && !slot.locked && (
             <button
               onClick={onGenerate}
@@ -228,6 +239,17 @@ export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title={t('plan.slot.deleteConfirm.title')}
+        description={t('plan.slot.deleteConfirm.body')}
+        confirmLabel={t('confirm.delete')}
+        cancelLabel={t('confirm.cancel')}
+        destructive
+        onConfirm={() => engine.removeSlot(slot.id)}
+      />
     </div>
   )
 }

@@ -83,6 +83,10 @@ export const SYSTEM_PRESETS: Preset[] = [
   // step in the interview, or apply one-off from the day card preset picker.
   // The `notes` field carries a one-word hint that flows through the bank's
   // `replaceHint` parser as the cuisine/protein constraint.
+  // v2.1.0: explicit cuisineId on theme presets so the bank query never
+  // returns a stylistic mismatch (e.g. Pasta Wednesday → German dish).
+  // Sides inherit the cuisine from the main slot in the same meal — the
+  // engine's sibling-cuisine envelope check enforces within-meal coherence.
   {
     id: 'sys-day-meatless-monday',
     name: 'Meatless Monday',
@@ -109,8 +113,8 @@ export const SYSTEM_PRESETS: Preset[] = [
       {
         type: 'dinner',
         slots: [
-          { role: 'main', notes: 'taco' },
-          { role: 'side', notes: 'rice or beans' },
+          { role: 'main', cuisineId: 'mexican', notes: 'taco' },
+          { role: 'side', cuisineId: 'mexican', notes: 'rice or beans' },
         ],
       },
     ],
@@ -124,7 +128,10 @@ export const SYSTEM_PRESETS: Preset[] = [
     mealShapes: [
       {
         type: 'dinner',
-        slots: [{ role: 'main', notes: 'pasta' }, { role: 'veg_side' }],
+        slots: [
+          { role: 'main', cuisineId: 'italian-southern', notes: 'pasta' },
+          { role: 'veg_side', cuisineId: 'italian-southern' },
+        ],
       },
     ],
     createdAt: now(),
@@ -138,8 +145,8 @@ export const SYSTEM_PRESETS: Preset[] = [
       {
         type: 'dinner',
         slots: [
-          { role: 'main', notes: 'pizza' },
-          { role: 'salad' },
+          { role: 'main', cuisineId: 'italian-southern', notes: 'pizza' },
+          { role: 'salad', cuisineId: 'italian-southern' },
         ],
       },
     ],
@@ -186,8 +193,8 @@ export const SYSTEM_PRESETS: Preset[] = [
       {
         type: 'dinner',
         slots: [
-          { role: 'main', notes: 'burger' },
-          { role: 'side', notes: 'fries or salad' },
+          { role: 'main', cuisineId: 'american', notes: 'burger' },
+          { role: 'side', cuisineId: 'american', notes: 'fries or salad' },
         ],
       },
     ],
@@ -202,9 +209,9 @@ export const SYSTEM_PRESETS: Preset[] = [
       {
         type: 'dinner',
         slots: [
-          { role: 'main', notes: 'greek' },
-          { role: 'veg_side' },
-          { role: 'starch_side' },
+          { role: 'main', cuisineId: 'greek' },
+          { role: 'veg_side', cuisineId: 'greek' },
+          { role: 'starch_side', cuisineId: 'greek' },
         ],
       },
     ],
@@ -219,8 +226,8 @@ export const SYSTEM_PRESETS: Preset[] = [
       {
         type: 'dinner',
         slots: [
-          { role: 'main', notes: 'asian' },
-          { role: 'veg_side' },
+          { role: 'main', cuisineId: 'thai' },
+          { role: 'veg_side', cuisineId: 'thai' },
         ],
       },
     ],

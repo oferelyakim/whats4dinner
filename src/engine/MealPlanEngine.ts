@@ -20,6 +20,11 @@ import { generateDish } from './pipeline/generateDish'
 import { findAndFetchRecipe } from './pipeline/fetchRecipe'
 import { buildEnvelope, type SlotEnvelope } from './variety/envelope'
 import { mergeEnvelope, parseUserHint } from './variety/precedence'
+import { findCuisine } from './variety/taxonomy'
+
+function cuisineLabelFromId(id: string): string | undefined {
+  return findCuisine(id)?.displayName.toLowerCase()
+}
 import { AbortedByUserError, RateLimitedError } from './errors'
 import { callOp } from './ai/client'
 import { DayPlanResultSchema } from './ai/schemas'
@@ -244,6 +249,15 @@ export class MealPlanEngine {
       const hasRecipe = !!ps.recipeId
       const hasDish = !!ps.dishName
       const status: Slot['status'] = hasRecipe ? 'ready' : hasDish ? 'dish_named' : 'empty'
+      // v2.1.0: combine cuisineId into notes so parseUserHint catches it.
+      // Theme presets (Pasta Wednesday → 'italian-southern') need this so
+      // bank lookups don't return mismatched dishes (e.g. German Spätzle).
+      // Format: "<cuisine displayName lowercase> <notes>" → parser scans
+      // for cuisine tokens >=4 chars.
+      const cuisineDisplayName = ps.cuisineId ? cuisineLabelFromId(ps.cuisineId) : undefined
+      const composedNotes = [cuisineDisplayName, ps.notes]
+        .filter((s): s is string => !!s && s.length > 0)
+        .join(' ')
       return {
         id: uid(),
         mealId,
@@ -251,7 +265,7 @@ export class MealPlanEngine {
         status,
         dishName: ps.dishName,
         recipeId: ps.recipeId,
-        notes: ps.notes,
+        notes: composedNotes || undefined,
         locked: false,
         position: i,
         updatedAt: now(),
@@ -299,6 +313,19 @@ export class MealPlanEngine {
     else if ('mealIds' in target) for (const id of target.mealIds) await applyToMeal(id)
     else if ('dayId' in target) await applyToDay(target.dayId)
     else if ('dayIds' in target) for (const id of target.dayIds) await applyToDay(id)
+  }
+
+  /**
+   * v2.1.0: Clears the preset reference from a meal without wiping slots.
+   * The user may have customised the slots after applying the preset, so we
+   * only remove the presetId metadata so the "Clear preset" affordance vanishes.
+   */
+  async clearMealPreset(mealId: string): Promise<void> {
+    const meal = await db.meals.get(mealId)
+    if (!meal) return
+    await db.meals.update(mealId, { presetId: undefined })
+    const day = await db.days.get(meal.dayId)
+    if (day) await this.touchPlan(day.planId)
   }
 
   async saveMealAsPreset(mealId: string, name: string): Promise<Preset> {

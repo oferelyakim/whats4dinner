@@ -1,16 +1,30 @@
-// v2.0.0 — Meal-Planner Interview dialog.
+// v2.1.0 — Meal-Planner Interview dialog.
 //
 // Walks the user through a declarative question tree (`src/engine/interview`),
 // makes at most 2 Anthropic calls (parse-intake after q_freeform, propose-plan
-// at the end), and hands the result to MealPlanEngine.applyInterviewResult.
+// via explicit "Generate plan" button), and hands the result to
+// MealPlanEngine.applyInterviewResult.
 //
-// The dialog is full-screen on mobile (CLAUDE.md "fixed inset-0 overflow-hidden"
-// pattern). Disclaimer renders above q_dietary and at the foot of q_review.
+// Change log vs v2.0.0:
+//   - Eliminated auto-advance: each step has an explicit Continue button.
+//     A `draft` state holds the in-progress answer for the current question;
+//     Continue commits it to `answers` and advances via getNextQuestion.
+//   - Added explicit Back button: `history: QuestionId[]` stack lets the user
+//     pop the last committed answer and restore it into `draft`.
+//   - Removed the useEffect that auto-fired runProposePlan on q_review.
+//     A "Generate plan" button is shown when there are no more questions.
+//   - Added `scope` prop ('day' | 'week'). When scope='day', q_days is
+//     pre-filled with targetDayDate and q_themes is skipped.
+//   - `targetDayDate?: string` (ISO) used only when scope='day'.
+//
+// Sub-components are unchanged: DaysPickerInput, MealsPerDayInput,
+// FreeformInput, NumberPairInput, MultiSelectInput, ChoiceInput, ReviewStep,
+// BusyState. Only the main component logic changes.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Check, RefreshCcw, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, RefreshCcw, Sparkles, X } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { callOp } from '@/engine/ai/client'
 import {
@@ -40,9 +54,42 @@ interface MealPlannerInterviewProps {
   planId: string
   circleId: string | null
   onApprove: (result: InterviewResult) => Promise<void>
+  /** 'week' (default) plans multiple days. 'day' plans a single targetDayDate. */
+  scope?: 'day' | 'week'
+  /** ISO date (e.g. "2026-05-01"). Required when scope='day'. */
+  targetDayDate?: string
 }
 
-type Stage = 'collecting' | 'parsing' | 'proposing' | 'reviewing' | 'submitting'
+type Stage =
+  | 'collecting'
+  | 'parsing'
+  | 'ready_to_propose'
+  | 'proposing'
+  | 'reviewing'
+  | 'submitting'
+
+// ─── Helpers for scope-aware seeding ──────────────────────────────────────
+
+function seedAnswers(scope: 'day' | 'week', targetDayDate?: string): AnswerMap {
+  if (scope === 'day' && targetDayDate) {
+    return {
+      // Pre-fill q_days so it is never shown to the user.
+      q_days: { selectedDates: [targetDayDate] },
+      q_meals_per_day: { breakfast: 0, lunch: 0, dinner: 3, snack: 0 },
+    }
+  }
+  return {
+    q_days: { selectedDates: defaultWeekDates() },
+    q_meals_per_day: { breakfast: 0, lunch: 0, dinner: 3, snack: 0 },
+  }
+}
+
+/** Extra skip ids injected when scope='day' (q_themes is week-level). */
+function scopeSkip(scope: 'day' | 'week'): SkipList {
+  return scope === 'day' ? ['q_themes'] : []
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
 
 export function MealPlannerInterview({
   open,
@@ -50,15 +97,26 @@ export function MealPlannerInterview({
   planId,
   circleId,
   onApprove,
+  scope = 'week',
+  targetDayDate,
 }: MealPlannerInterviewProps) {
   const t = useI18n((s) => s.t)
+
   const [stage, setStage] = useState<Stage>('collecting')
-  const [answers, setAnswers] = useState<AnswerMap>(() => seedAnswers())
-  const [skip, setSkip] = useState<SkipList>([])
+  const [answers, setAnswers] = useState<AnswerMap>(() =>
+    seedAnswers(scope, targetDayDate),
+  )
+  // skip list from parse-intake + scope-level pre-skips
+  const [skip, setSkip] = useState<SkipList>(() => scopeSkip(scope))
   const [parsed, setParsed] = useState<IntakeParseResult | null>(null)
   const [proposal, setProposal] = useState<ProposePlanResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reviewSwaps, setReviewSwaps] = useState<Record<string, string>>({})
+
+  // draft holds the current question's in-progress answer before Continue
+  const [draft, setDraft] = useState<AnswerMap[QuestionId]>(undefined)
+  // history is a stack of committed question ids — used by Back
+  const [history, setHistory] = useState<QuestionId[]>([])
 
   const currentQuestion = useMemo(
     () => getNextQuestion(answers, skip),
@@ -67,22 +125,70 @@ export function MealPlannerInterview({
   const remaining = remainingQuestions(answers, skip)
   const progressPct = progressPercent(answers, skip)
 
-  // When all questions answered (currentQuestion === q_review), trigger
-  // propose-plan to draft the week.
-  useEffect(() => {
-    if (
-      stage === 'collecting' &&
-      currentQuestion?.id === 'q_review' &&
-      proposal === null
-    ) {
-      void runProposePlan()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, currentQuestion?.id, proposal])
+  // Whether all questions have been answered (ready to propose or propose fired)
+  const allAnswered = currentQuestion === null
 
-  function setAnswer<K extends QuestionId>(id: K, value: AnswerMap[K]) {
-    setAnswers((a) => ({ ...a, [id]: value }))
+  // ─── Banner title ────────────────────────────────────────────────────────
+
+  function bannerTitle(): string {
+    if (scope === 'day' && targetDayDate) {
+      const prettyDate = new Date(targetDayDate + 'T12:00:00').toLocaleDateString(
+        undefined,
+        { weekday: 'long', month: 'short', day: 'numeric' },
+      )
+      return t('interview.banner.dayTitle').replace('{date}', prettyDate)
+    }
+    return t('interview.banner.weekTitle')
   }
+
+  // ─── Continue (commit draft + advance) ──────────────────────────────────
+
+  function handleContinue() {
+    if (!currentQuestion) return
+    const questionId = currentQuestion.id
+    // Commit draft to answers
+    setAnswers((prev) => ({ ...prev, [questionId]: draft }))
+    setHistory((prev) => [...prev, questionId])
+    // Reset draft for the next question
+    setDraft(undefined)
+  }
+
+  // Special-case: q_freeform uses its own submit inside FreeformInput which
+  // also triggers parse-intake. After parse-intake finishes, the component
+  // resumes in 'collecting' with the answer already committed. The explicit
+  // Continue button is hidden for q_freeform since FreeformInput has its own.
+  async function handleFreeformSubmit(text: string) {
+    if (!currentQuestion) return
+    // Commit q_freeform answer immediately before the async call so the
+    // cursor advances while we parse.
+    setAnswers((prev) => ({ ...prev, q_freeform: text }))
+    setHistory((prev) => [...prev, 'q_freeform'])
+    setDraft(undefined)
+    await runParseIntake(text)
+  }
+
+  // ─── Back (pop history) ──────────────────────────────────────────────────
+
+  function handleBack() {
+    if (history.length === 0) return
+    const last = history[history.length - 1]
+    // Restore the previous answer as draft
+    const prevValue = answers[last]
+    setDraft(prevValue as AnswerMap[QuestionId])
+    // Remove from committed answers
+    setAnswers((prev) => {
+      const next = { ...prev }
+      delete next[last]
+      return next
+    })
+    setHistory((prev) => prev.slice(0, -1))
+    // If we were at ready_to_propose, go back to collecting
+    if (stage === 'ready_to_propose') {
+      setStage('collecting')
+    }
+  }
+
+  // ─── parse-intake ────────────────────────────────────────────────────────
 
   async function runParseIntake(freeform: string) {
     setStage('parsing')
@@ -95,17 +201,21 @@ export function MealPlannerInterview({
         IntakeParseResultSchema,
       )
       setParsed(out)
-      // Apply inferences + skip-list before returning to collecting.
+      // Apply inferences + merge skip-list (preserve scope-level skips)
       setAnswers((a) => applyInferences({ ...a, q_freeform: freeform }, out))
-      setSkip(out.skip)
+      setSkip((prev) => {
+        const merged = new Set([...prev, ...out.skip])
+        return Array.from(merged) as SkipList
+      })
       void logUsage('meal_plan')
     } catch (err) {
       console.warn('[interview] parse-intake failed:', err)
-      // Non-fatal — continue without skipping anything.
-      setAnswers((a) => ({ ...a, q_freeform: freeform }))
+      // Non-fatal — continue without extra skips
     }
     setStage('collecting')
   }
+
+  // ─── propose-plan ────────────────────────────────────────────────────────
 
   async function runProposePlan() {
     setStage('proposing')
@@ -124,9 +234,12 @@ export function MealPlannerInterview({
     } catch (err) {
       console.warn('[interview] propose-plan failed:', err)
       setError(t('interview.proposing'))
-      setStage('collecting')
+      // Return to ready_to_propose so the user can retry
+      setStage('ready_to_propose')
     }
   }
+
+  // ─── approve ─────────────────────────────────────────────────────────────
 
   async function handleApprove() {
     if (!proposal) return
@@ -134,7 +247,10 @@ export function MealPlannerInterview({
     try {
       const dayPresets = computeDayPresets(answers, parsed)
       const result: InterviewResult = {
-        answers: { ...answers, q_review: { approved: true, finalCandidates: reviewSwaps } },
+        answers: {
+          ...answers,
+          q_review: { approved: true, finalCandidates: reviewSwaps },
+        },
         proposal: {
           ...proposal,
           days: applySwaps(proposal.days, reviewSwaps),
@@ -149,6 +265,33 @@ export function MealPlannerInterview({
       setStage('reviewing')
     }
   }
+
+  // ─── Derived: can the Continue button be pressed? ────────────────────────
+
+  function canContinue(): boolean {
+    if (!currentQuestion) return false
+    // For optional questions (multi_select, choice, preset_picker) allow
+    // continuing with undefined (skip-equivalent). For required ones verify.
+    if (currentQuestion.kind === 'days_picker') {
+      const val = draft as { selectedDates: string[] } | undefined
+      return (val?.selectedDates?.length ?? 0) > 0
+    }
+    if (currentQuestion.kind === 'meals_per_day') {
+      const val = draft as { breakfast: number; lunch: number; dinner: number; snack: number } | undefined
+      if (!val) return false
+      return val.breakfast + val.lunch + val.dinner + val.snack > 0
+    }
+    if (currentQuestion.kind === 'number_pair') {
+      const val = draft as { adults: number; kids: number } | undefined
+      return (val?.adults ?? 0) >= 1
+    }
+    // All other kinds (multi_select, choice, preset_picker) are optional
+    return true
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
+  const showBusy = stage === 'parsing' || stage === 'proposing' || stage === 'submitting'
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -167,7 +310,7 @@ export function MealPlannerInterview({
             <div className="flex items-center gap-2 min-w-0">
               <Sparkles className="h-5 w-5 text-rp-brand shrink-0" />
               <Dialog.Title className="font-display italic text-lg text-rp-ink truncate">
-                {t('interview.banner.title')}
+                {bannerTitle()}
               </Dialog.Title>
             </div>
             <Dialog.Close
@@ -178,8 +321,8 @@ export function MealPlannerInterview({
             </Dialog.Close>
           </div>
 
-          {/* Progress bar */}
-          {stage === 'collecting' && currentQuestion && currentQuestion.id !== 'q_review' && (
+          {/* Progress bar — shown while collecting non-terminal questions */}
+          {stage === 'collecting' && currentQuestion && (
             <div className="px-4 sm:px-6 pt-3">
               <div className="h-1.5 w-full bg-rp-ink/10 rounded-full overflow-hidden">
                 <motion.div
@@ -197,10 +340,17 @@ export function MealPlannerInterview({
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-            {stage === 'parsing' && <BusyState message={t('interview.parsing')} />}
-            {stage === 'proposing' && <BusyState message={t('interview.proposing')} />}
-            {stage === 'submitting' && <BusyState message={t('interview.proposing')} />}
-            {stage === 'collecting' && currentQuestion && currentQuestion.id !== 'q_review' && (
+            {showBusy && (
+              <BusyState
+                message={
+                  stage === 'parsing'
+                    ? t('interview.parsing')
+                    : t('interview.proposing')
+                }
+              />
+            )}
+
+            {stage === 'collecting' && currentQuestion && (
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentQuestion.id}
@@ -212,12 +362,31 @@ export function MealPlannerInterview({
                   <QuestionStep
                     question={currentQuestion}
                     answers={answers}
-                    setAnswer={setAnswer}
-                    onSubmitFreeform={(text) => void runParseIntake(text)}
+                    draft={draft}
+                    setDraft={setDraft}
+                    onSubmitFreeform={(text) => void handleFreeformSubmit(text)}
                   />
                 </motion.div>
               </AnimatePresence>
             )}
+
+            {/* All questions answered — show "Generate plan" CTA */}
+            {(stage === 'collecting' || stage === 'ready_to_propose') &&
+              allAnswered && (
+                <div className="flex flex-col items-center gap-4 py-10">
+                  <Sparkles className="h-10 w-10 text-rp-brand" />
+                  <p className="font-display italic text-xl text-rp-ink text-center">
+                    {t('interview.q.review')}
+                  </p>
+                  <p className="text-sm text-rp-ink/60 text-center leading-snug max-w-xs">
+                    {t('interview.q.reviewHelp')}
+                  </p>
+                  {error && (
+                    <p className="text-sm text-red-600 text-center">{error}</p>
+                  )}
+                </div>
+              )}
+
             {stage === 'reviewing' && proposal && (
               <ReviewStep
                 proposal={proposal}
@@ -225,26 +394,89 @@ export function MealPlannerInterview({
                 setSwaps={setReviewSwaps}
               />
             )}
-            {error && (
+
+            {error && stage !== 'ready_to_propose' && (
               <p className="mt-3 text-sm text-red-600">{error}</p>
             )}
           </div>
 
-          {/* Footer */}
-          {stage === 'collecting' && currentQuestion && (
-            <FooterButtons
-              question={currentQuestion}
-              answers={answers}
-              onContinue={() => {
-                // No-op — the AnswerMap update from QuestionStep already
-                // advances the runtime cursor.
-              }}
-              onApprove={handleApprove}
-              t={t}
-            />
+          {/* Footer — Back + Continue while collecting */}
+          {stage === 'collecting' && currentQuestion && currentQuestion.id !== 'q_freeform' && (
+            <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={history.length === 0}
+                className="
+                  inline-flex items-center gap-1.5 rounded-full px-4 py-2
+                  text-sm font-medium text-rp-ink/70 hover:text-rp-ink
+                  disabled:opacity-30 disabled:cursor-not-allowed
+                "
+              >
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+                {t('interview.back')}
+              </button>
+              <button
+                type="button"
+                onClick={handleContinue}
+                disabled={!canContinue()}
+                className="
+                  inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-5 py-2.5
+                  text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
+                  disabled:opacity-40 disabled:cursor-not-allowed
+                "
+              >
+                {t('interview.next')}
+                <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+              </button>
+            </div>
           )}
+
+          {/* Footer — "Generate plan" when all questions are answered */}
+          {(stage === 'collecting' || stage === 'ready_to_propose') && allAnswered && (
+            <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={history.length === 0}
+                className="
+                  inline-flex items-center gap-1.5 rounded-full px-4 py-2
+                  text-sm font-medium text-rp-ink/70 hover:text-rp-ink
+                  disabled:opacity-30 disabled:cursor-not-allowed
+                "
+              >
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+                {t('interview.back')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void runProposePlan()}
+                className="
+                  inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-5 py-2.5
+                  text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
+                "
+              >
+                <Sparkles className="h-4 w-4" />
+                {t('interview.generatePlan')}
+              </button>
+            </div>
+          )}
+
+          {/* Footer — review/approve */}
           {stage === 'reviewing' && proposal && (
-            <ReviewFooter onApprove={handleApprove} t={t} />
+            <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleApprove}
+                className="
+                  inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-5 py-2.5
+                  text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
+                "
+              >
+                <Check className="h-4 w-4" />
+                {t('interview.approve')}
+              </button>
+            </div>
           )}
         </Dialog.Content>
       </Dialog.Portal>
@@ -266,12 +498,20 @@ function BusyState({ message }: { message: string }) {
 function QuestionStep({
   question,
   answers,
-  setAnswer,
+  draft,
+  setDraft,
   onSubmitFreeform,
 }: {
-  question: { id: QuestionId; kind: string; promptKey: string; helpKey?: string; options?: { id: string; labelKey: string; payload?: unknown }[] }
+  question: {
+    id: QuestionId
+    kind: string
+    promptKey: string
+    helpKey?: string
+    options?: { id: string; labelKey: string; payload?: unknown }[]
+  }
   answers: AnswerMap
-  setAnswer: <K extends QuestionId>(id: K, value: AnswerMap[K]) => void
+  draft: AnswerMap[QuestionId]
+  setDraft: (v: AnswerMap[QuestionId]) => void
   onSubmitFreeform: (text: string) => void
 }) {
   const t = useI18n((s) => s.t)
@@ -295,14 +535,22 @@ function QuestionStep({
 
       {question.kind === 'days_picker' && (
         <DaysPickerInput
-          value={answers.q_days?.selectedDates ?? defaultWeekDates()}
-          onChange={(v) => setAnswer('q_days', { selectedDates: v })}
+          value={
+            ((draft as { selectedDates: string[] } | undefined)?.selectedDates) ??
+            answers.q_days?.selectedDates ??
+            defaultWeekDates()
+          }
+          onChange={(v) => setDraft({ selectedDates: v })}
         />
       )}
       {question.kind === 'meals_per_day' && (
         <MealsPerDayInput
-          value={answers.q_meals_per_day ?? { breakfast: 0, lunch: 0, dinner: 3, snack: 0 }}
-          onChange={(v) => setAnswer('q_meals_per_day', v)}
+          value={
+            (draft as { breakfast: number; lunch: number; dinner: number; snack: number } | undefined) ??
+            answers.q_meals_per_day ??
+            { breakfast: 0, lunch: 0, dinner: 3, snack: 0 }
+          }
+          onChange={(v) => setDraft(v)}
         />
       )}
       {question.kind === 'open_text' && question.id === 'q_freeform' && (
@@ -310,54 +558,55 @@ function QuestionStep({
       )}
       {question.kind === 'open_text' && question.id === 'q_dislikes' && (
         <DislikesInput
-          value={answers.q_dislikes ?? []}
-          onChange={(v) => setAnswer('q_dislikes', v)}
+          value={(draft as string[] | undefined) ?? answers.q_dislikes ?? []}
+          onChange={(v) => setDraft(v)}
         />
       )}
       {question.kind === 'number_pair' && (
         <NumberPairInput
-          value={answers.q_headcount ?? { adults: 2, kids: 0 }}
-          onChange={(v) => setAnswer('q_headcount', v)}
+          value={
+            (draft as { adults: number; kids: number } | undefined) ??
+            answers.q_headcount ??
+            { adults: 2, kids: 0 }
+          }
+          onChange={(v) => setDraft(v)}
         />
       )}
       {question.kind === 'multi_select' && question.options && (
         <MultiSelectInput
           options={question.options}
           value={
-            (question.id === 'q_dietary'
-              ? answers.q_dietary
-              : answers.q_themes) ?? []
+            (draft as string[] | undefined) ??
+            (question.id === 'q_dietary' ? answers.q_dietary : answers.q_themes) ??
+            []
           }
-          onChange={(v) => {
-            if (question.id === 'q_dietary') setAnswer('q_dietary', v)
-            else if (question.id === 'q_themes') setAnswer('q_themes', v as never)
-          }}
+          onChange={(v) => setDraft(v)}
         />
       )}
       {question.kind === 'choice' && question.options && (
         <ChoiceInput
           options={question.options}
-          value={
-            question.id === 'q_prep_time'
-              ? String(answers.q_prep_time ?? '')
-              : question.id === 'q_calories'
-                ? answers.q_calories ?? ''
-                : answers.q_cooking_skill ?? ''
-          }
+          value={String(
+            (draft as string | number | undefined) ??
+              (question.id === 'q_prep_time'
+                ? answers.q_prep_time
+                : question.id === 'q_calories'
+                  ? answers.q_calories
+                  : answers.q_cooking_skill) ??
+              '',
+          )}
           onChange={(opt) => {
             if (question.id === 'q_prep_time') {
-              setAnswer('q_prep_time', (opt.payload as number) ?? Number(opt.id))
+              setDraft((opt.payload as number) ?? Number(opt.id))
             } else if (question.id === 'q_calories') {
-              setAnswer('q_calories', opt.id as 'light' | 'balanced' | 'hearty')
+              setDraft(opt.id as 'light' | 'balanced' | 'hearty')
             } else if (question.id === 'q_cooking_skill') {
-              setAnswer('q_cooking_skill', opt.id as 'easy' | 'normal' | 'challenge')
+              setDraft(opt.id as 'easy' | 'normal' | 'challenge')
             }
           }}
         />
       )}
-      {question.kind === 'preset_picker' && (
-        <PresetPickerNote />
-      )}
+      {question.kind === 'preset_picker' && <PresetPickerNote />}
     </div>
   )
 }
@@ -422,7 +671,10 @@ function MealsPerDayInput({
       {meals.map((m) => {
         const count = value[m.key]
         return (
-          <div key={m.key} className="flex items-center justify-between rounded-xl border border-rp-ink/10 px-4 py-3">
+          <div
+            key={m.key}
+            className="flex items-center justify-between rounded-xl border border-rp-ink/10 px-4 py-3"
+          >
             <span className="font-medium text-rp-ink">{m.label}</span>
             <div className="flex items-center gap-2">
               <button
@@ -478,7 +730,7 @@ function FreeformInput({ onSubmit }: { onSubmit: (text: string) => void }) {
         "
       >
         Continue
-        <ArrowRight className="h-4 w-4" />
+        <ArrowRight className="h-4 w-4 rtl:rotate-180" />
       </button>
     </div>
   )
@@ -492,19 +744,18 @@ function DislikesInput({
   onChange: (v: string[]) => void
 }) {
   const [text, setText] = useState(value.join(', '))
-  useEffect(() => {
-    const parts = text
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
-    if (parts.join(',') !== value.join(',')) onChange(parts)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text])
   return (
     <input
       type="text"
       value={text}
-      onChange={(e) => setText(e.target.value)}
+      onChange={(e) => {
+        setText(e.target.value)
+        const parts = e.target.value
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+        onChange(parts)
+      }}
       placeholder="e.g. mushrooms, eggplant, raisins"
       className="
         w-full rounded-xl border border-rp-ink/15 bg-rp-bg px-4 py-3
@@ -532,7 +783,9 @@ function NumberPairInput({
             min={key === 'adults' ? 1 : 0}
             max={20}
             value={value[key]}
-            onChange={(e) => onChange({ ...value, [key]: Math.max(0, Number(e.target.value) || 0) })}
+            onChange={(e) =>
+              onChange({ ...value, [key]: Math.max(0, Number(e.target.value) || 0) })
+            }
             className="mt-1 w-full font-display italic text-3xl tabular-nums bg-transparent focus:outline-none"
           />
         </div>
@@ -636,15 +889,6 @@ function ReviewStep({
   const t = useI18n((s) => s.t)
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="font-display italic text-2xl text-rp-ink leading-tight">
-          {t('interview.q.review')}
-        </h2>
-        <p className="mt-1 text-sm text-rp-ink/60 leading-snug">
-          {t('interview.q.reviewHelp')}
-        </p>
-      </div>
-
       {proposal.days.map((day) => (
         <div key={day.date} className="rounded-2xl border border-rp-ink/10 bg-rp-bg-soft p-4">
           <h3 className="font-display italic text-lg text-rp-ink mb-2">
@@ -694,58 +938,6 @@ function ReviewStep({
   )
 }
 
-function FooterButtons({
-  question,
-  answers,
-  onApprove: _onApprove,
-  t,
-}: {
-  question: { id: QuestionId; kind: string }
-  answers: AnswerMap
-  onContinue: () => void
-  onApprove: () => void
-  t: (k: string) => string
-}) {
-  // q_freeform has its own submit. Other steps progress automatically when
-  // the user changes their answer, but we render a Continue button as fallback.
-  if (question.kind === 'open_text' && question.id === 'q_freeform') {
-    return null
-  }
-  if (question.id === 'q_review') {
-    return null
-  }
-  // Continue is implicit for now (answer change triggers cursor advance).
-  // We render a "Skip" / "Continue" pair to make the action explicit.
-  const hasAnswer = answers[question.id] !== undefined
-  return (
-    <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-end gap-2">
-      {hasAnswer && (
-        <span className="text-xs text-rp-ink/50 mr-auto">
-          {t('interview.next')} →
-        </span>
-      )}
-    </div>
-  )
-}
-
-function ReviewFooter({ onApprove, t }: { onApprove: () => void; t: (k: string) => string }) {
-  return (
-    <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-end gap-2">
-      <button
-        type="button"
-        onClick={onApprove}
-        className="
-          inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-5 py-2.5
-          text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
-        "
-      >
-        <Check className="h-4 w-4" />
-        {t('interview.approve')}
-      </button>
-    </div>
-  )
-}
-
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function defaultWeekDates(): string[] {
@@ -757,16 +949,13 @@ function defaultWeekDates(): string[] {
   })
 }
 
-function seedAnswers(): AnswerMap {
-  return {
-    q_days: { selectedDates: defaultWeekDates() },
-    q_meals_per_day: { breakfast: 0, lunch: 0, dinner: 3, snack: 0 },
-  }
-}
-
 function formatDayHeader(iso: string): string {
   const d = new Date(iso + 'T12:00:00')
-  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 async function loadCircleContext(circleId: string | null): Promise<string> {
@@ -794,7 +983,7 @@ async function loadCircleContext(circleId: string | null): Promise<string> {
 }
 
 async function fetchRecentDishesForPlan(_planId: string): Promise<string[]> {
-  // The engine has its own getRecentDishNames helper but it's private.
+  // The engine has its own getRecentDishNames helper but it is private.
   // For the propose-plan call we just pass an empty array — the engine's
   // sibling/recent enforcement happens later during bank-fill anyway.
   return []
@@ -803,10 +992,12 @@ async function fetchRecentDishesForPlan(_planId: string): Promise<string[]> {
 type InterviewActionType = 'meal_plan' | 'meal_plan_edit'
 async function logUsage(actionType: InterviewActionType): Promise<void> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return
     // 1 propose call ≈ ~1500 input tok + ~600 output tok on Haiku 4.5.
-    // Cost = 1.5K * $0.001/M + 0.6K * $0.005/M = ~$0.0045
+    // Cost = 1.5K * $0.001/M + 0.6K * $0.005/M ≈ $0.0045
     await logAIUsage(user.id, actionType, 'claude-haiku-4-5-20251001', 1500, 600, 0.0045)
   } catch (err) {
     console.warn('[interview] logAIUsage failed:', err)
@@ -825,8 +1016,7 @@ function applySwaps(
         const key = `${day.date}|${mi}|${si}`
         const chosen = swaps[key]
         if (!chosen) return slot
-        // Move the chosen candidate to position 0 so applyInterviewResult
-        // tries it first.
+        // Move the chosen candidate to position 0 so applyInterviewResult tries it first.
         const others = slot.candidates.filter((c) => c !== chosen)
         return { ...slot, candidates: [chosen, ...others] }
       }),
@@ -845,10 +1035,14 @@ function computeDayPresets(
     let presetId: string | null = presetByDate[iso] ?? null
     if (!presetId) {
       const dow = new Date(iso + 'T12:00:00').getDay()
-      if (themes.includes('meatless-monday' as never) && dow === 1) presetId = 'sys-day-meatless-monday'
-      else if (themes.includes('taco-tuesday' as never) && dow === 2) presetId = 'sys-day-taco-tuesday'
-      else if (themes.includes('pasta-wednesday' as never) && dow === 3) presetId = 'sys-day-pasta-wednesday'
-      else if (themes.includes('pizza-friday' as never) && dow === 5) presetId = 'sys-day-pizza-friday'
+      if (themes.includes('meatless-monday' as never) && dow === 1)
+        presetId = 'sys-day-meatless-monday'
+      else if (themes.includes('taco-tuesday' as never) && dow === 2)
+        presetId = 'sys-day-taco-tuesday'
+      else if (themes.includes('pasta-wednesday' as never) && dow === 3)
+        presetId = 'sys-day-pasta-wednesday'
+      else if (themes.includes('pizza-friday' as never) && dow === 5)
+        presetId = 'sys-day-pizza-friday'
     }
     out.set(iso, presetId)
   }

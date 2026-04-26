@@ -181,6 +181,14 @@ export interface PresetSlot {
   dishName?: string
   recipeId?: string
   notes?: string
+  /**
+   * v2.1.0 — explicit cuisine constraint. When set, `tryFillSlotFromBank`
+   * passes this directly to `sample-from-bank` instead of relying on
+   * fragile `parseUserHint(notes)` token matching. Theme presets like
+   * Pasta Wednesday set this to `'italian'` so the bank query never
+   * returns a German dish.
+   */
+  cuisineId?: string
 }
 
 export interface Preset {

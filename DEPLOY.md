@@ -1,6 +1,6 @@
 # Replanish — Deploy Runbook
 
-**Last verified: v2.0.2, 2026-04-26.** Update this file every time the deploy process changes.
+**Last verified: v2.1.0, 2026-04-26.** Update this file every time the deploy process changes.
 
 **Pre-flight gate (read this before pushing to master):** Run `npx tsc -b` (not just `npx tsc --noEmit`). Vercel's build is `rm -rf node_modules/.tmp dist && tsc -b && vite build`, which is stricter than `--noEmit` — it picks up unused imports, unused parameters, wrong-enum assignments. v2.0.0 → v2.0.2 burned three deploys because of this exact gap. `--noEmit` is fine while editing; `tsc -b` is the deploy gate.
 

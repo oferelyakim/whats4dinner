@@ -1,8 +1,11 @@
-// v2.0.0 — Meal-planner AI banner.
+// v2.1.0 — Meal-planner AI banner.
 //
 // Renders above the day list on /plan-v2. Free users see disabled state +
 // "Upgrade to plan with AI →" CTA that opens the existing AIUpgradeModal.
 // Paid users see active state; clicking opens the MealPlannerInterview.
+//
+// New in v2.1.0: accepts `scope` and `targetDayDate` props and passes them
+// through to MealPlannerInterview so callers can open a single-day interview.
 
 import { useState } from 'react'
 import { Sparkles, ArrowRight } from 'lucide-react'
@@ -16,12 +19,29 @@ interface MealPlannerBannerProps {
   planId: string | null
   circleId: string | null
   onApprove: (result: InterviewResult) => Promise<void>
+  /** 'week' (default) plans multiple days; 'day' plans a single targetDayDate. */
+  scope?: 'day' | 'week'
+  /** ISO date (e.g. "2026-05-01"). Required when scope='day'. */
+  targetDayDate?: string
 }
 
-export function MealPlannerBanner({ planId, circleId, onApprove }: MealPlannerBannerProps) {
+export function MealPlannerBanner({
+  planId,
+  circleId,
+  onApprove,
+  scope = 'week',
+  targetDayDate,
+}: MealPlannerBannerProps) {
   const t = useI18n((s) => s.t)
-  const { hasAI, canUseAI, isLimitReached, checkAIAccess, showUpgradeModal, setShowUpgradeModal, upgradeReason } =
-    useAIAccess()
+  const {
+    hasAI,
+    canUseAI,
+    isLimitReached,
+    checkAIAccess,
+    showUpgradeModal,
+    setShowUpgradeModal,
+    upgradeReason,
+  } = useAIAccess()
   const [interviewOpen, setInterviewOpen] = useState(false)
 
   const isPaid = hasAI && canUseAI && !isLimitReached
@@ -29,6 +49,20 @@ export function MealPlannerBanner({ planId, circleId, onApprove }: MealPlannerBa
     if (!planId) return
     if (!checkAIAccess()) return
     setInterviewOpen(true)
+  }
+
+  // Title shown on the banner card itself mirrors the scope.
+  const bannerTitle = (): string => {
+    if (!isPaid) return t('interview.banner.disabled')
+    if (scope === 'day' && targetDayDate) {
+      const prettyDate = new Date(targetDayDate + 'T12:00:00').toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      })
+      return t('interview.banner.dayTitle').replace('{date}', prettyDate)
+    }
+    return t('interview.banner.weekTitle')
   }
 
   return (
@@ -53,7 +87,7 @@ export function MealPlannerBanner({ planId, circleId, onApprove }: MealPlannerBa
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-display italic text-lg leading-tight text-rp-ink">
-              {isPaid ? t('interview.banner.title') : t('interview.banner.disabled')}
+              {bannerTitle()}
             </h3>
             <p className="mt-1 text-sm text-rp-ink/70 leading-snug">
               {t('interview.banner.subtitle')}
@@ -109,6 +143,8 @@ export function MealPlannerBanner({ planId, circleId, onApprove }: MealPlannerBa
           planId={planId}
           circleId={circleId}
           onApprove={onApprove}
+          scope={scope}
+          targetDayDate={targetDayDate}
         />
       )}
     </>

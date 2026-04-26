@@ -926,6 +926,23 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.job.cancelButton': { en: 'Cancel', he: 'ביטול', es: 'Cancelar' },
   'plan.job.queuedServer': { en: 'Queued — server is filling this slot…', he: 'בתור — השרת ממלא משבצת זו…', es: 'En cola — el servidor está completando…' },
 
+  // v2.1.0 delete-with-confirm + clear-preset
+  'plan.slot.delete': { en: 'Delete slot', he: 'מחק שורה', es: 'Eliminar plato' },
+  'plan.slot.deleteConfirm.title': { en: 'Delete this dish?', he: 'למחוק מנה זו?', es: '¿Eliminar este plato?' },
+  'plan.slot.deleteConfirm.body': { en: "This can't be undone.", he: 'לא ניתן לשחזר.', es: 'Esto no se puede deshacer.' },
+  'plan.meal.delete': { en: 'Delete meal', he: 'מחק ארוחה', es: 'Eliminar comida' },
+  'plan.meal.deleteConfirm.title': { en: 'Delete this {type}?', he: 'למחוק את {type}?', es: '¿Eliminar {type}?' },
+  'plan.meal.clearPreset': { en: 'Clear preset', he: 'נקה תבנית', es: 'Limpiar plantilla' },
+  'plan.day.delete': { en: 'Delete day', he: 'מחק יום', es: 'Eliminar día' },
+  'plan.day.deleteConfirm.title': { en: 'Delete this day?', he: 'למחוק יום זה?', es: '¿Eliminar este día?' },
+  'plan.day.deleteConfirm.body': { en: 'All meals and dishes for this day will be removed.', he: 'כל הארוחות והמנות ליום זה יוסרו.', es: 'Todas las comidas y platos de este día serán eliminados.' },
+  'confirm.delete': { en: 'Delete', he: 'מחק', es: 'Eliminar' },
+  'confirm.cancel': { en: 'Cancel', he: 'ביטול', es: 'Cancelar' },
+
+  'plan.week.prev': { en: 'Previous week', he: 'שבוע קודם', es: 'Semana anterior' },
+  'plan.week.next': { en: 'Next week', he: 'שבוע הבא', es: 'Semana siguiente' },
+  'plan.week.label': { en: 'Week of {date}', he: 'שבוע של {date}', es: 'Semana del {date}' },
+
   // Event AI planner
   'event.aiPlan': { en: 'AI Plan Event', he: 'תכנן עם AI', es: 'Planificar con IA' },
   'event.aiPlanTitle': { en: 'Plan this Event', he: 'תכנן את האירוע', es: 'Planificar este evento' },
@@ -1156,6 +1173,17 @@ const translations: Record<string, Record<Locale, string>> = {
   'interview.banner.upgrade': { en: 'Upgrade to plan with AI →', he: 'שדרגו כדי לתכנן עם AI ←', es: 'Actualiza para planificar con IA →' },
   'interview.banner.start': { en: 'Start interview', he: 'התחל ראיון', es: 'Iniciar entrevista' },
   'interview.banner.disabled': { en: 'Replanish AI plans your week', he: 'Replanish AI מתכנן את השבוע שלך', es: 'Replanish AI planifica tu semana' },
+  'interview.banner.weekTitle': {
+    en: 'Plan your week with Replanish AI',
+    he: 'תכנן את השבוע שלך עם Replanish AI',
+    es: 'Planifica tu semana con Replanish AI',
+  },
+  'interview.banner.dayTitle': {
+    en: 'Plan {date} with Replanish AI',
+    he: 'תכנן את {date} עם Replanish AI',
+    es: 'Planifica {date} con Replanish AI',
+  },
+  'interview.generatePlan': { en: 'Generate plan', he: 'צור תוכנית', es: 'Generar plan' },
 
   // Questions
   'interview.q.days': { en: 'Which days are we planning?', he: 'אילו ימים אנחנו מתכננים?', es: '¿Qué días estamos planificando?' },
