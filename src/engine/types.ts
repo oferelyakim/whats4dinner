@@ -45,6 +45,16 @@ export type SlotStatus =
    * will fill" pill. Realtime UPDATE flips it to `ready` (or `error`).
    */
   | 'queued_server'
+  /**
+   * v2.0.0: link-first bank hit. Slot carries metadata only (dishName,
+   * sourceUrl, mainIngredient, secondaryIngredients, dietaryTags, cuisineId,
+   * prepTimeMin, calories?) in `linkData`. The full recipe (ingredients +
+   * steps) is fetched lazily on first user-open and cached in Dexie, then
+   * the slot flips to `ready`. Composed legacy bank rows hydrate from
+   * `composed_payload` instead of the network — same `link_ready → ready`
+   * flow, no fetch.
+   */
+  | 'link_ready'
 
 export type ErrorStage = 'ingredient' | 'dish' | 'recipe'
 
@@ -69,6 +79,47 @@ export interface Slot {
   updatedAt: number
   /** When the current generating_* state began — used by the watchdog. */
   generatingStartedAt?: number
+  /**
+   * v2.0.0: present when status is `link_ready`. The slot has a bank-source
+   * link + sparse metadata; the full Recipe (ingredients + steps) is fetched
+   * lazily on first user-open. Cleared when the slot flips to `ready` and
+   * `recipeId` becomes the canonical pointer.
+   */
+  linkData?: SlotLinkData
+}
+
+/**
+ * v2.0.0 — link-first slot payload. Stored on the Slot row directly so the
+ * planner is offline-readable (no Dexie Recipe row materialized yet). On
+ * first user-open the engine fetches the URL via the existing `find-recipe`
+ * / `extract` ops (or hydrates from `composedPayload` when source='composed'),
+ * caches a Recipe row in Dexie, and flips the slot to `ready`.
+ */
+export interface SlotLinkData {
+  /** The bank row id — used by `bump_recipe_bank_served` after first open. */
+  bankId: string
+  /** Source-of-truth for hydration: 'web' | 'user_import' fetch the URL,
+   *  'composed' uses `composedPayload`, 'community' is forward-compat. */
+  source: 'web' | 'user_import' | 'composed' | 'community'
+  /** External recipe URL — present for web/user_import. */
+  sourceUrl?: string
+  sourceDomain?: string
+  imageUrl?: string
+  mainIngredient: string
+  secondaryIngredients: string[]
+  dietaryTags: string[]
+  cuisineId: string
+  proteinFamily?: string
+  prepTimeMin?: number
+  cookTimeMin?: number
+  servings?: number
+  /** Legacy composed-row archive — populated when source='composed'. The
+   *  hydrator builds a Recipe from this jsonb without a network fetch. */
+  composedPayload?: {
+    ingredients: { item: string; quantity?: string }[]
+    steps: string[]
+    totalTimeMin?: number
+  }
 }
 
 export interface SlotEnvelopeSnapshot {

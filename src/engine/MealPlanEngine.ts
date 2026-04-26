@@ -23,6 +23,7 @@ import { mergeEnvelope, parseUserHint } from './variety/precedence'
 import { AbortedByUserError, RateLimitedError } from './errors'
 import { callOp } from './ai/client'
 import { DayPlanResultSchema } from './ai/schemas'
+import { supabase } from '@/services/supabase'
 import { z } from 'zod'
 
 export { AbortedByUserError, RateLimitedError } from './errors'
@@ -958,7 +959,20 @@ export class MealPlanEngine {
       ingredientMain: string
       proteinFamily?: string | null
       qualityScore: number
-      recipe: Omit<Recipe, 'id' | 'fetchedAt'>
+      // v2.0.0: server now also exposes these so the client can route
+      // link-first vs full-content paths. Legacy rows leave them undefined.
+      sourceKindV2?: 'web' | 'composed' | 'user_import' | 'community'
+      secondaryIngredients?: string[]
+      dietaryTags?: string[]
+      composedPayload?: {
+        ingredients: { item: string; quantity?: string }[]
+        steps: string[]
+        totalTimeMin?: number
+      }
+      recipe: Omit<Recipe, 'id' | 'fetchedAt'> & {
+        ingredients?: { item: string; quantity?: string }[]
+        steps?: string[]
+      }
     }
     let response: { candidates: BankCandidate[] } | null = null
     try {
@@ -991,35 +1005,96 @@ export class MealPlanEngine {
       return true
     }) ?? candidates[0]
 
-    // Materialize a Recipe row in Dexie + flip slot to ready.
-    const recipe: Recipe = {
-      id: uid(),
-      fetchedAt: now(),
-      ...picked.recipe,
+    const envelopeSnapshot: SlotEnvelopeSnapshot = {
+      cuisineId: picked.cuisineId,
+      cuisineLabel: finalEnvelope.cuisineLabel,
+      cuisineRegion: finalEnvelope.cuisineRegion,
+      proteinName: picked.ingredientMain,
+      proteinFamily: picked.proteinFamily ?? undefined,
+      styleId: finalEnvelope.styleId,
+      styleLabel: finalEnvelope.styleLabel,
+      flavorId: finalEnvelope.flavorId,
+      flavorLabel: finalEnvelope.flavorLabel,
     }
-    await db.recipes.add(recipe)
-    await this.patchSlot(slotId, {
-      status: 'ready',
-      ingredient: picked.ingredientMain,
-      dishName: picked.title,
-      searchKeywords: [picked.title],
-      recipeId: recipe.id,
-      replaceHint: undefined,
-      generatingStartedAt: undefined,
-      errorMessage: undefined,
-      errorStage: undefined,
-      envelope: {
-        cuisineId: picked.cuisineId,
-        cuisineLabel: finalEnvelope.cuisineLabel,
-        cuisineRegion: finalEnvelope.cuisineRegion,
-        proteinName: picked.ingredientMain,
-        proteinFamily: picked.proteinFamily ?? undefined,
-        styleId: finalEnvelope.styleId,
-        styleLabel: finalEnvelope.styleLabel,
-        flavorId: finalEnvelope.flavorId,
-        flavorLabel: finalEnvelope.flavorLabel,
-      },
-    })
+
+    // ─── v2.0.0 routing ────────────────────────────────────────────────
+    // Decision tree:
+    //   1. composed row WITH composedPayload → hydrate Recipe from payload, ready
+    //   2. web/user_import with no full content → link_ready, lazy fetch on open
+    //   3. legacy row with full content (or composed without payload) → ready
+    const hasFullContent =
+      Array.isArray(picked.recipe.ingredients) &&
+      picked.recipe.ingredients.length > 0 &&
+      Array.isArray(picked.recipe.steps) &&
+      picked.recipe.steps.length > 0
+    const isLinkFirst =
+      (picked.sourceKindV2 === 'web' || picked.sourceKindV2 === 'user_import') &&
+      !hasFullContent
+
+    if (isLinkFirst) {
+      // Path 2: link-first — slot carries metadata, no Recipe row yet.
+      await this.patchSlot(slotId, {
+        status: 'link_ready',
+        ingredient: picked.ingredientMain,
+        dishName: picked.title,
+        searchKeywords: [picked.title],
+        recipeId: undefined,
+        replaceHint: undefined,
+        generatingStartedAt: undefined,
+        errorMessage: undefined,
+        errorStage: undefined,
+        envelope: envelopeSnapshot,
+        linkData: {
+          bankId: picked.bankId,
+          source: picked.sourceKindV2 as 'web' | 'user_import',
+          sourceUrl: picked.recipe.url,
+          sourceDomain: picked.recipe.sourceDomain,
+          imageUrl: picked.recipe.imageUrl,
+          mainIngredient: picked.ingredientMain,
+          secondaryIngredients: picked.secondaryIngredients ?? [],
+          dietaryTags: picked.dietaryTags ?? [],
+          cuisineId: picked.cuisineId,
+          proteinFamily: picked.proteinFamily ?? undefined,
+          prepTimeMin: picked.recipe.prepTimeMin,
+          cookTimeMin: picked.recipe.cookTimeMin,
+          servings: picked.recipe.servings,
+        },
+      })
+    } else {
+      // Path 1+3: hydrate Recipe immediately. Composed rows with archived
+      // payload use that; legacy rows use whatever's in `picked.recipe`.
+      const ingredients =
+        picked.composedPayload?.ingredients ?? picked.recipe.ingredients ?? []
+      const steps = picked.composedPayload?.steps ?? picked.recipe.steps ?? []
+      const recipe: Recipe = {
+        id: uid(),
+        fetchedAt: now(),
+        title: picked.recipe.title,
+        source: picked.recipe.source,
+        url: picked.recipe.url,
+        sourceDomain: picked.recipe.sourceDomain,
+        ingredients,
+        steps,
+        prepTimeMin: picked.recipe.prepTimeMin,
+        cookTimeMin: picked.recipe.cookTimeMin,
+        servings: picked.recipe.servings,
+        imageUrl: picked.recipe.imageUrl,
+      }
+      await db.recipes.add(recipe)
+      await this.patchSlot(slotId, {
+        status: 'ready',
+        ingredient: picked.ingredientMain,
+        dishName: picked.title,
+        searchKeywords: [picked.title],
+        recipeId: recipe.id,
+        replaceHint: undefined,
+        generatingStartedAt: undefined,
+        errorMessage: undefined,
+        errorStage: undefined,
+        envelope: envelopeSnapshot,
+        linkData: undefined,
+      })
+    }
     // Write to dishHistory so subsequent slots see this in their anti-repeat
     // window — same as Stage B does after AI generation.
     await db.dishHistory.add({
@@ -1200,6 +1275,277 @@ export class MealPlanEngine {
       advanced++
     }
     return advanced
+  }
+
+  // ─── v2.0.0 — Interactive Interview ───────────────────────────────────────
+
+  /**
+   * Apply an InterviewResult to a plan: deterministic structure first
+   * (presets / meal shape), then bank-fill per slot using the AI proposal's
+   * candidate dish names as hints, then queue residual misses through the
+   * existing async worker.
+   *
+   * AI cost: ZERO calls in this method itself — the propose-plan call
+   * already happened in the dialog. Bank lookups are pure SQL via the
+   * `sample-from-bank` op. Misses go through `generatePlanAsync` which
+   * uses the same v1.18 worker queue.
+   */
+  async applyInterviewResult(
+    planId: string,
+    circleId: string | null,
+    result: import('./interview/types').InterviewResult,
+  ): Promise<{ jobId: string | null; bankFilled: number; totalQueued: number }> {
+    const plan = await db.plans.get(planId)
+    if (!plan) throw new Error(`Plan ${planId} not found`)
+
+    // ─── Step 1: Ensure every selected date has a Day row + apply presets/shape
+    const selectedDates = result.answers.q_days?.selectedDates ?? []
+    const mealsPerDay = result.answers.q_meals_per_day ?? {
+      breakfast: 0,
+      lunch: 0,
+      dinner: 3,
+      snack: 0,
+    }
+    const dateToDayId = new Map<string, string>()
+
+    for (const iso of selectedDates) {
+      // Find or create Day row.
+      let day = (await db.days.where('planId').equals(planId).toArray()).find(
+        (d) => d.date === iso,
+      )
+      if (!day) {
+        const dayCount = await db.days.where('planId').equals(planId).count()
+        day = { id: uid(), planId, date: iso, position: dayCount }
+        await db.days.add(day)
+      }
+      dateToDayId.set(iso, day.id)
+
+      const presetId = result.dayPresets.get(day.id) ?? null
+      if (presetId) {
+        // Day-scoped preset replaces existing meals.
+        await this.applyPreset(presetId, { dayId: day.id })
+      } else {
+        // Build meal structure from q_meals_per_day if the day is bare.
+        const existingMeals = await db.meals.where('dayId').equals(day.id).toArray()
+        if (existingMeals.length === 0) {
+          await this.buildDayFromShape(day.id, mealsPerDay)
+        }
+      }
+    }
+
+    // ─── Step 2: Bank-fill per slot using proposal candidates as hints
+    const prefs = await this.getPrefs()
+    // Prefer answer-supplied dietary if user changed it during interview.
+    const dietaryConstraints =
+      result.answers.q_dietary && result.answers.q_dietary.length > 0
+        ? result.answers.q_dietary
+        : prefs.dietaryConstraints
+    const dislikedIngredients =
+      result.answers.q_dislikes && result.answers.q_dislikes.length > 0
+        ? result.answers.q_dislikes
+        : prefs.dislikedIngredients
+    const recentDishes = await this.getRecentDishNames(planId, prefs.recentDishesWindow)
+
+    // Build a quick lookup: (date, mealType, role) → candidate list (in order).
+    const candidatesByKey = new Map<string, string[]>()
+    for (const day of result.proposal.days) {
+      for (const meal of day.meals) {
+        // Track per-meal slot index so we can dedup roles like main/main/main.
+        const positionByRole = new Map<string, number>()
+        for (const slot of meal.slots) {
+          const idx = positionByRole.get(slot.role) ?? 0
+          positionByRole.set(slot.role, idx + 1)
+          const key = `${day.date}|${meal.type}|${slot.role}|${idx}`
+          candidatesByKey.set(key, slot.candidates)
+        }
+      }
+    }
+
+    let bankFilled = 0
+    const misses: string[] = []
+
+    for (const iso of selectedDates) {
+      const dayId = dateToDayId.get(iso)
+      if (!dayId) continue
+      const meals = await db.meals.where('dayId').equals(dayId).sortBy('position')
+      for (const meal of meals) {
+        const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
+        const positionByRole = new Map<string, number>()
+        for (const slot of slots) {
+          if (slot.locked || slot.status === 'ready' || slot.status === 'link_ready') continue
+          const idx = positionByRole.get(slot.role) ?? 0
+          positionByRole.set(slot.role, idx + 1)
+          const key = `${iso}|${meal.type}|${slot.role}|${idx}`
+          const candidates = candidatesByKey.get(key) ?? []
+
+          let filled = false
+          for (const candidate of candidates) {
+            // Set the candidate as a one-shot hint so tryFillSlotFromBank's
+            // user-hint parser routes the cuisine/protein constraint into the
+            // bank query.
+            await this.patchSlot(slot.id, { replaceHint: candidate })
+            filled = await this.tryFillSlotFromBank(
+              slot.id,
+              dietaryConstraints,
+              dislikedIngredients,
+              recentDishes,
+            )
+            if (filled) {
+              bankFilled++
+              break
+            }
+          }
+          if (!filled) {
+            // Reset hint (so it doesn't taint future generations) and queue
+            // through the residual path.
+            await this.patchSlot(slot.id, { replaceHint: undefined })
+            misses.push(slot.id)
+          }
+        }
+      }
+    }
+
+    // ─── Step 3: Residual → async worker queue (existing v1.18 path)
+    if (misses.length === 0) {
+      return { jobId: null, bankFilled, totalQueued: 0 }
+    }
+    const { jobId, totalQueued } = await this.generatePlanAsync(planId, circleId)
+    return { jobId, bankFilled, totalQueued }
+  }
+
+  /**
+   * Build the meal+slot structure for a day from a q_meals_per_day answer.
+   * Used by applyInterviewResult when no day-preset is selected for a day.
+   * Idempotent: only fires when the day has no meals yet.
+   */
+  private async buildDayFromShape(
+    dayId: string,
+    shape: { breakfast: number; lunch: number; dinner: number; snack: number },
+  ): Promise<void> {
+    const mealTypes: { type: string; count: number; role: string }[] = []
+    if (shape.breakfast > 0) mealTypes.push({ type: 'breakfast', count: shape.breakfast, role: 'main' })
+    if (shape.lunch > 0) mealTypes.push({ type: 'lunch', count: shape.lunch, role: 'main' })
+    if (shape.dinner > 0) mealTypes.push({ type: 'dinner', count: shape.dinner, role: 'main' })
+    if (shape.snack > 0) mealTypes.push({ type: 'snack', count: shape.snack, role: 'main' })
+
+    let pos = 0
+    for (const m of mealTypes) {
+      const meal: Meal = { id: uid(), dayId, type: m.type, position: pos++ }
+      await db.meals.add(meal)
+      for (let i = 0; i < m.count; i++) {
+        await db.slots.add({
+          id: uid(),
+          mealId: meal.id,
+          role: m.role,
+          status: 'empty',
+          locked: false,
+          position: i,
+          updatedAt: now(),
+        })
+      }
+    }
+  }
+
+  /**
+   * Hydrate a `link_ready` slot into a full `ready` slot. Called by
+   * RecipeView when the user opens a slot for the first time.
+   *
+   * Two paths:
+   *   • composed-source: build Recipe from `linkData.composedPayload` (no
+   *     network call).
+   *   • web/user_import: call existing `find-recipe` op to fetch + parse the
+   *     URL via the same pipeline used by Stage C.
+   *
+   * Idempotent: if the slot is already `ready`, returns the existing recipe.
+   */
+  async hydrateLinkReadySlot(slotId: string): Promise<Recipe | null> {
+    const slot = await db.slots.get(slotId)
+    if (!slot) return null
+    if (slot.status === 'ready' && slot.recipeId) {
+      return (await db.recipes.get(slot.recipeId)) ?? null
+    }
+    if (slot.status !== 'link_ready' || !slot.linkData) return null
+
+    const link = slot.linkData
+    let recipe: Recipe | null = null
+
+    if (link.source === 'composed' && link.composedPayload) {
+      // Hydrate from archived payload — no network.
+      recipe = {
+        id: uid(),
+        fetchedAt: now(),
+        title: slot.dishName ?? link.mainIngredient,
+        source: 'composed',
+        url: link.sourceUrl,
+        sourceDomain: link.sourceDomain,
+        ingredients: link.composedPayload.ingredients,
+        steps: link.composedPayload.steps,
+        prepTimeMin: link.prepTimeMin,
+        cookTimeMin: link.cookTimeMin,
+        servings: link.servings,
+        imageUrl: link.imageUrl,
+      }
+    } else if (link.sourceUrl) {
+      // Web fetch via the new fetch-recipe-url op (Stage D direct against
+      // a known URL — skips web search, just fetches + parses JSON-LD/HTML).
+      try {
+        const FetchUrlSchema = z.object({
+          recipe: z.object({
+            title: z.string().min(1),
+            source: z.enum(['web', 'ai-fallback', 'composed']).default('web'),
+            url: z.string().url().optional().catch(undefined),
+            sourceDomain: z.string().optional(),
+            ingredients: z
+              .array(z.object({ item: z.string().min(1), quantity: z.string().optional() }))
+              .min(1),
+            steps: z.array(z.string().min(1)).min(1),
+            prepTimeMin: z.coerce.number().int().nonnegative().max(1440).optional().catch(undefined),
+            cookTimeMin: z.coerce.number().int().nonnegative().max(1440).optional().catch(undefined),
+            servings: z.coerce.number().int().positive().max(100).optional().catch(undefined),
+            imageUrl: z.string().url().optional().catch(undefined),
+          }),
+        })
+        const fetched = await callOp(
+          'fetch-recipe-url',
+          { url: link.sourceUrl, dishName: slot.dishName },
+          FetchUrlSchema,
+        )
+        recipe = {
+          id: uid(),
+          fetchedAt: now(),
+          title: fetched.recipe.title,
+          source: 'web',
+          url: fetched.recipe.url ?? link.sourceUrl,
+          sourceDomain: fetched.recipe.sourceDomain ?? link.sourceDomain,
+          ingredients: fetched.recipe.ingredients,
+          steps: fetched.recipe.steps,
+          prepTimeMin: fetched.recipe.prepTimeMin ?? link.prepTimeMin,
+          cookTimeMin: fetched.recipe.cookTimeMin ?? link.cookTimeMin,
+          servings: fetched.recipe.servings ?? link.servings,
+          imageUrl: fetched.recipe.imageUrl ?? link.imageUrl,
+        }
+      } catch (err) {
+        console.warn('[hydrate] fetch-recipe-url failed:', err)
+        return null
+      }
+    }
+
+    if (!recipe) return null
+    await db.recipes.add(recipe)
+    await this.patchSlot(slotId, {
+      status: 'ready',
+      recipeId: recipe.id,
+      linkData: undefined,
+    })
+    // Bump times_served on the bank row (best-effort, off the critical path).
+    if (link.bankId) {
+      try {
+        await supabase.rpc('bump_recipe_bank_served', { p_recipe_ids: [link.bankId] })
+      } catch (err) {
+        console.warn('[hydrate] bump_recipe_bank_served failed:', err)
+      }
+    }
+    return recipe
   }
 
   /**

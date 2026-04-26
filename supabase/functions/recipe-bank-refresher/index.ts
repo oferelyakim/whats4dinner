@@ -27,8 +27,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
-const APP_VERSION = '1.19.0'
-const DEPLOYED_AT = '2026-04-26T15:00:00Z'
+const APP_VERSION = '2.0.0'
+const DEPLOYED_AT = '2026-04-26T18:00:00Z'
 const MODEL = 'claude-haiku-4-5-20251001'
 
 const INVOCATION_BUDGET_MS = 60_000
@@ -38,6 +38,16 @@ const TARGET_PER_CELL = 3
 // Pace between Anthropic calls (under Tier 1 50K input tok/min). Conservative
 // 4s leaves headroom for concurrent meal-engine traffic.
 const PACE_MS = 4_000
+
+// v2.0.0: BANK_MODE controls whether the refresher generates link-first
+// (web URL discovery via Claude search) or composed (full content) rows.
+//   'link-first'        → web search → URL rows, no ingredient/steps in DB
+//   'composed-fallback' → web search first, fall back to composed if no URLs
+//   'composed-legacy'   → v1.19.x behavior (always composed); revert switch
+const BANK_MODE = (Deno.env.get('BANK_MODE') ?? 'link-first') as
+  | 'link-first'
+  | 'composed-fallback'
+  | 'composed-legacy'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -230,6 +240,173 @@ Return only by calling submit_recipe.`
   }
 }
 
+// ─── v2.0.0: Link-first generation via Claude web search ──────────────────
+//
+// For under-served cells, ask Claude (with `web_search_20250305`) to find
+// 1-3 reputable recipe URLs that match the cell. We persist URL + sparse
+// metadata only — NO ingredients/steps in the bank. Recipes hydrate on
+// user-open via meal-engine's `fetch-recipe-url` op.
+
+const SUBMIT_LINKS_TOOL = {
+  name: 'submit_links',
+  description: 'Submit 1-3 reputable recipe URLs that match the requested cell.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      candidates: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 3,
+        items: {
+          type: 'object',
+          required: ['title', 'url', 'ingredient_main'],
+          properties: {
+            title: { type: 'string', description: 'Dish name as it appears on the source page.' },
+            url: { type: 'string', description: 'Full https URL of the recipe page.' },
+            sourceDomain: { type: 'string', description: 'Domain like "seriouseats.com".' },
+            ingredient_main: { type: 'string', description: 'Primary ingredient, lowercase.' },
+            secondary_ingredients: { type: 'array', items: { type: 'string' }, description: 'Up to 3 additional lead ingredients, lowercase.' },
+            protein_family: { type: 'string', description: 'chicken|beef|pork|seafood|legume|tofu|cheese|egg|grain|other' },
+            prep_time_min: { type: 'integer' },
+            cook_time_min: { type: 'integer' },
+            servings: { type: 'integer' },
+            quality_score: { type: 'number', description: '0-100, honest rating of recipe quality.' },
+          },
+        },
+      },
+    },
+    required: ['candidates'],
+  },
+}
+
+interface LinkCandidate {
+  title: string
+  url: string
+  sourceDomain?: string
+  ingredient_main: string
+  secondary_ingredients?: string[]
+  protein_family?: string
+  prep_time_min?: number
+  cook_time_min?: number
+  servings?: number
+  quality_score?: number
+}
+
+interface LinkGenResult {
+  candidates: LinkCandidate[]
+  tokensIn: number
+  tokensOut: number
+}
+
+async function generateLinks(cell: Cell): Promise<LinkGenResult> {
+  const dietaryStr = cell.dietary.length > 0 ? cell.dietary.join(', ') : 'none'
+  const proteinStr = cell.protein ? cell.protein : '(side dish, no protein)'
+
+  const system = `You search the web for ONE-to-THREE high-quality, indexable recipe URLs that
+match the requested cell. Use the web_search tool. Then submit the URLs via
+submit_links.
+
+Rules:
+- Prefer reputable sites (allrecipes.com, seriouseats.com, cooking.nytimes.com,
+  bonappetit.com, smittenkitchen.com, budgetbytes.com, food52.com, foodnetwork.com,
+  simplyrecipes.com, thekitchn.com, eatingwell.com, kingarthurbaking.com, etc.).
+- Title and URL must be the actual recipe page, not a category or roundup.
+- ingredient_main = the primary ingredient (lowercase), e.g. "chicken thighs".
+- secondary_ingredients = up to 3 additional anchor ingredients (lowercase).
+- DO NOT pick shawarma/kabob/falafel/hummus/tahini/za'atar/sumac/labneh
+  unless cuisine is greek/persian/israeli.
+- Honor dietary constraints absolutely.
+
+Reply by calling submit_links with 1-3 candidates.`
+
+  const user = `Find ${cell.cuisine} ${cell.mealType} ${cell.slotRole} recipes centered on ${proteinStr}. Dietary: ${dietaryStr}. Hint: ${cell.hint}.`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2200,
+      system,
+      tools: [
+        { type: 'web_search_20250305', name: 'web_search', max_uses: 3 },
+        SUBMIT_LINKS_TOOL,
+      ],
+      messages: [{ role: 'user', content: user }],
+    }),
+  })
+  if (res.status === 429) throw new AnthropicRateLimitError()
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Anthropic ${res.status}: ${text.slice(0, 200)}`)
+  }
+  const data = await res.json()
+  // The model may emit web_search blocks first, then submit_links — pick the latter.
+  const tool = (data.content || []).find(
+    (b: { type: string; name?: string }) => b.type === 'tool_use' && b.name === 'submit_links',
+  )
+  const tokensIn = data.usage?.input_tokens ?? 0
+  const tokensOut = data.usage?.output_tokens ?? 0
+  if (!tool || !tool.input) {
+    return { candidates: [], tokensIn, tokensOut }
+  }
+  const out = tool.input as { candidates?: LinkCandidate[] }
+  return { candidates: out.candidates ?? [], tokensIn, tokensOut }
+}
+
+async function insertWebRows(
+  supabase: ReturnType<typeof createClient>,
+  cell: Cell,
+  candidates: LinkCandidate[],
+): Promise<number> {
+  if (candidates.length === 0) return 0
+  const rows = candidates.map((c) => ({
+    title: c.title,
+    cuisine_id: cell.cuisine,
+    meal_type: cell.mealType,
+    slot_role: cell.slotRole,
+    dietary_tags: cell.dietary,
+    ingredient_main: c.ingredient_main.toLowerCase(),
+    protein_family: c.protein_family ?? cell.protein ?? null,
+    style_id: null,
+    flavor_id: null,
+    ingredients: null,
+    steps: null,
+    secondary_ingredients: (c.secondary_ingredients ?? []).map((s) => s.toLowerCase()),
+    prep_time_min: c.prep_time_min ?? null,
+    cook_time_min: c.cook_time_min ?? null,
+    servings: c.servings ?? null,
+    image_url: null,
+    source_url: c.url,
+    source_domain: c.sourceDomain ?? domainFromUrl(c.url),
+    source_kind: 'web',
+    source_kind_v2: 'web',
+    quality_score: Math.max(0, Math.min(100, c.quality_score ?? 70)),
+  }))
+  // UPSERT on (source_url, slot_role) so re-runs don't dup-spam.
+  const { error } = await supabase.from('recipe_bank').upsert(rows, {
+    onConflict: 'source_url,slot_role',
+    ignoreDuplicates: true,
+  })
+  if (error) {
+    console.warn(`[refresher] insertWebRows failed for ${cell.cuisine}/${cell.mealType}: ${error.message}`)
+    return 0
+  }
+  return rows.length
+}
+
+function domainFromUrl(u: string): string {
+  try {
+    return new URL(u).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
 // ─── Coverage probe ───────────────────────────────────────────────────────
 
 interface CellWithCount extends Cell {
@@ -396,11 +573,35 @@ serve(async (req) => {
     }
     stats.attempted++
     try {
-      const { recipe, tokensIn, tokensOut } = await generateOne(cell)
-      await insertRecipe(supabase, cell, recipe)
-      stats.recipesAdded++
-      stats.tokensIn += tokensIn
-      stats.tokensOut += tokensOut
+      let added = 0
+      // v2.0.0 routing.
+      if (BANK_MODE === 'composed-legacy') {
+        const { recipe, tokensIn, tokensOut } = await generateOne(cell)
+        await insertRecipe(supabase, cell, recipe)
+        added = 1
+        stats.tokensIn += tokensIn
+        stats.tokensOut += tokensOut
+      } else {
+        // 'link-first' or 'composed-fallback': try web search first.
+        const links = await generateLinks(cell)
+        stats.tokensIn += links.tokensIn
+        stats.tokensOut += links.tokensOut
+        added = await insertWebRows(supabase, cell, links.candidates)
+        // Fallback if no usable URLs returned and mode allows.
+        if (added === 0 && BANK_MODE === 'composed-fallback') {
+          try {
+            const { recipe, tokensIn, tokensOut } = await generateOne(cell)
+            await insertRecipe(supabase, cell, recipe)
+            added = 1
+            stats.tokensIn += tokensIn
+            stats.tokensOut += tokensOut
+          } catch (err) {
+            if (err instanceof AnthropicRateLimitError) throw err
+            console.warn(`[refresher] composed fallback failed for cell:`, err)
+          }
+        }
+      }
+      stats.recipesAdded += added
     } catch (err) {
       if (err instanceof AnthropicRateLimitError) {
         stats.rateLimited = true
@@ -419,11 +620,37 @@ serve(async (req) => {
     }
   }
 
-  if (!stats.notes) stats.notes = `processed ${stats.attempted} cells`
+  // ─── v2.0.0: end-of-tick retirement sweep ──────────────────────────────
+  // Soft-retires rows that have never been served in 30+ days OR have
+  // popularity < 10. Logs as a separate runs entry for ops visibility.
+  let retiredCount = 0
+  try {
+    const { data, error } = await supabase.rpc('retire_stale_recipes')
+    if (error) {
+      console.warn('[refresher] retire_stale_recipes failed:', error.message)
+    } else {
+      retiredCount = typeof data === 'number' ? data : 0
+    }
+  } catch (err) {
+    console.warn('[refresher] retire RPC threw:', err)
+  }
+  if (retiredCount > 0) {
+    await supabase.from('recipe_bank_runs').insert({
+      finished_at: new Date().toISOString(),
+      recipes_added: 0,
+      tokens_used: 0,
+      cost_usd: 0,
+      trigger: 'cron-retire',
+      notes: `retired ${retiredCount} stale rows`,
+    })
+  }
+
+  if (!stats.notes) stats.notes = `processed ${stats.attempted} cells (mode=${BANK_MODE}, retired=${retiredCount})`
+  else stats.notes = `${stats.notes}; retired=${retiredCount}`
   await logRun(supabase, stats)
 
   return new Response(
-    JSON.stringify({ ok: true, stats }),
+    JSON.stringify({ ok: true, stats, mode: BANK_MODE, retiredCount }),
     { headers: { ...corsHeaders, 'content-type': 'application/json' } },
   )
 })

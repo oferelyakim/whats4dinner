@@ -8,9 +8,10 @@ import { PresetPicker } from './PresetPicker'
 interface Props {
   meal: MealView
   onOpenRecipe?: (recipeId: string) => void
+  onOpenSlot?: (slotId: string) => void
 }
 
-export function MealCard({ meal, onOpenRecipe }: Props) {
+export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
   const [showPresets, setShowPresets] = useState(false)
   const engine = getEngine()
 
@@ -45,7 +46,7 @@ export function MealCard({ meal, onOpenRecipe }: Props) {
       </div>
       <div className="space-y-1.5">
         {meal.slots.map((s) => (
-          <SlotCard key={s.id} slotId={s.id} onOpenRecipe={onOpenRecipe} />
+          <SlotCard key={s.id} slotId={s.id} onOpenRecipe={onOpenRecipe} onOpenSlot={onOpenSlot} />
         ))}
         {meal.slots.length === 0 && (
           <p className="text-xs text-rp-ink-mute italic">No slots — apply a preset or add one.</p>

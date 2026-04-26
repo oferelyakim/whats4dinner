@@ -6,8 +6,8 @@ A mobile-first Progressive Web App for US households to coordinate family life �
 ## Business Model
 - **Primary market**: United States. Hebrew/RTL fully supported as a secondary locale.
 - **Revenue stream 1 — Retailer cart integrations**: One-tap send of a shopping list's ingredients to US retailer carts (Walmart-first affiliate add-to-cart; Instacart, Amazon Fresh planned). Revenue = affiliate commission. Not yet implemented.
-- **Revenue stream 2 — AI subscriptions**: AI Individual ($4.99/mo) and AI Family ($6.99/mo, 5 members) unlock AI meal planning, recipe import from URL/photo, AI assistant chat, and event planning. Stripe Edge Functions built; awaiting secret configuration to go live.
-- All core coordination features (circles, lists, plans, events, chores, activities) are free.
+- **Revenue stream 2 — AI subscriptions**: Single Replanish AI tier — $6/mo or $60/yr (14-day annual trial). Unlocks the interactive meal-plan interview (v2.0.0), AI recipe import from URL/photo, AI assistant chat, and event planning. 4-seat sharing (owner + 3 invitees) via `subscription_seats` table. Stripe Edge Functions built; awaiting secret configuration to go live.
+- All core coordination features (circles, lists, plans, events, chores, activities) are free. Free users see a disabled AI banner + "Quick fill" (Standard week + bank-fill, no AI ask) and can URL-import 10 recipes/month (which feed the bank via the auditor).
 
 ## Stack
 - **Frontend:** React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + Radix UI + dnd-kit + Framer Motion
@@ -16,7 +16,7 @@ A mobile-first Progressive Web App for US households to coordinate family life �
 - **PWA:** vite-plugin-pwa with Workbox, offline persistence via IndexedDB
 - **i18n:** English (primary) + Hebrew (RTL supported), 300+ translation keys
 - **Payments:** Stripe via Supabase Edge Functions (`create-checkout`, `stripe-webhook`)
-- **AI:** Claude API (Haiku/Sonnet) via Edge Functions (`ai-chat`, `generate-meal-plan`, `scrape-recipe`, `plan-event`, `nlp-action`, `get-recipe`)
+- **AI:** Claude API (Haiku 4.5 default + Sonnet 4.5 for compose-fallback) via Edge Functions. Active set: `meal-engine` (slot pipeline + interview ops), `meal-plan-worker` (async job worker), `recipe-bank-refresher` (cron-driven link discovery), `auditor-from-imports` (user URL → bank promotion, v2.0.0), `plan-event`, `ai-chat`, `scrape-recipe`, `get-recipe`, `nlp-action`. Legacy `generate-meal-plan` retained for backwards-compat but new flows use the slot-based `/plan-v2` engine.
 
 ## Architecture
 - Mobile-first responsive design — desktop is secondary
@@ -65,9 +65,13 @@ src/
   types/          # Shared TypeScript types
   stores/         # Zustand stores
 supabase/
-  migrations/     # 22 numbered migrations
+  migrations/     # 33 numbered migrations (030-034 are recipe-bank lineage:
+                  #  030 bank table, 031 async-jobs, 032 cron, 033 reserved
+                  #  for Event Planner v2, 034 v2.0.0 link-first overhaul)
   functions/      # Edge Functions (ai-chat, scrape-recipe, generate-meal-plan,
-                  #  plan-event, get-recipe, nlp-action, create-checkout, stripe-webhook)
+                  #  plan-event, get-recipe, nlp-action, create-checkout, stripe-webhook,
+                  #  meal-engine, meal-plan-worker, recipe-bank-refresher,
+                  #  auditor-from-imports [v2.0.0])
 e2e/              # Playwright E2E tests
 ```
 

@@ -8,9 +8,10 @@ import { PresetPicker } from './PresetPicker'
 interface Props {
   day: DayView
   onOpenRecipe?: (recipeId: string) => void
+  onOpenSlot?: (slotId: string) => void
 }
 
-export function DayCard({ day, onOpenRecipe }: Props) {
+export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
   const [showPresets, setShowPresets] = useState(false)
   const [theme, setTheme] = useState(day.theme ?? '')
   const engine = getEngine()
@@ -45,7 +46,7 @@ export function DayCard({ day, onOpenRecipe }: Props) {
 
       <div className="space-y-4">
         {day.meals.map((meal) => (
-          <MealCard key={meal.id} meal={meal} onOpenRecipe={onOpenRecipe} />
+          <MealCard key={meal.id} meal={meal} onOpenRecipe={onOpenRecipe} onOpenSlot={onOpenSlot} />
         ))}
       </div>
 

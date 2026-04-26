@@ -38,8 +38,8 @@ const MODEL = 'claude-haiku-4-5-20251001'
  * Override with COMPOSE_MODEL env var if needed (e.g. to revert to Haiku).
  */
 const COMPOSE_MODEL = Deno.env.get('COMPOSE_MODEL') ?? 'claude-sonnet-4-5-20250929'
-const APP_VERSION = '1.18.0'
-const DEPLOYED_AT = '2026-04-25T02:00:00Z'
+const APP_VERSION = '2.0.0'
+const DEPLOYED_AT = '2026-04-26T18:00:00Z'
 
 // v1.17.0: recipe bank wiring — service-role Supabase client used for the
 // `sample-from-bank` op. Anonymous client would also work via RLS but
@@ -1061,29 +1061,40 @@ async function opSampleFromBank(input: Record<string, unknown>): Promise<unknown
     return { candidates: [], _diag: `rpc_error:${error.message}` }
   }
   // Map DB rows to the client-side Recipe shape.
-  const candidates = (data ?? []).map((r: Record<string, unknown>) => ({
-    bankId: r.id,
-    title: r.title,
-    cuisineId: r.cuisine_id,
-    ingredientMain: r.ingredient_main,
-    proteinFamily: r.protein_family,
-    styleId: r.style_id,
-    flavorId: r.flavor_id,
-    dietaryTags: r.dietary_tags,
-    qualityScore: r.quality_score,
-    recipe: {
+  // v2.0.0: also exposes source_kind_v2 / secondary_ingredients /
+  // composed_payload so the client can route link-first vs full-content.
+  const candidates = (data ?? []).map((r: Record<string, unknown>) => {
+    const sourceKindV2 = (r.source_kind_v2 ?? r.source_kind) as string
+    const ingredients = r.ingredients as unknown
+    const steps = r.steps as unknown
+    return {
+      bankId: r.id,
       title: r.title,
-      source: r.source_kind === 'web' ? 'web' : 'composed',
-      url: r.source_url ?? undefined,
-      sourceDomain: r.source_domain ?? undefined,
-      ingredients: r.ingredients,
-      steps: r.steps,
-      prepTimeMin: r.prep_time_min ?? undefined,
-      cookTimeMin: r.cook_time_min ?? undefined,
-      servings: r.servings ?? undefined,
-      imageUrl: r.image_url ?? undefined,
-    },
-  }))
+      cuisineId: r.cuisine_id,
+      ingredientMain: r.ingredient_main,
+      proteinFamily: r.protein_family,
+      styleId: r.style_id,
+      flavorId: r.flavor_id,
+      dietaryTags: r.dietary_tags,
+      qualityScore: r.quality_score,
+      // v2.0.0 link-first metadata
+      sourceKindV2,
+      secondaryIngredients: r.secondary_ingredients ?? [],
+      composedPayload: r.composed_payload ?? undefined,
+      recipe: {
+        title: r.title,
+        source: sourceKindV2 === 'web' || sourceKindV2 === 'user_import' ? 'web' : 'composed',
+        url: r.source_url ?? undefined,
+        sourceDomain: r.source_domain ?? undefined,
+        ingredients: Array.isArray(ingredients) ? ingredients : null,
+        steps: Array.isArray(steps) ? steps : null,
+        prepTimeMin: r.prep_time_min ?? undefined,
+        cookTimeMin: r.cook_time_min ?? undefined,
+        servings: r.servings ?? undefined,
+        imageUrl: r.image_url ?? undefined,
+      },
+    }
+  })
   return { candidates }
 }
 
@@ -1254,6 +1265,268 @@ Call plan_day with one slot entry per input slot, in the same order.`
   return { slots: result }
 }
 
+// ─── Op: parse-intake (v2.0.0) ────────────────────────────────────────────
+// Reads the user's freeform meal-planning blurb + circle context and returns
+// (a) which subsequent questions the dialog can skip, and (b) what answer
+// to prefill for them. ~500 input tokens, 1 Haiku call.
+//
+// The dialog hard-asks q_days, q_meals_per_day, q_freeform; everything else
+// is potentially skippable.
+
+const PARSE_INTAKE_TOOL: ToolDef = {
+  name: 'parse_intake',
+  description: 'Parse the user freeform meal-planning blurb into a skip-list and prefilled answers. Skip a question only when the freeform unambiguously answers it. Never invent.',
+  input_schema: {
+    type: 'object',
+    required: ['skip', 'prefill'],
+    properties: {
+      skip: {
+        type: 'array',
+        description: 'Question ids whose answer is unambiguously contained in the freeform.',
+        items: {
+          type: 'string',
+          enum: [
+            'q_headcount',
+            'q_dietary',
+            'q_dislikes',
+            'q_prep_time',
+            'q_calories',
+            'q_cooking_skill',
+            'q_themes',
+            'q_preset_per_day',
+          ],
+        },
+      },
+      prefill: {
+        type: 'object',
+        description: 'Answer values extracted from the freeform. Only include fields you are confident about.',
+        properties: {
+          headcountAdults: { type: 'integer', minimum: 1, maximum: 50 },
+          headcountKids: { type: 'integer', minimum: 0, maximum: 20 },
+          diets: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: [
+                'vegetarian','vegan','gluten-free','dairy-free',
+                'pescatarian','keto','kosher','halal',
+              ],
+            },
+          },
+          dislikes: { type: 'array', items: { type: 'string' } },
+          maxPrepMin: { type: 'integer', minimum: 5, maximum: 240 },
+          calories: { type: 'string', enum: ['light', 'balanced', 'hearty'] },
+          skill: { type: 'string', enum: ['easy', 'normal', 'challenge'] },
+          themes: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: [
+                'meatless-monday','taco-tuesday','pasta-wednesday','pizza-friday',
+                'slow-cooker','one-pot','burger','greek','asian',
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
+}
+
+const PARSE_INTAKE_SYSTEM = `You are parsing a user's meal-planning request into structured answers
+so a wizard can skip questions the user has already answered. Rules:
+
+- Only emit "skip" for questions the freeform UNAMBIGUOUSLY answers.
+- Only emit "prefill" fields you are confident about. When in doubt, leave it
+  out — the wizard will ask.
+- "kids hate fish" → diets=[], dislikes=["fish"], skip=["q_dislikes"]
+- "vegetarian dinner only" → diets=["vegetarian"], skip=["q_dietary"]
+- "Meatless Monday" / "Taco Tuesday" → themes=[…], skip=["q_themes"]
+- "30 min max" / "weeknight quick" → maxPrepMin=30, skip=["q_prep_time"]
+- "family of 4" / "two adults two kids" → headcountAdults+Kids, skip=["q_headcount"]
+- Never skip q_review, q_days, q_meals_per_day, or q_freeform.
+
+Reply only by calling the parse_intake tool.`
+
+async function opParseIntake(input: Record<string, unknown>): Promise<unknown> {
+  const freeform = String(input.freeform ?? '').trim()
+  const circleContext = String(input.circleContext ?? '')
+  if (!freeform) {
+    return { skip: [], prefill: {} }
+  }
+  const userPayload = JSON.stringify({ freeform, circleContext })
+
+  const resp = await anthropic({
+    model: MODEL,
+    max_tokens: 600,
+    system: PARSE_INTAKE_SYSTEM,
+    tools: [PARSE_INTAKE_TOOL],
+    tool_choice: { type: 'tool', name: 'parse_intake' },
+    messages: [{ role: 'user', content: userPayload }],
+  })
+
+  const out = pickToolUse(resp, 'parse_intake') as
+    | { skip?: string[]; prefill?: Record<string, unknown> }
+    | null
+  if (!out) return { skip: [], prefill: {} }
+  return { skip: out.skip ?? [], prefill: out.prefill ?? {} }
+}
+
+// ─── Op: propose-plan (v2.0.0) ────────────────────────────────────────────
+// Given the full interview answer map, returns 1-3 candidate dish-name
+// strings per slot. The client matches each candidate against the recipe
+// bank with `tryFillSlotFromBank`. First hit wins. Misses fall through to
+// the existing async worker.
+
+const PROPOSE_PLAN_TOOL: ToolDef = {
+  name: 'propose_plan',
+  description: 'Propose 1-3 candidate dish titles per slot. The client looks them up in a recipe bank.',
+  input_schema: {
+    type: 'object',
+    required: ['days'],
+    properties: {
+      days: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['date', 'meals'],
+          properties: {
+            date: { type: 'string' },
+            theme: { type: 'string' },
+            meals: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['type', 'slots'],
+                properties: {
+                  type: { type: 'string' },
+                  slots: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['role', 'candidates'],
+                      properties: {
+                        role: { type: 'string' },
+                        candidates: {
+                          type: 'array',
+                          minItems: 1,
+                          maxItems: 3,
+                          items: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+}
+
+const PROPOSE_PLAN_SYSTEM = `You design a week of meals as candidate DISH NAMES — not full recipes.
+Each candidate is a short, well-known title that recipe sites would index
+(e.g. "Korean Braised Chicken Thighs", "Sheet-Pan Greek Chicken & Veggies").
+
+Rules:
+- Propose 1-3 candidates per slot, in priority order. The client tries each
+  in order against a recipe bank and uses the first hit.
+- Variety across the week:
+    * No protein-family repeats in the same meal (e.g. don't put chicken main
+      and chicken side in the same dinner).
+    * No cuisine repeats on adjacent days.
+    * No more than 2 of any single protein family across the week.
+- Honor user dietary constraints absolutely.
+- Honor q_themes: Monday → vegetarian, Tuesday → tacos, Wednesday → pasta,
+  Friday → pizza, etc., when the theme is in the user's selected themes.
+- Ground on the <circle_context> block — household size, kids' ages, diet
+  defaults — when present.
+- No medical or nutritional advice. Don't comment on calories or claim
+  health benefits.
+
+Reply only by calling the propose_plan tool.`
+
+async function opProposePlan(input: Record<string, unknown>): Promise<unknown> {
+  const answers = input.answers ?? {}
+  const circleContext = String(input.circleContext ?? '')
+  const recentDishes = Array.isArray(input.recentDishes)
+    ? (input.recentDishes as string[])
+    : []
+  const userPayload = JSON.stringify({ answers, recentDishes })
+
+  const resp = await anthropic({
+    model: MODEL,
+    max_tokens: 2200,
+    system: PROPOSE_PLAN_SYSTEM,
+    tools: [PROPOSE_PLAN_TOOL],
+    tool_choice: { type: 'tool', name: 'propose_plan' },
+    messages: [
+      {
+        role: 'user',
+        content: circleContext ? `${circleContext}\n\nANSWERS:\n${userPayload}` : userPayload,
+      },
+    ],
+  })
+
+  const out = pickToolUse(resp, 'propose_plan') as
+    | { days?: unknown[] }
+    | null
+  if (!out?.days) return { days: [] }
+  return { days: out.days }
+}
+
+// ─── Op: fetch-recipe-url (v2.0.0) ────────────────────────────────────────
+// Lazy hydration for `link_ready` slots — fetches a known URL server-side
+// (no CORS), prefers JSON-LD, falls back to HTML extraction. Single-purpose
+// op so the client doesn't have to thread a URL through the find-recipe
+// pipeline. Reuses opExtract internals.
+
+async function opFetchRecipeUrl(input: Record<string, unknown>): Promise<unknown> {
+  const url = String(input.url ?? '')
+  if (!url) throw new Error('url is required')
+
+  // Server-side fetch — bypasses CORS that the browser would hit.
+  let html: string
+  try {
+    const resp = await fetch(url, {
+      redirect: 'follow',
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        accept: 'text/html,application/xhtml+xml',
+      },
+    })
+    if (!resp.ok) {
+      throw new Error(`fetch ${url}: HTTP ${resp.status}`)
+    }
+    html = await resp.text()
+  } catch (err) {
+    throw new Error(`Failed to fetch recipe URL: ${(err as Error).message}`)
+  }
+
+  // Try JSON-LD first.
+  const json = extractJsonLdRecipe(html, url)
+  if (json) {
+    return {
+      recipe: repairAndValidate(
+        { ...json, source: 'web' as const, url, sourceDomain: getDomain(url) },
+        url,
+      ),
+    }
+  }
+  // Fall back to AI HTML extraction.
+  const extracted = await extractRecipeFromHtml(url, html)
+  if (!extracted) throw new Error('Could not extract recipe from URL')
+  return {
+    recipe: repairAndValidate(
+      { ...extracted, source: 'web' as const, url, sourceDomain: getDomain(url) },
+      url,
+    ),
+  }
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -1319,6 +1592,16 @@ serve(async (req) => {
       // v1.17.0: batched Stage A+B for one day in a single Anthropic call.
       case 'day-plan':
         result = await opDayPlan(body)
+        break
+      // v2.0.0: interview ops + lazy URL hydration.
+      case 'parse-intake':
+        result = await opParseIntake(body)
+        break
+      case 'propose-plan':
+        result = await opProposePlan(body)
+        break
+      case 'fetch-recipe-url':
+        result = await opFetchRecipeUrl(body)
         break
       default:
         return new Response(JSON.stringify({ error: `Unknown op: ${op}` }), {

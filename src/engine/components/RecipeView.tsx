@@ -2,28 +2,54 @@ import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ExternalLink, Sparkles } from 'lucide-react'
 import { db } from '../db'
+import { getEngine } from '../MealPlanEngine'
 import type { Recipe } from '../types'
 import { Button } from '@/components/ui/Button'
 
 interface Props {
   recipeId: string | null
+  /**
+   * v2.0.0: when the user opens a `link_ready` slot, parent passes the
+   * slotId here. RecipeView calls `engine.hydrateLinkReadySlot` and
+   * renders the result. Used instead of `recipeId` for link-first slots.
+   */
+  slotId?: string | null
   onClose: () => void
 }
 
-export function RecipeView({ recipeId, onClose }: Props) {
+export function RecipeView({ recipeId, slotId, onClose }: Props) {
   const [recipe, setRecipe] = useState<Recipe | null | 'missing'>(null)
 
   useEffect(() => {
-    if (!recipeId) {
+    if (recipeId) {
+      // Direct recipe lookup (existing path).
       setRecipe(null)
+      db.recipes.get(recipeId).then((r) => setRecipe(r ?? 'missing'))
+      return
+    }
+    if (slotId) {
+      // v2.0.0 lazy hydration path. The engine call:
+      //   • returns the existing Recipe for already-`ready` slots
+      //   • for `link_ready`: fetches URL or hydrates composed payload,
+      //     creates a new Recipe row, flips slot to `ready`, returns it
+      setRecipe(null)
+      const engine = getEngine()
+      engine
+        .hydrateLinkReadySlot(slotId)
+        .then((r) => setRecipe(r ?? 'missing'))
+        .catch((err) => {
+          console.warn('[RecipeView] hydrate failed:', err)
+          setRecipe('missing')
+        })
       return
     }
     setRecipe(null)
-    db.recipes.get(recipeId).then((r) => setRecipe(r ?? 'missing'))
-  }, [recipeId])
+  }, [recipeId, slotId])
+
+  const isOpen = !!recipeId || !!slotId
 
   return (
-    <Dialog.Root open={!!recipeId} onOpenChange={(o) => !o && onClose()}>
+    <Dialog.Root open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
         <Dialog.Content className="fixed inset-x-2 top-[5%] bottom-[5%] z-50 bg-rp-card rounded-2xl shadow-xl sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-lg overflow-hidden flex flex-col">

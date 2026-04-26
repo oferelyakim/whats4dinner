@@ -1,6 +1,64 @@
 # Replanish — Deploy Runbook
 
-**Last verified: v1.19.0, 2026-04-26.** Update this file every time the deploy process changes.
+**Last verified: v2.0.0, 2026-04-26.** Update this file every time the deploy process changes.
+
+## v2.0.0 — Bank link-first + Interactive Interview + Auditor (NEW)
+
+This release ships the bank-first / link-first / interview-driven meal planner. Read this section before shipping v2.0.0 — it has steps that the standard runbook below doesn't cover (database webhook configuration, mig 034, new edge fn, new env var).
+
+**New surface:**
+- Migration 034 — `recipe_bank` link-first columns + new RPCs (`under_covered_cells`, `retire_stale_recipes`) + `recipe_bank_audit_log` table.
+- New edge fn `auditor-from-imports` — promotes user URL imports to the bank.
+- Updated `recipe-bank-refresher` — new `BANK_MODE` env (default `link-first`).
+- Updated `meal-engine` — three new ops (`parse-intake`, `propose-plan`, `fetch-recipe-url`).
+- Frontend `MealPlannerBanner` + `MealPlannerInterview` on `/plan-v2`.
+
+**Deploy steps (in this order):**
+
+```bash
+# 1. Apply migration 034 (run from MAIN repo path, not a worktree).
+npx supabase db query --linked -f supabase/migrations/034_recipe_bank_link_first.sql
+
+# 2. ONE-TIME database webhook (Supabase dashboard → Database → Webhooks):
+#    Source table: public.recipes  |  Event: INSERT
+#    HTTP target: https://<project>.functions.supabase.co/auditor-from-imports
+#    Filter: source_url IS NOT NULL
+#    Headers: Authorization: Bearer <SERVICE_ROLE_KEY>
+
+# 3. Deploy edge functions (mandatory after function code changes).
+npm run deploy:functions
+# now covers: meal-engine, plan-event, ai-chat, meal-plan-worker,
+#             recipe-bank-refresher, auditor-from-imports (new)
+
+# 4. Verify ?ping=1 returns 2.0.0:
+curl 'https://<project>.functions.supabase.co/meal-engine?ping=1'
+curl 'https://<project>.functions.supabase.co/auditor-from-imports?ping=1'
+
+# 5. Push frontend (Vercel auto-deploys).
+git push origin master
+
+# 6. Backfill the bank with link-first rows (one-time).
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... \
+  node scripts/seed-recipe-bank-urls.mjs --target=30 --limit=20
+
+# 7. Smoke the auditor end-to-end.
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+  node scripts/smoke-auditor.mjs
+```
+
+**Post-deploy browser smoke (mandatory):**
+
+1. Open `app.replanish.app/plan-v2` as a paid user → AI banner visible.
+2. Click banner → interview opens. In q_freeform type "dinner only, 3 dishes — kids hate fish".
+3. Confirm `q_dietary` / `q_dislikes` get skipped (parse-intake worked).
+4. Approve → some slots show "From <domain> — tap to open" (`link_ready` state).
+5. Tap one → recipe loads + caches.
+6. As free user → banner shows disabled state with "Upgrade to plan with AI →" CTA.
+7. Quick fill button (replaces old "Generate plan") works for both tiers.
+
+**Rollback:** mig 034 is column-additive (never drops). Set `BANK_MODE=composed-legacy` on `recipe-bank-refresher` env to revert generation. The `composed_payload` archive means no data loss even on full revert. Roll the frontend tag in Vercel to revert UI without touching the DB.
+
+---
 
 This file is the single source of truth for deploying Replanish. The two deploy targets (Vercel for frontend, Supabase for edge functions + migrations) each have a different command and a different "is it actually live?" check. Skipping or confusing them is the most common cause of "I deployed but the change isn't there."
 

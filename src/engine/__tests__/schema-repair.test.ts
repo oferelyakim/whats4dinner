@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { ExtractRecipeSchema } from '../ai/schemas'
+import {
+  ExtractRecipeSchema,
+  IntakeParseResultSchema,
+  ProposePlanResultSchema,
+} from '../ai/schemas'
 
 /**
  * v1.16.0: schema is lenient on imageUrl + numeric fields. The whole-recipe
@@ -102,5 +106,159 @@ describe('ExtractRecipeSchema — lenient transforms (v1.16.0)', () => {
     expect(r.prepTimeMin).toBeUndefined()
     expect(r.cookTimeMin).toBeUndefined()
     expect(r.servings).toBeUndefined()
+  })
+})
+
+/**
+ * v2.0.0: parse-intake op output. Lenient — model may return partial / empty
+ * objects when freeform is sparse. The schema strips invalid skip-list ids
+ * and unknown enum values rather than throwing, so a stale model on stale
+ * frontend doesn't block the whole interview.
+ */
+describe('IntakeParseResultSchema — lenient transforms (v2.0.0)', () => {
+  it('accepts an empty result (no skip, no prefill)', () => {
+    const r = IntakeParseResultSchema.parse({})
+    expect(r.skip).toEqual([])
+    expect(r.prefill.diets).toEqual([])
+    expect(r.prefill.themes).toEqual([])
+  })
+
+  it('strips unknown question ids from skip-list', () => {
+    const r = IntakeParseResultSchema.parse({
+      skip: ['q_dietary', 'q_unknown_future_question', 'q_dislikes'],
+      prefill: {},
+    })
+    expect(r.skip).toEqual(['q_dietary', 'q_dislikes'])
+  })
+
+  it('strips unknown theme ids from prefill.themes', () => {
+    const r = IntakeParseResultSchema.parse({
+      skip: [],
+      prefill: { themes: ['taco-tuesday', 'unknown-theme', 'meatless-monday'] },
+    })
+    expect(r.prefill.themes).toEqual(['taco-tuesday', 'meatless-monday'])
+  })
+
+  it('coerces numbers and clamps invalid values to undefined', () => {
+    const r = IntakeParseResultSchema.parse({
+      skip: ['q_headcount'],
+      prefill: { headcountAdults: '4', headcountKids: -2, maxPrepMin: 600 },
+    })
+    expect(r.prefill.headcountAdults).toBe(4)
+    // -2 fails min(0) → catch returns undefined
+    expect(r.prefill.headcountKids).toBeUndefined()
+    // 600 > max(240) → catch returns undefined
+    expect(r.prefill.maxPrepMin).toBeUndefined()
+  })
+
+  it('rejects invalid calorie/skill enum values via .catch(undefined)', () => {
+    const r = IntakeParseResultSchema.parse({
+      skip: [],
+      prefill: { calories: 'extra-hearty', skill: 'master-chef' },
+    })
+    expect(r.prefill.calories).toBeUndefined()
+    expect(r.prefill.skill).toBeUndefined()
+  })
+})
+
+/**
+ * v2.0.0: propose-plan op output. Each slot must have 1-3 candidate dish
+ * names. The engine matches each in order against the bank.
+ */
+describe('ProposePlanResultSchema — strict on candidates (v2.0.0)', () => {
+  it('accepts a minimal one-day-one-meal proposal', () => {
+    const r = ProposePlanResultSchema.parse({
+      days: [
+        {
+          date: '2026-04-27',
+          meals: [
+            {
+              type: 'dinner',
+              slots: [{ role: 'main', candidates: ['Chicken Adobo'] }],
+            },
+          ],
+        },
+      ],
+    })
+    expect(r.days).toHaveLength(1)
+    expect(r.days[0].meals[0].slots[0].candidates).toEqual(['Chicken Adobo'])
+  })
+
+  it('accepts multiple candidates per slot', () => {
+    const r = ProposePlanResultSchema.parse({
+      days: [
+        {
+          date: '2026-04-27',
+          meals: [
+            {
+              type: 'dinner',
+              slots: [
+                {
+                  role: 'main',
+                  candidates: ['Korean Bibimbap', 'Thai Pad See Ew', 'Sheet-Pan Greek Chicken'],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    expect(r.days[0].meals[0].slots[0].candidates).toHaveLength(3)
+  })
+
+  it('rejects a slot with zero candidates', () => {
+    expect(() =>
+      ProposePlanResultSchema.parse({
+        days: [
+          {
+            date: '2026-04-27',
+            meals: [{ type: 'dinner', slots: [{ role: 'main', candidates: [] }] }],
+          },
+        ],
+      }),
+    ).toThrow()
+  })
+
+  it('rejects a slot with more than 3 candidates', () => {
+    expect(() =>
+      ProposePlanResultSchema.parse({
+        days: [
+          {
+            date: '2026-04-27',
+            meals: [
+              {
+                type: 'dinner',
+                slots: [
+                  { role: 'main', candidates: ['a', 'b', 'c', 'd'] },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow()
+  })
+
+  it('coerces theme=null acceptable, blank string acceptable', () => {
+    const r = ProposePlanResultSchema.parse({
+      days: [
+        {
+          date: '2026-04-27',
+          theme: null,
+          meals: [
+            {
+              type: 'dinner',
+              slots: [{ role: 'main', candidates: ['Chicken Adobo'] }],
+            },
+          ],
+        },
+      ],
+    })
+    expect(r.days[0].theme).toBeNull()
+  })
+
+  it('defaults to empty days array on missing field', () => {
+    const r = ProposePlanResultSchema.parse({})
+    expect(r.days).toEqual([])
   })
 })

@@ -1138,6 +1138,118 @@ const translations: Record<string, Record<Locale, string>> = {
   'subscription.seats.remove': { en: 'Remove', he: 'הסר', es: 'Eliminar' },
   'subscription.seats.cap_reached': { en: 'Seat cap reached — remove a member first', he: 'מספר המושבים המקסימלי הגיע — הסר חבר תחילה', es: 'Capacidad alcanzada — elimina un miembro primero' },
   'subscription.seats.you_label': { en: '(You)', he: '(אתה)', es: '(Tú)' },
+
+  // ─── v2.0.0 — Meal-Planner Interview ─────────────────────────────────────
+  // The dynamic questionnaire that paid users see when they click the AI
+  // banner on /plan-v2. Free users see a disabled banner with the upgrade CTA.
+
+  'interview.banner.title': {
+    en: 'Plan your week with Replanish AI',
+    he: 'תכנן את השבוע שלך עם Replanish AI',
+    es: 'Planifica tu semana con Replanish AI',
+  },
+  'interview.banner.subtitle': {
+    en: 'Answer a few quick questions and we\'ll draft a week of meals you can swap before approving.',
+    he: 'ענה על כמה שאלות קצרות ונכין לך טיוטה של שבוע ארוחות שתוכל להחליף לפני האישור.',
+    es: 'Responde unas preguntas rápidas y prepararemos un borrador semanal que podrás ajustar antes de aprobar.',
+  },
+  'interview.banner.upgrade': { en: 'Upgrade to plan with AI →', he: 'שדרגו כדי לתכנן עם AI ←', es: 'Actualiza para planificar con IA →' },
+  'interview.banner.start': { en: 'Start interview', he: 'התחל ראיון', es: 'Iniciar entrevista' },
+  'interview.banner.disabled': { en: 'Replanish AI plans your week', he: 'Replanish AI מתכנן את השבוע שלך', es: 'Replanish AI planifica tu semana' },
+
+  // Questions
+  'interview.q.days': { en: 'Which days are we planning?', he: 'אילו ימים אנחנו מתכננים?', es: '¿Qué días estamos planificando?' },
+  'interview.q.daysHelp': { en: 'Tap to add or remove days. Default is the next seven.', he: 'הקש כדי להוסיף או להסיר ימים. ברירת המחדל היא שבעת הימים הקרובים.', es: 'Toca para agregar o quitar días. El predeterminado son los siguientes siete.' },
+  'interview.q.mealsPerDay': { en: 'Which meals per day?', he: 'אילו ארוחות בכל יום?', es: '¿Qué comidas por día?' },
+  'interview.q.mealsPerDayHelp': { en: 'Pick the meal types and the number of dishes you want for each.', he: 'בחר את סוגי הארוחות ואת מספר המנות שאתה רוצה בכל אחת.', es: 'Elige los tipos de comida y el número de platos que quieres en cada una.' },
+  'interview.q.freeform': { en: 'Anything else?', he: 'משהו נוסף?', es: '¿Algo más?' },
+  'interview.q.freeformHelp': {
+    en: 'e.g. "kids hate fish, dad does Tuesdays slow-cooker" or "just dinner for the week, 3 dishes per meal".',
+    he: 'למשל: "הילדים שונאים דגים, אבא בישול איטי בימי שלישי" או "רק ארוחת ערב לשבוע, 3 מנות לכל ארוחה".',
+    es: 'p. ej. "los niños odian el pescado, papá hace olla lenta los martes" o "solo cena de la semana, 3 platos por comida".',
+  },
+  'interview.q.headcount': { en: 'How many adults and kids?', he: 'כמה מבוגרים וילדים?', es: '¿Cuántos adultos y niños?' },
+  'interview.q.headcountHelp': { en: 'Used for portion sizes and ingredient quantities.', he: 'משמש לגודל מנות וכמויות מצרכים.', es: 'Se usa para tamaños de porción y cantidades de ingredientes.' },
+  'interview.q.presetPerDay': { en: 'Pick a shape for each day', he: 'בחר תבנית לכל יום', es: 'Elige una forma para cada día' },
+  'interview.q.presetPerDayHelp': { en: 'You can mix-and-match. Leave a day blank to keep it open.', he: 'אפשר לשלב ולהתאים. השאר יום ריק כדי להשאיר אותו פתוח.', es: 'Puedes mezclar y combinar. Deja un día en blanco para dejarlo abierto.' },
+  'interview.q.dietary': { en: 'Any dietary needs?', he: 'דרישות תזונה?', es: '¿Necesidades dietéticas?' },
+  'interview.q.dietaryHelp': { en: 'You can change these per meal later.', he: 'אפשר לשנות לכל ארוחה בנפרד.', es: 'Puedes cambiar esto por comida después.' },
+  'interview.q.dislikes': { en: 'Anything to avoid?', he: 'משהו להימנע ממנו?', es: '¿Algo que evitar?' },
+  'interview.q.dislikesHelp': { en: 'Comma-separated ingredients we should keep out of the plan.', he: 'מצרכים שנפרדים בפסיקים שנשאיר מחוץ לתפריט.', es: 'Ingredientes separados por comas que dejaremos fuera del plan.' },
+  'interview.q.prepTime': { en: 'Max prep time per dish?', he: 'זמן הכנה מרבי למנה?', es: '¿Tiempo máximo de preparación por plato?' },
+  'interview.q.prepTimeHelp': { en: 'We\'ll bias the bank toward dishes that fit.', he: 'נטה את המאגר למנות שמתאימות.', es: 'Sesgaremos el banco hacia platos que encajan.' },
+  'interview.q.calories': { en: 'Calorie balance?', he: 'איזון קלורי?', es: '¿Balance calórico?' },
+  'interview.q.caloriesHelp': { en: 'A loose guideline — we don\'t track calories per dish.', he: 'הנחיה כללית — לא עוקבים אחר קלוריות לכל מנה.', es: 'Una guía aproximada — no contamos calorías por plato.' },
+  'interview.q.skill': { en: 'How adventurous tonight?', he: 'כמה הרפתקני הערב?', es: '¿Qué tan aventureros esta noche?' },
+  'interview.q.skillHelp': { en: 'Easier picks weekday, more involved on weekends — your call.', he: 'בחירות קלות יותר באמצע השבוע, מורכבות בסופי שבוע — אתה מחליט.', es: 'Más fácil entre semana, más elaborado en fin de semana — tú decides.' },
+  'interview.q.themes': { en: 'Any theme nights?', he: 'ערבי נושא?', es: '¿Alguna noche temática?' },
+  'interview.q.themesHelp': { en: 'Pick one or more — we\'ll match the day of the week.', he: 'בחר אחד או יותר — נתאים ליום השבוע.', es: 'Elige uno o más — los emparejaremos con el día de la semana.' },
+  'interview.q.review': { en: 'Here\'s your draft week', he: 'הנה טיוטת השבוע שלך', es: 'Este es tu borrador semanal' },
+  'interview.q.reviewHelp': { en: 'Tap any dish to swap it. Approve when you\'re ready.', he: 'הקש על מנה כדי להחליף אותה. אשר כשאתה מוכן.', es: 'Toca cualquier plato para cambiarlo. Aprueba cuando estés listo.' },
+
+  // Dietary options
+  'interview.diet.vegetarian': { en: 'Vegetarian', he: 'צמחוני', es: 'Vegetariano' },
+  'interview.diet.vegan': { en: 'Vegan', he: 'טבעוני', es: 'Vegano' },
+  'interview.diet.glutenFree': { en: 'Gluten-free', he: 'ללא גלוטן', es: 'Sin gluten' },
+  'interview.diet.dairyFree': { en: 'Dairy-free', he: 'ללא מוצרי חלב', es: 'Sin lácteos' },
+  'interview.diet.pescatarian': { en: 'Pescatarian', he: 'פסקטריאני', es: 'Pescetariano' },
+  'interview.diet.keto': { en: 'Keto', he: 'קטו', es: 'Keto' },
+  'interview.diet.kosher': { en: 'Kosher', he: 'כשר', es: 'Kosher' },
+  'interview.diet.halal': { en: 'Halal', he: 'חלאל', es: 'Halal' },
+
+  // Prep time options
+  'interview.prepTime.under15': { en: 'Under 15 min', he: 'פחות מ-15 דק׳', es: 'Menos de 15 min' },
+  'interview.prepTime.under30': { en: 'Under 30 min', he: 'פחות מ-30 דק׳', es: 'Menos de 30 min' },
+  'interview.prepTime.under45': { en: 'Under 45 min', he: 'פחות מ-45 דק׳', es: 'Menos de 45 min' },
+  'interview.prepTime.flex': { en: 'I have time', he: 'יש לי זמן', es: 'Tengo tiempo' },
+
+  // Calorie options
+  'interview.calories.light': { en: 'Light', he: 'קל', es: 'Ligero' },
+  'interview.calories.balanced': { en: 'Balanced', he: 'מאוזן', es: 'Equilibrado' },
+  'interview.calories.hearty': { en: 'Hearty', he: 'משביע', es: 'Abundante' },
+
+  // Skill options
+  'interview.skill.easy': { en: 'Easy', he: 'קל', es: 'Fácil' },
+  'interview.skill.normal': { en: 'Normal', he: 'רגיל', es: 'Normal' },
+  'interview.skill.challenge': { en: 'Challenge me', he: 'אתגרו אותי', es: 'Desafíame' },
+
+  // Theme options (matches THEME_PRESET_IDS in src/engine/ai/schemas.ts)
+  'interview.theme.meatlessMonday': { en: 'Meatless Monday', he: 'יום שני צמחוני', es: 'Lunes sin carne' },
+  'interview.theme.tacoTuesday': { en: 'Taco Tuesday', he: 'יום שלישי של טאקו', es: 'Martes de tacos' },
+  'interview.theme.pastaWednesday': { en: 'Pasta Wednesday', he: 'יום רביעי של פסטה', es: 'Miércoles de pasta' },
+  'interview.theme.pizzaFriday': { en: 'Pizza Friday', he: 'יום שישי של פיצה', es: 'Viernes de pizza' },
+  'interview.theme.slowCooker': { en: 'Slow-cooker night', he: 'ערב בישול איטי', es: 'Noche de olla lenta' },
+  'interview.theme.onePot': { en: 'One-pot night', he: 'ערב בסיר אחד', es: 'Noche de una olla' },
+  'interview.theme.burger': { en: 'Burger night', he: 'ערב המבורגרים', es: 'Noche de hamburguesas' },
+  'interview.theme.greek': { en: 'Greek night', he: 'ערב יווני', es: 'Noche griega' },
+  'interview.theme.asian': { en: 'Asian night', he: 'ערב אסייתי', es: 'Noche asiática' },
+
+  // Disclaimers (rendered above q_dietary and at the foot of q_review + plan)
+  'interview.disclaimer.dietary': {
+    en: 'Replanish helps you plan, not diagnose. For allergies, dietary restrictions, or medical conditions, consult a registered dietitian or your doctor.',
+    he: 'Replanish עוזר לתכנן, לא לאבחן. לאלרגיות, הגבלות תזונה או בעיות רפואיות — התייעץ עם דיאטן מוסמך או רופא.',
+    es: 'Replanish ayuda a planificar, no a diagnosticar. Para alergias, restricciones dietéticas o condiciones médicas, consulta a un dietista o a tu médico.',
+  },
+  'interview.disclaimer.plan': {
+    en: 'Plans are suggestions — not medical or nutritional advice.',
+    he: 'התכניות הן הצעות — לא ייעוץ רפואי או תזונתי.',
+    es: 'Los planes son sugerencias — no son consejo médico ni nutricional.',
+  },
+
+  // Buttons / shared
+  'interview.next': { en: 'Continue', he: 'המשך', es: 'Continuar' },
+  'interview.back': { en: 'Back', he: 'חזור', es: 'Atrás' },
+  'interview.skip': { en: 'Skip for now', he: 'דלג לעת עתה', es: 'Omitir por ahora' },
+  'interview.approve': { en: 'Approve plan', he: 'אשר תוכנית', es: 'Aprobar plan' },
+  'interview.swap': { en: 'Swap dish', he: 'החלף מנה', es: 'Cambiar plato' },
+  'interview.parsing': { en: 'Reading your notes…', he: 'קורא את ההערות שלך…', es: 'Leyendo tus notas…' },
+  'interview.proposing': { en: 'Drafting your week…', he: 'מכין את השבוע שלך…', es: 'Elaborando tu semana…' },
+  'interview.progress': { en: 'Step {current} of {total}', he: 'שלב {current} מתוך {total}', es: 'Paso {current} de {total}' },
+  'interview.bankFilled': {
+    en: '{count} dishes from your recipe library — no AI calls used',
+    he: '{count} מנות מספריית המתכונים שלך — לא נעשה שימוש ב-AI',
+    es: '{count} platos de tu biblioteca de recetas — sin llamadas de IA',
+  },
 }
 
 export const useI18n = create<I18nState>()(

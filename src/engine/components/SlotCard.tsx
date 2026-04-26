@@ -9,6 +9,11 @@ import { useI18n } from '@/lib/i18n'
 interface Props {
   slotId: string
   onOpenRecipe?: (recipeId: string) => void
+  /**
+   * v2.0.0: opens the recipe view for a `link_ready` slot. The view
+   * hydrates the URL on mount via `engine.hydrateLinkReadySlot`.
+   */
+  onOpenSlot?: (slotId: string) => void
 }
 
 const STAGE_LABEL: Record<Slot['status'], string> = {
@@ -23,9 +28,10 @@ const STAGE_LABEL: Record<Slot['status'], string> = {
   error: '',
   error_rate_limited: '',
   queued_server: '',
+  link_ready: '',
 }
 
-export function SlotCard({ slotId, onOpenRecipe }: Props) {
+export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
   const slot = useSlot(slotId)
   const t = useI18n((s) => s.t)
   const [showHint, setShowHint] = useState(false)
@@ -90,6 +96,20 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
             </button>
           )}
 
+          {slot.status === 'link_ready' && slot.dishName && (
+            <button
+              onClick={() => onOpenSlot?.(slot.id)}
+              className="text-start w-full"
+            >
+              <p className="text-sm font-medium text-rp-ink truncate">{slot.dishName}</p>
+              <p className="text-[11px] text-rp-ink-mute truncate flex items-center gap-1">
+                {slot.linkData?.sourceDomain
+                  ? `From ${slot.linkData.sourceDomain} — tap to open`
+                  : 'Tap to load recipe'}
+              </p>
+            </button>
+          )}
+
           {slot.status === 'error' && (
             <div className="flex items-start gap-1.5 text-sm text-danger">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -126,6 +146,7 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
           )}
 
           {slot.status !== 'ready' &&
+            slot.status !== 'link_ready' &&
             slot.status !== 'error' &&
             slot.status !== 'error_rate_limited' &&
             slot.status !== 'queued_server' && (
@@ -171,7 +192,7 @@ export function SlotCard({ slotId, onOpenRecipe }: Props) {
               Generate
             </button>
           )}
-          {(slot.status === 'ready' || slot.status === 'error') && (
+          {(slot.status === 'ready' || slot.status === 'link_ready' || slot.status === 'error') && (
             <button
               onClick={() => setShowHint((v) => !v)}
               aria-label="Replace dish"

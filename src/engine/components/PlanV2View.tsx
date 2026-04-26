@@ -13,6 +13,8 @@ import {
   subscribeJob,
   type MealPlanJobRow,
 } from '@/services/meal-plan-jobs'
+import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
+import type { InterviewResult } from '@/engine/interview/types'
 
 function isoToday(): string {
   return new Date().toISOString().split('T')[0]
@@ -29,6 +31,9 @@ export function PlanV2View() {
   const [plans, setPlans] = useState<MealPlan[]>([])
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
+  // v2.0.0: tracks a `link_ready` slot the user opened so RecipeView can
+  // hydrate the URL on mount.
+  const [openSlotId, setOpenSlotId] = useState<string | null>(null)
   const { plan, refresh } = usePlan(activePlanId)
   // v1.18.0 — async job state. activeJobId drives the progress bar.
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
@@ -249,6 +254,56 @@ export function PlanV2View() {
     setPlans([next])
   }
 
+  // v2.0.0 — interview approval handler. Applies day-presets, runs bank-fill
+  // per slot using the AI's candidate dish names, queues residual misses
+  // through the existing async worker.
+  async function handleInterviewApprove(result: InterviewResult) {
+    if (!activePlanId) return
+    try {
+      const { jobId, totalQueued, bankFilled } = await engine.applyInterviewResult(
+        activePlanId,
+        null,
+        result,
+      )
+      console.info(`[interview] applied: bankFilled=${bankFilled} queued=${totalQueued}`)
+      if (jobId && totalQueued > 0) {
+        setActiveJobId(jobId)
+        setJobProgress({ completed: 0, failed: 0, total: totalQueued, status: 'queued' })
+        const sub = subscribeJob(
+          jobId,
+          () => undefined,
+          (jobRow) => {
+            setJobProgress((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    completed: jobRow.completed_slots ?? prev.completed,
+                    failed: jobRow.failed_slots ?? prev.failed,
+                    status: jobRow.status ?? prev.status,
+                  }
+                : prev,
+            )
+            if (
+              jobRow.status === 'completed' ||
+              jobRow.status === 'failed' ||
+              jobRow.status === 'cancelled'
+            ) {
+              setTimeout(() => {
+                setActiveJobId(null)
+                setJobProgress(null)
+                void refresh()
+              }, 1500)
+              sub.unsubscribe()
+            }
+          },
+        )
+      }
+      await refresh()
+    } catch (err) {
+      console.error('[interview] applyInterviewResult failed', err)
+    }
+  }
+
   return (
     <div className="px-4 py-4 space-y-4 max-w-3xl mx-auto">
       <div className="flex items-center justify-between">
@@ -275,11 +330,12 @@ export function PlanV2View() {
           </button>
           <button
             onClick={() => void generateAll()}
-            className="px-3 py-2 rounded-lg bg-rp-brand text-white text-xs font-medium flex items-center gap-1"
+            className="px-3 py-2 rounded-lg bg-rp-bg-soft text-rp-ink text-xs font-medium flex items-center gap-1"
             disabled={!plan || plan.days.length === 0}
+            title="Apply Standard week + bank-fill (no AI questions)"
           >
             <Wand2 className="h-3.5 w-3.5" />
-            Generate plan
+            Quick fill
           </button>
           <button
             onClick={() => void clearPlan()}
@@ -290,6 +346,14 @@ export function PlanV2View() {
           </button>
         </div>
       </div>
+
+      {/* v2.0.0 — AI banner. Free users see disabled state + upgrade CTA;
+          paid users open the MealPlannerInterview dialog. */}
+      <MealPlannerBanner
+        planId={activePlanId}
+        circleId={null}
+        onApprove={handleInterviewApprove}
+      />
 
       {jobProgress && activeJobId && (
         <div className="rounded-xl bg-rp-bg-soft border border-rp-hairline p-3 space-y-2">
@@ -361,11 +425,23 @@ export function PlanV2View() {
 
       <div className="space-y-3">
         {plan?.days.map((day) => (
-          <DayCard key={day.id} day={day} onOpenRecipe={setOpenRecipeId} />
+          <DayCard
+            key={day.id}
+            day={day}
+            onOpenRecipe={setOpenRecipeId}
+            onOpenSlot={setOpenSlotId}
+          />
         ))}
       </div>
 
-      <RecipeView recipeId={openRecipeId} onClose={() => setOpenRecipeId(null)} />
+      <RecipeView
+        recipeId={openRecipeId}
+        slotId={openSlotId}
+        onClose={() => {
+          setOpenRecipeId(null)
+          setOpenSlotId(null)
+        }}
+      />
 
       {plans.length > 0 && (
         <p className="text-[11px] text-rp-ink-mute text-center pt-4">
