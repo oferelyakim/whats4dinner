@@ -29,6 +29,7 @@ const RecipeImportPage = lazy(() => import('@/pages/RecipeImportPage').then(m =>
 const SharedRecipePage = lazy(() => import('@/pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })))
 const EventsPage = lazy(() => import('@/pages/EventsPage').then(m => ({ default: m.EventsPage })))
 const EventDetailPage = lazy(() => import('@/pages/EventDetailPage').then(m => ({ default: m.EventDetailPage })))
+const EventPlannerPage = lazy(() => import('@/pages/EventPlannerPage').then(m => ({ default: m.EventPlannerPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const MealMenusPage = lazy(() => import('@/pages/MealMenusPage').then(m => ({ default: m.MealMenusPage })))
 const JoinEventPage = lazy(() => import('@/pages/JoinEventPage').then(m => ({ default: m.JoinEventPage })))
@@ -146,6 +147,7 @@ export default function App() {
               {/* Events */}
               <Route path="/events" element={<EventsPage />} />
               <Route path="/events/:id" element={<EventDetailPage />} />
+              <Route path="/events/:id/plan" element={<EventPlannerPage />} />
 
               {/* Household hub + sub-routes */}
               <Route path="/household" element={<HouseholdHubPage />} />

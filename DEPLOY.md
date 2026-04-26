@@ -73,7 +73,8 @@ The `--no-verify-jwt` flag tells the CLI not to require a fresh JWT — the func
 |---|---|---|
 | `ai-chat` | In-app chat assistant (Claude Haiku) | Prompt changes, tool changes, scope rules |
 | `meal-engine` | Slot-based `/plan-v2` engine (Stages A/B/C/D) | Variety taxonomy, prompts, retry policy |
-| `plan-event` | AI Event Planner | Tool schema, prompts (e.g. activities) |
+| `plan-event` | AI Event Planner (legacy single-shot, v1.15.6 → v1.19.0; deprecated in v1.20.0, deletable in v1.21.0) | Tool schema, prompts (e.g. activities) |
+| `event-engine` | Event Planner v2 dynamic questionnaire (v1.20.0+) — 3 ops: intake / propose / revise | Question tree, prompts, edge ops |
 | `generate-meal-plan` | Legacy chat-driven plan flow (dead post-v1.15.5) | Don't — being retired |
 | `scrape-recipe` | Recipe URL import | HTML preprocessing, JSON-LD parsing |
 | `get-recipe` | Recipe URL fetcher used by /plan-v2 Stage C | URL discovery / extraction logic |
@@ -103,6 +104,8 @@ npm run deploy:functions
 **v1.18.0+ async job queue:** migration 031 must be applied before deploying `meal-plan-worker`. Use `npx supabase db query --linked -f supabase/migrations/031_meal_plan_jobs.sql`. The migration adds `meal_plan_jobs` + `meal_plan_job_slots` + the `claim_next_meal_plan_job()` RPC + adds both tables to the `supabase_realtime` publication (for postgres_changes subscriptions). The `npm run deploy:functions` script now includes `meal-plan-worker` and `recipe-bank-refresher` (5 functions total as of v1.19.0: meal-engine, plan-event, ai-chat, meal-plan-worker, recipe-bank-refresher). The worker is invoked immediately after job-create via `triggerWorker()` from client.
 
 **v1.19.0+ recipe-bank cron:** migration 032 (`supabase/migrations/032_pg_cron_recipe_bank_refresher.sql`) registers a `pg_cron` job named `recipe-bank-refresher` running `0 */6 * * *` that POSTs to the `recipe-bank-refresher` edge function. Apply via `npx supabase db query --linked -f supabase/migrations/032_pg_cron_recipe_bank_refresher.sql`. Idempotent — safe to re-run. Verify after with `npx supabase db query --linked "SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'recipe-bank-refresher';"` — should return `active: true`.
+
+**v1.20.0+ event-engine + planner v2:** migration 033 (`supabase/migrations/033_event_planner_v2.sql`) adds `events.archetype text` + `events.questionnaire jsonb default '{}'` + `events.draft_plan jsonb` columns + the `event_activity_catalog` table seeded with 31 vendor / activity rows + the `match_event_activities()` RPC that powers the engine's deterministic catalog-fallback path. Apply via `npx supabase db query --linked -f supabase/migrations/033_event_planner_v2.sql`. Idempotent (`ADD COLUMN IF NOT EXISTS` + `ON CONFLICT (slug) DO UPDATE`). The `npm run deploy:functions` script now includes `event-engine` (6 functions total as of v1.20.0: meal-engine, plan-event, ai-chat, meal-plan-worker, recipe-bank-refresher, event-engine). Verify edge fn after deploy: `curl -s "https://zgebzhvbszhqvaryfiwk.supabase.co/functions/v1/event-engine?ping=1"` should return `{"fn":"event-engine","version":"1.20.0",...}`. The legacy `plan-event` edge fn is kept one release as a fallback; safe to delete in v1.21.0 cleanup.
 
 **v1.17.0+ recipe-bank seeding:** two paths after migration 030 is applied.
 - Quick (no key needed): `npx supabase db query --linked -f supabase/seeds/recipe_bank_starter.sql` — inserts 12 hand-crafted starters covering common dinner mains + a few breakfasts/lunches.
@@ -139,7 +142,7 @@ Process:
 
 **Migrations must be idempotent.** If a migration adds a column, use `ADD COLUMN IF NOT EXISTS`. If it creates a function, use `CREATE OR REPLACE FUNCTION`. If a migration ever needs to be re-run after a partial failure, idempotency is what saves you.
 
-Current migration state: master is at **029_skin_v2_remap.sql**. Migration 030 is in flight on a branch (event-engine work) — not yet applied.
+Current migration state: master is at **032_pg_cron_recipe_bank_refresher.sql** (applied 2026-04-26). Migration 033 (`033_event_planner_v2.sql`) is on branch `claude/festive-poitras-ab2661` for the v1.20.0 Event Planner v2 — pending merge + apply.
 
 ## 4. Worktree etiquette
 

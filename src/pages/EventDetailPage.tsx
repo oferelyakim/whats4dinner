@@ -212,14 +212,12 @@ export function EventDetailPage() {
   })
 
   function openAIPlanFlow() {
-    if (!ai.checkAIAccess()) {
-      setShowAIUpgrade(true)
-      return
+    // v1.20.0: navigate to the dynamic Event Planner v2 page instead of
+    // opening the legacy single-shot dialog. Free tier still gets a
+    // catalog-only fallback inside the planner — no upfront paywall.
+    if (id) {
+      navigate(`/events/${id}/plan`)
     }
-    setClarifyingQuestion(null)
-    setClarifyingShownOnce(false)
-    setPendingPlanInput(null)
-    setShowAIPlanDialog(true)
   }
 
   async function handleAIPlanSubmit(request: EventAIPlanRequest) {
