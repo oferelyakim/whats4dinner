@@ -41,3 +41,7 @@ blob-report/
 
 # Live-test runtime artifact (snapshot of latest run)
 scripts/test-live-meal-plan.last-run.json
+
+# Claude Code per-machine runtime artifacts
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
