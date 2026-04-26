@@ -42,7 +42,13 @@ UPDATE public.recipe_bank
    SET source_kind_v2 = source_kind
  WHERE source_kind_v2 IS NULL;
 
--- ─── A.2b Archive existing composed rows' content into composed_payload ────
+-- ─── A.3 Drop NOT NULL on ingredients / steps (must run BEFORE A.4 nulls) ──
+-- New link-first rows (source_kind_v2 in 'web','user_import') leave them NULL.
+-- Idempotent: ALTER ... DROP NOT NULL is a no-op when the column is already nullable.
+ALTER TABLE public.recipe_bank ALTER COLUMN ingredients DROP NOT NULL;
+ALTER TABLE public.recipe_bank ALTER COLUMN steps        DROP NOT NULL;
+
+-- ─── A.4 Archive existing composed rows' content into composed_payload ─────
 -- Only touches rows that haven't been archived yet (idempotent).
 UPDATE public.recipe_bank
    SET composed_payload = jsonb_build_object(
@@ -55,17 +61,13 @@ UPDATE public.recipe_bank
 
 -- Null the legacy columns for archived composed rows. The hydrator uses
 -- composed_payload now; ingredients + steps stay null for new rows too.
+-- Requires A.3 above to have dropped NOT NULL on these columns.
 UPDATE public.recipe_bank
    SET ingredients = NULL,
        steps       = NULL
  WHERE source_kind_v2 = 'composed'
    AND composed_payload IS NOT NULL
    AND ingredients IS NOT NULL;
-
--- ─── A.3 Drop NOT NULL on ingredients / steps ──────────────────────────────
--- New link-first rows (source_kind_v2 in 'web','user_import') leave them NULL.
-ALTER TABLE public.recipe_bank ALTER COLUMN ingredients DROP NOT NULL;
-ALTER TABLE public.recipe_bank ALTER COLUMN steps        DROP NOT NULL;
 
 -- ─── A.4 Source-URL constraint for link-first rows ─────────────────────────
 ALTER TABLE public.recipe_bank DROP CONSTRAINT IF EXISTS recipe_bank_link_required;
