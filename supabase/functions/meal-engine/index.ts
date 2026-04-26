@@ -38,8 +38,8 @@ const MODEL = 'claude-haiku-4-5-20251001'
  * Override with COMPOSE_MODEL env var if needed (e.g. to revert to Haiku).
  */
 const COMPOSE_MODEL = Deno.env.get('COMPOSE_MODEL') ?? 'claude-sonnet-4-5-20250929'
-const APP_VERSION = '1.17.0'
-const DEPLOYED_AT = '2026-04-25T01:00:00Z'
+const APP_VERSION = '1.18.0'
+const DEPLOYED_AT = '2026-04-25T02:00:00Z'
 
 // v1.17.0: recipe bank wiring — service-role Supabase client used for the
 // `sample-from-bank` op. Anonymous client would also work via RLS but

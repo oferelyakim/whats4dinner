@@ -39,6 +39,12 @@ export type SlotStatus =
    * and the watchdog auto-resumes after the retry-after delay.
    */
   | 'error_rate_limited'
+  /**
+   * v1.18.0: slot enqueued to server-side `meal_plan_jobs` queue and is
+   * waiting for the worker to fill it. UI shows a dashed "Queued — server
+   * will fill" pill. Realtime UPDATE flips it to `ready` (or `error`).
+   */
+  | 'queued_server'
 
 export type ErrorStage = 'ingredient' | 'dish' | 'recipe'
 

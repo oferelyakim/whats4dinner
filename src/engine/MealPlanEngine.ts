@@ -1030,6 +1030,314 @@ export class MealPlanEngine {
   }
 
   /**
+   * v1.18.0 — Async server-side plan generation.
+   *
+   * The user clicks "Generate plan" → we run bank-fill in parallel for free
+   * slots (Phase 1, identical to `generatePlan`'s phase 1), then enqueue a
+   * single `meal_plan_jobs` row with N slot job rows for whatever the bank
+   * didn't cover, fire the worker, and subscribe via Realtime.
+   *
+   * Slots that need server work transition `empty → queued_server`. The
+   * Realtime subscription writes results into Dexie + flips them to `ready`
+   * as the worker finishes each one.
+   *
+   * Returns `{ jobId, totalQueued }` so callers can show progress.
+   */
+  async generatePlanAsync(
+    planId: string,
+    circleId: string | null,
+  ): Promise<{ jobId: string | null; totalQueued: number; bankFilled: number }> {
+    // Auto-create the default Dinner+main slot for any empty day, same as
+    // generatePlan() does. Keeps the user-visible behavior consistent.
+    const days = await db.days.where('planId').equals(planId).sortBy('position')
+    for (const d of days) {
+      const mealCount = await db.meals.where('dayId').equals(d.id).count()
+      if (mealCount === 0) {
+        const meal = await this.addMeal(d.id, 'Dinner')
+        const slotCount = await db.slots.where('mealId').equals(meal.id).count()
+        if (slotCount === 0) await this.addSlot(meal.id, 'main')
+      }
+    }
+
+    const refreshedDays = await db.days.where('planId').equals(planId).sortBy('position')
+    const prefs = await this.getPrefs()
+    const recentDishes = await this.getRecentDishNames(planId, prefs.recentDishesWindow)
+
+    // Phase 1: bank-fill in parallel.
+    const allSlotIds: string[] = []
+    for (const day of refreshedDays) {
+      const meals = await db.meals.where('dayId').equals(day.id).sortBy('position')
+      for (const meal of meals) {
+        const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
+        for (const s of slots) {
+          if (!s.locked && s.status !== 'ready') allSlotIds.push(s.id)
+        }
+      }
+    }
+    const bankResults = await Promise.all(
+      allSlotIds.map((slotId) =>
+        this.tryFillSlotFromBank(slotId, prefs.dietaryConstraints, prefs.dislikedIngredients, recentDishes).catch(
+          () => false,
+        ),
+      ),
+    )
+    const bankFilled = bankResults.filter(Boolean).length
+
+    // Phase 2: collect remaining (still-empty) slots for the job queue.
+    const { createMealPlanJob, triggerWorker, subscribeJob } = await import(
+      '../services/meal-plan-jobs'
+    )
+    const slotInputs: import('../services/meal-plan-jobs').SlotJobInput[] = []
+    for (const day of refreshedDays) {
+      const meals = await db.meals.where('dayId').equals(day.id).sortBy('position')
+      for (const meal of meals) {
+        const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
+        for (const slot of slots) {
+          if (slot.locked || slot.status === 'ready') continue
+          if (slot.status === 'queued_server') continue // already queued
+
+          // Build envelope client-side so the worker has a deterministic input.
+          let envelope: SlotEnvelope
+          try {
+            envelope = await buildEnvelope({
+              slotId: slot.id,
+              mealId: meal.id,
+              dayId: day.id,
+              planId,
+              slotRole: slot.role,
+              dietaryTags: prefs.dietaryConstraints,
+              dislikedNames: prefs.dislikedIngredients,
+              isWeekend: this.isWeekend(day.date),
+            })
+          } catch {
+            continue
+          }
+          const userHint = parseUserHint(slot.replaceHint || slot.notes)
+          const finalEnvelope = mergeEnvelope(envelope, userHint)
+          const envelopeSnap: SlotEnvelopeSnapshot = {
+            cuisineId: finalEnvelope.cuisineId,
+            cuisineLabel: finalEnvelope.cuisineLabel,
+            cuisineRegion: finalEnvelope.cuisineRegion,
+            proteinName: finalEnvelope.proteinName,
+            proteinFamily: finalEnvelope.proteinFamily,
+            styleId: finalEnvelope.styleId,
+            styleLabel: finalEnvelope.styleLabel,
+            flavorId: finalEnvelope.flavorId,
+            flavorLabel: finalEnvelope.flavorLabel,
+          }
+          // Flip slot to queued_server so the UI shows "Queued — server will fill".
+          await this.patchSlot(slot.id, { status: 'queued_server', envelope: envelopeSnap })
+          slotInputs.push({
+            slotId: slot.id,
+            mealId: meal.id,
+            dayId: day.id,
+            slotRole: slot.role,
+            mealType: meal.type,
+            envelope: envelopeSnap,
+            dietaryConstraints: prefs.dietaryConstraints,
+            dislikedIngredients: prefs.dislikedIngredients,
+            recentDishNames: recentDishes,
+          })
+        }
+      }
+    }
+
+    if (slotInputs.length === 0) {
+      // Bank covered everything — emit and return.
+      const view = await this.getPlan(planId)
+      if (view) this.bus.emit('plan:updated', view)
+      return { jobId: null, totalQueued: 0, bankFilled }
+    }
+
+    const { jobId } = await createMealPlanJob(planId, circleId, slotInputs)
+
+    // Persist jobId so a closed-then-reopened tab can re-attach.
+    try {
+      localStorage.setItem(`active_job:${planId}`, jobId)
+    } catch {
+      /* private browsing — ignore */
+    }
+
+    // Subscribe to Realtime updates → write results into Dexie as they arrive.
+    const sub = subscribeJob(
+      jobId,
+      async (slotRow) => {
+        if (slotRow.status === 'done' && slotRow.result) {
+          await this.applyJobSlotResult(slotRow.slot_id, slotRow.result, planId)
+        } else if (slotRow.status === 'failed') {
+          await this.patchSlot(slotRow.slot_id, {
+            status: 'error',
+            errorStage: 'recipe',
+            errorMessage: slotRow.error_message ?? 'Server error',
+          })
+        }
+      },
+      async (jobRow) => {
+        if (jobRow.status === 'completed' || jobRow.status === 'failed' || jobRow.status === 'cancelled') {
+          sub.unsubscribe()
+          try {
+            localStorage.removeItem(`active_job:${planId}`)
+          } catch {
+            /* ignore */
+          }
+          const view = await this.getPlan(planId)
+          if (view) this.bus.emit('plan:updated', view)
+        }
+      },
+    )
+
+    // Fire worker immediately — don't wait for cron.
+    void triggerWorker()
+
+    return { jobId, totalQueued: slotInputs.length, bankFilled }
+  }
+
+  /**
+   * v1.18.0 — write a single worker-produced result into Dexie + flip slot
+   * to ready. Shared between live Realtime updates and the post-mount
+   * re-attach catch-up sweep.
+   */
+  private async applyJobSlotResult(
+    slotId: string,
+    result: Record<string, unknown>,
+    planId: string,
+  ): Promise<void> {
+    const slot = await db.slots.get(slotId)
+    if (!slot) return
+    if (slot.status === 'ready') return // already filled (e.g. concurrent reattach)
+    const recipeShape = result as {
+      title: string
+      source: 'web' | 'ai-fallback' | 'composed'
+      url?: string
+      sourceDomain?: string
+      ingredients: Array<{ item: string; quantity?: string }>
+      steps: string[]
+      prepTimeMin?: number
+      cookTimeMin?: number
+      servings?: number
+      imageUrl?: string
+      _ingredient?: string
+      _dishName?: string
+    }
+    const recipe: Recipe = {
+      id: uid(),
+      fetchedAt: now(),
+      source: recipeShape.source,
+      url: recipeShape.url,
+      sourceDomain: recipeShape.sourceDomain,
+      title: recipeShape.title,
+      ingredients: recipeShape.ingredients ?? [],
+      steps: recipeShape.steps ?? [],
+      prepTimeMin: recipeShape.prepTimeMin,
+      cookTimeMin: recipeShape.cookTimeMin,
+      servings: recipeShape.servings,
+      imageUrl: recipeShape.imageUrl,
+    }
+    await db.recipes.add(recipe)
+    await this.patchSlot(slotId, {
+      status: 'ready',
+      ingredient: recipeShape._ingredient ?? recipeShape.title,
+      dishName: recipeShape._dishName ?? recipeShape.title,
+      recipeId: recipe.id,
+      replaceHint: undefined,
+      generatingStartedAt: undefined,
+      errorMessage: undefined,
+      errorStage: undefined,
+    })
+    // dishHistory bookkeeping for cross-plan anti-repeat.
+    const meal = await db.meals.get(slot.mealId)
+    if (meal && slot.envelope) {
+      await db.dishHistory.add({
+        id: uid(),
+        slotId,
+        planId,
+        dishName: recipeShape._dishName ?? recipeShape.title,
+        ingredient: recipeShape._ingredient,
+        proteinName: slot.envelope.proteinName,
+        proteinFamily: slot.envelope.proteinFamily,
+        cuisineId: slot.envelope.cuisineId,
+        styleId: slot.envelope.styleId,
+        flavorId: slot.envelope.flavorId,
+        plannedAt: now(),
+      })
+    }
+  }
+
+  /**
+   * v1.18.0 — re-attach an in-flight job after a tab close-and-reopen.
+   *
+   * On `PlanV2View` mount: read `localStorage[active_job:{planId}]`. If a
+   * jobId is stored AND the job is still queued/running in Postgres,
+   * sweep any 'done' slots that completed while the tab was closed (write
+   * their results into Dexie now) and re-subscribe to live updates.
+   *
+   * Returns the active jobId, or null if none.
+   */
+  async reattachActiveJob(planId: string): Promise<string | null> {
+    let storedJobId: string | null = null
+    try {
+      storedJobId = localStorage.getItem(`active_job:${planId}`)
+    } catch {
+      return null
+    }
+    if (!storedJobId) return null
+
+    const { getJob, listJobSlots, subscribeJob } = await import('../services/meal-plan-jobs')
+    const job = await getJob(storedJobId)
+    if (!job || (job.status !== 'queued' && job.status !== 'running')) {
+      try {
+        localStorage.removeItem(`active_job:${planId}`)
+      } catch {
+        /* ignore */
+      }
+      return null
+    }
+
+    // Catch-up: write any results we missed while the tab was closed.
+    const slots = await listJobSlots(storedJobId)
+    for (const sr of slots) {
+      if (sr.status === 'done' && sr.result) {
+        await this.applyJobSlotResult(sr.slot_id, sr.result, planId)
+      } else if (sr.status === 'failed') {
+        await this.patchSlot(sr.slot_id, {
+          status: 'error',
+          errorStage: 'recipe',
+          errorMessage: sr.error_message ?? 'Server error',
+        })
+      }
+    }
+
+    // Resume live subscription.
+    const sub = subscribeJob(
+      storedJobId,
+      async (slotRow) => {
+        if (slotRow.status === 'done' && slotRow.result) {
+          await this.applyJobSlotResult(slotRow.slot_id, slotRow.result, planId)
+        } else if (slotRow.status === 'failed') {
+          await this.patchSlot(slotRow.slot_id, {
+            status: 'error',
+            errorStage: 'recipe',
+            errorMessage: slotRow.error_message ?? 'Server error',
+          })
+        }
+      },
+      async (jobRow) => {
+        if (jobRow.status === 'completed' || jobRow.status === 'failed' || jobRow.status === 'cancelled') {
+          sub.unsubscribe()
+          try {
+            localStorage.removeItem(`active_job:${planId}`)
+          } catch {
+            /* ignore */
+          }
+          const view = await this.getPlan(planId)
+          if (view) this.bus.emit('plan:updated', view)
+        }
+      },
+    )
+    return storedJobId
+  }
+
+  /**
    * Stuck-slot self-heal. Scans the plan for slots in `generating_*` for
    * longer than STUCK_THRESHOLD_MS (default 2 min) and reverts them to
    * their last good state, then queues a fresh generation. Idempotent —
