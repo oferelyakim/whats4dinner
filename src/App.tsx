@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { persistQueryCache, restoreQueryCache } from '@/lib/queryPersist'
 import { AuthGuard } from '@/components/auth/AuthGuard'
@@ -17,7 +17,6 @@ const RecipeDetailPage = lazy(() => import('@/pages/RecipeDetailPage').then(m =>
 const ListsPage = lazy(() => import('@/pages/ListsPage').then(m => ({ default: m.ListsPage })))
 const NewListPage = lazy(() => import('@/pages/NewListPage').then(m => ({ default: m.NewListPage })))
 const ShoppingListPage = lazy(() => import('@/pages/ShoppingListPage').then(m => ({ default: m.ShoppingListPage })))
-const PlanPage = lazy(() => import('@/pages/PlanPage').then(m => ({ default: m.PlanPage })))
 const PlanV2Page = lazy(() => import('@/pages/PlanV2Page').then(m => ({ default: m.PlanV2Page })))
 const MorePage = lazy(() => import('@/pages/MorePage').then(m => ({ default: m.MorePage })))
 const CirclesPage = lazy(() => import('@/pages/CirclesPage').then(m => ({ default: m.CirclesPage })))
@@ -129,7 +128,7 @@ export default function App() {
               <Route path="/lists" element={<ListsPage />} />
               <Route path="/lists/new" element={<NewListPage />} />
               <Route path="/lists/:id" element={<ShoppingListPage />} />
-              <Route path="/plan" element={<PlanPage />} />
+              <Route path="/plan" element={<Navigate to="/plan-v2" replace />} />
               <Route path="/plan-v2" element={<PlanV2Page />} />
               <Route path="/food/templates" element={<MealMenusPage />} />
               <Route path="/food/stores" element={<StoresPage />} />

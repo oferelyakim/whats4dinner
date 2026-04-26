@@ -122,14 +122,36 @@ describe('mergeEnvelope', () => {
 })
 
 describe('Anti-Mediterranean seed', () => {
+  const MED_IDS = ['greek', 'spanish-tapas', 'persian', 'israeli']
+
   it('seedSystemPresets seeds dishHistory with Mediterranean entries on first run', async () => {
     const count = await db.dishHistory.count()
     expect(count).toBeGreaterThan(0)
     const cuisines = (await db.dishHistory.toArray()).map((r) => r.cuisineId)
-    // At least one of the four Med/ME cuisines should appear
-    expect(cuisines.some((c) => ['greek', 'spanish-tapas', 'persian', 'israeli'].includes(c))).toBe(
-      true,
-    )
+    expect(cuisines.some((c) => MED_IDS.includes(c))).toBe(true)
+  })
+
+  it('buildEnvelope picks a non-Mediterranean cuisine on day 1 of plan #1 across seeds', async () => {
+    const { buildEnvelope } = await import('../variety/envelope')
+    const engine = new MealPlanEngine()
+    const plan = await engine.createPlan('2026-04-25')
+    const day = await engine.addDay(plan.id, '2026-04-25')
+    const meal = await engine.addMeal(day.id, 'dinner')
+    const slot = await engine.addSlot(meal.id, 'main')
+
+    // Run buildEnvelope across many RNG seeds — the synthetic seed + region cap
+    // must drive every pick away from {greek, spanish-tapas, persian, israeli}.
+    for (let s = 1; s <= 50; s++) {
+      const env = await buildEnvelope({
+        slotId: slot.id,
+        mealId: meal.id,
+        dayId: day.id,
+        planId: plan.id,
+        slotRole: 'main',
+        rng: seededRng(s),
+      })
+      expect(MED_IDS).not.toContain(env.cuisineId)
+    }
   })
 })
 

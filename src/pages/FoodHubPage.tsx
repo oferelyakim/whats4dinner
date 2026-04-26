@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
+import { RingsOrnament, PotIcon } from '@/components/ui/hearth'
 import { cn } from '@/lib/cn'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
@@ -19,7 +20,7 @@ const TABS = [
   { key: 'overview', icon: UtensilsCrossed, labelKey: 'nav.home' },
   { key: 'recipes', icon: BookOpen, labelKey: 'food.recipes', href: '/recipes' },
   { key: 'essentials', icon: Package, labelKey: 'essentials.essentials', href: '/recipes?view=essentials' },
-  { key: 'plan', icon: CalendarDays, labelKey: 'food.mealPlan', href: '/plan' },
+  { key: 'plan', icon: CalendarDays, labelKey: 'food.mealPlan', href: '/plan-v2' },
   { key: 'lists', icon: ShoppingCart, labelKey: 'food.lists', href: '/lists' },
 ] as const
 
@@ -127,6 +128,37 @@ export function FoodHubPage() {
             </Card>
           </motion.div>
 
+          {/* Plan your week banner — only when nothing planned this week */}
+          {mealPlans.length === 0 && (
+            <motion.section variants={fadeUp}>
+              <button
+                onClick={() => navigate('/plan-v2')}
+                className="group w-full text-start block"
+              >
+                <div
+                  className="relative overflow-hidden rounded-rp-lg p-5 shadow-rp-hero"
+                  style={{ background: 'var(--rp-bg-deep)', color: 'var(--rp-bg)' }}
+                >
+                  <RingsOrnament
+                    className="absolute -bottom-20 -right-24"
+                    opacity={0.18}
+                    size={360}
+                  />
+                  <span className="rp-mono-label" style={{ color: 'rgba(250,246,239,0.6)' }}>
+                    {t('food.planYourWeek.eyebrow')}
+                  </span>
+                  <h2 className="font-display italic tracking-rp-tight leading-[1.05] text-[28px] mt-2 pr-10">
+                    {t('food.planYourWeek.title')}
+                  </h2>
+                  <p className="mt-3 text-xs opacity-80 inline-flex items-center gap-1.5">
+                    <PotIcon width={14} height={14} />
+                    <span>{t('food.planYourWeek.subtitle')}</span>
+                  </p>
+                </div>
+              </button>
+            </motion.section>
+          )}
+
           {/* This Week meal plan preview */}
           <motion.section variants={fadeUp}>
             <div className="flex items-center justify-between mb-2.5">
@@ -134,7 +166,7 @@ export function FoodHubPage() {
                 {t('food.thisWeek')}
               </h3>
               <button
-                onClick={() => navigate('/plan')}
+                onClick={() => navigate('/plan-v2')}
                 className="text-brand-500 text-sm font-medium flex items-center gap-0.5 min-h-[44px] px-2"
               >
                 {t('home.viewAll')}
@@ -142,7 +174,7 @@ export function FoodHubPage() {
               </button>
             </div>
             {mealPlans.length === 0 ? (
-              <Card className="p-4 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/plan')}>
+              <Card className="p-4 cursor-pointer active:scale-[0.98]" onClick={() => navigate('/plan-v2')}>
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-purple-500/10 flex items-center justify-center">
                     <CalendarDays className="h-4 w-4 text-purple-500" />
@@ -166,7 +198,7 @@ export function FoodHubPage() {
                         'p-2.5 cursor-pointer active:scale-[0.98]',
                         isToday && 'ring-1 ring-brand-500/30'
                       )}
-                      onClick={() => navigate('/plan')}
+                      onClick={() => navigate('/plan-v2')}
                     >
                       <div className="flex items-center gap-3">
                         <div className={cn(

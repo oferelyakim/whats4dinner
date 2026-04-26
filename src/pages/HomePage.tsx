@@ -182,7 +182,7 @@ export function HomePage() {
       {/* 2 — Tonight at the table (hero) */}
       <motion.section variants={fadeUp}>
         <button
-          onClick={() => navigate('/plan')}
+          onClick={() => navigate('/plan-v2')}
           className="group w-full text-start block"
         >
           <div
@@ -334,7 +334,7 @@ export function HomePage() {
               return (
                 <button
                   key={date}
-                  onClick={() => navigate(`/plan?date=${date}`)}
+                  onClick={() => navigate('/plan-v2')}
                   className={cn(
                     'flex flex-col items-center gap-0.5 rounded-rp-sm px-3 py-2.5 shrink-0 min-w-[54px] transition-colors active:scale-95 border',
                     isToday
@@ -362,7 +362,7 @@ export function HomePage() {
       {/* 6 — Quick actions (subtle, 3 tiles) */}
       <motion.section variants={fadeUp} className="grid grid-cols-3 gap-3">
         <button
-          onClick={() => navigate('/plan')}
+          onClick={() => navigate('/plan-v2')}
           className="rp-card p-3 flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
         >
           <span className="h-9 w-9 rounded-[10px] bg-rp-brand-soft flex items-center justify-center text-rp-brand-deep">

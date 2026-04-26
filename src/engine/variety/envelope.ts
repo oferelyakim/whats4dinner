@@ -47,33 +47,40 @@ export interface BuildEnvelopeArgs {
 
 const HISTORY_LIMIT = 30
 const PLAN_RECENT_LIMIT = 14
+const SYNTHETIC_PLAN_ID = '__synthetic__'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-async function recentCuisinesForPlan(planId: string, limit = PLAN_RECENT_LIMIT): Promise<string[]> {
+// Each "recent…ForPlan" helper unions the active plan's history with the
+// synthetic anti-Med seed (planId = '__synthetic__') written by
+// seedAntiMedHistory(). Without the union, day 1 of every fresh plan sees an
+// empty history and Haiku's Mediterranean training prior dominates the pick.
+//
+// pickWithDiversity expects `recentlyUsed` ordered most-recent first, so we
+// sort DESC by plannedAt explicitly rather than rely on Dexie's `.reverse()`
+// + `.sortBy()` semantics (which materialize ASC regardless of direction).
+
+async function recentDishHistoryForPlan(planId: string) {
   const rows = await db.dishHistory
     .where('planId')
-    .equals(planId)
-    .reverse()
-    .sortBy('plannedAt')
+    .anyOf([planId, SYNTHETIC_PLAN_ID])
+    .toArray()
+  rows.sort((a, b) => b.plannedAt - a.plannedAt)
+  return rows
+}
+
+async function recentCuisinesForPlan(planId: string, limit = PLAN_RECENT_LIMIT): Promise<string[]> {
+  const rows = await recentDishHistoryForPlan(planId)
   return rows.slice(0, limit).map((r) => r.cuisineId)
 }
 
 async function recentStylesForPlan(planId: string, limit = PLAN_RECENT_LIMIT): Promise<string[]> {
-  const rows = await db.dishHistory
-    .where('planId')
-    .equals(planId)
-    .reverse()
-    .sortBy('plannedAt')
+  const rows = await recentDishHistoryForPlan(planId)
   return rows.slice(0, limit).map((r) => r.styleId)
 }
 
 async function recentFlavorsForPlan(planId: string, limit = PLAN_RECENT_LIMIT): Promise<string[]> {
-  const rows = await db.dishHistory
-    .where('planId')
-    .equals(planId)
-    .reverse()
-    .sortBy('plannedAt')
+  const rows = await recentDishHistoryForPlan(planId)
   return rows.slice(0, limit).map((r) => r.flavorId)
 }
 
@@ -150,10 +157,12 @@ export async function buildEnvelope(args: BuildEnvelopeArgs): Promise<SlotEnvelo
   const recentFlavors = await recentFlavorsForPlan(planId)
 
   // ─── 1. Pick cuisine ─────────────────────────────────────────────────────
+  // banWindow=4 (was 2) so the 8-entry synthetic Med seed structurally blocks
+  // {israeli, persian, greek, spanish-tapas} from the first picks of plan #1.
   let cuisine = pickWithDiversity({
     pool: CUISINES,
     recentlyUsed: dayCuisinesRecent,
-    banWindow: 2,
+    banWindow: 4,
     decayWindow: 5,
     mustAvoidIds: lockedCuisines,
     rng,
@@ -165,7 +174,7 @@ export async function buildEnvelope(args: BuildEnvelopeArgs): Promise<SlotEnvelo
     const alt = pickWithDiversity({
       pool: CUISINES.filter((c) => c.region !== dominantRegion),
       recentlyUsed: dayCuisinesRecent,
-      banWindow: 2,
+      banWindow: 4,
       decayWindow: 5,
       mustAvoidIds: lockedCuisines,
       rng,

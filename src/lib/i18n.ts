@@ -335,6 +335,9 @@ const translations: Record<string, Record<Locale, string>> = {
   'food.startPlanning': { en: 'Start planning your week', he: 'התחל לתכנן את השבוע', es: 'Empieza a planificar tu semana' },
   'food.nTemplates': { en: 'templates', he: 'תבניות', es: 'plantillas' },
   'food.sortByAisle': { en: 'Sort by aisle', he: 'מיון לפי מדף', es: 'Ordenar por pasillo' },
+  'food.planYourWeek.eyebrow': { en: 'New', he: 'חדש', es: 'Nuevo' },
+  'food.planYourWeek.title': { en: 'Plan your week', he: 'תכננו את השבוע', es: 'Planifica tu semana' },
+  'food.planYourWeek.subtitle': { en: 'Slot-based planner — fill your week, replace any dish in one tap', he: 'מתכנן חדש — מלאו את השבוע, החליפו מנה בלחיצה', es: 'Planificador por casillas — llena tu semana, cambia cualquier plato con un toque' },
 
   // Household Hub
   'household.title': { en: 'Household', he: 'משק בית', es: 'Hogar' },
@@ -541,6 +544,8 @@ const translations: Record<string, Record<Locale, string>> = {
   'chat.recipeImported': { en: 'Recipe imported successfully!', he: 'המתכון יובא בהצלחה!', es: '¡Receta importada con éxito!' },
   'chat.recipeImportFailed': { en: 'Failed to import recipe. Try again or check the URL.', he: 'ייבוא המתכון נכשל. נסה שוב או בדוק את הקישור.', es: 'Error al importar receta. Intenta de nuevo o verifica la URL.' },
   'chat.errorGeneric': { en: 'Sorry, something went wrong. Please try again.', he: 'מצטער, משהו השתבש. נסה שוב.', es: 'Lo siento, algo salió mal. Intenta de nuevo.' },
+  'chat.planFailed.body': { en: "I couldn't plan that from chat. The slot-based planner is more reliable — it builds your week one dish at a time, so a single failure doesn't restart everything.", he: 'לא הצלחתי לתכנן את זה מכאן. המתכנן החדש אמין יותר — הוא בונה את השבוע מנה אחר מנה, כך שכישלון אחד לא מאפס הכול.', es: 'No pude planificar eso desde el chat. El planificador por casillas es más confiable — arma tu semana plato a plato, así que un fallo no reinicia todo.' },
+  'chat.planFailed.openPlanner': { en: 'Open the planner', he: 'פתחו את המתכנן', es: 'Abrir el planificador' },
 
   // Chat plan review
   'chat.planReview.title': { en: 'Your Meal Plan', he: 'תפריט הארוחות שלך', es: 'Tu plan de comidas' },

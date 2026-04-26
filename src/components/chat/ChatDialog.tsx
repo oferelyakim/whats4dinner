@@ -74,8 +74,7 @@ export function ChatDialog() {
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
-            content:
-              "I couldn't generate that plan from chat. Try the new slot-based planner — it's more reliable and lets you replace dishes one at a time. Open /plan-v2 from the menu.",
+            content: `${t('chat.planFailed.body')}\n\n[${t('chat.planFailed.openPlanner')}](/plan-v2)`,
             timestamp: Date.now(),
           })
           break
@@ -277,8 +276,7 @@ export function ChatDialog() {
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
-            content:
-              "I couldn't generate that plan from chat. Try the new slot-based planner at /plan-v2 — it builds the plan one dish at a time, so failures are isolated and you can replace any single dish without restarting.",
+            content: `${t('chat.planFailed.body')}\n\n[${t('chat.planFailed.openPlanner')}](/plan-v2)`,
             timestamp: Date.now(),
           })
           return
@@ -493,6 +491,7 @@ export function ChatDialog() {
                     action={msg.action}
                     onActionApply={() => handleActionApply(msg.id)}
                     onActionDismiss={() => handleActionDismiss(msg.id)}
+                    onInAppLinkNavigate={closeChat}
                   />
                 ))
               )}
