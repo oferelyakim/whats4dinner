@@ -1,6 +1,6 @@
 # Replanish — Deploy Runbook
 
-**Last verified: v1.17.0, 2026-04-25.** Update this file every time the deploy process changes.
+**Last verified: v1.18.0, 2026-04-26.** Update this file every time the deploy process changes.
 
 This file is the single source of truth for deploying Replanish. The two deploy targets (Vercel for frontend, Supabase for edge functions + migrations) each have a different command and a different "is it actually live?" check. Skipping or confusing them is the most common cause of "I deployed but the change isn't there."
 
@@ -99,6 +99,8 @@ npm run deploy:functions
 **v1.16.0+ version probe:** both `meal-engine` and `plan-event` now expose `GET ?ping=1` returning `{ fn, version, model, deployedAt }`. The client calls these on every app boot and surfaces a console warning + localStorage flag if the deployed version doesn't match the bundled `APP_VERSION`. If a user reports an AI feature failing right after a deploy, ask them to open DevTools console — `[edgeVersionProbe] mismatch detected: …` is the unambiguous signal that step 2 was skipped.
 
 **v1.17.0+ migration application:** `npx supabase db push` will fail when local migrations include duplicate-version files (two `019_*.sql` exist). The reliable workaround that worked for migration 030 is `npx supabase db query --linked -f supabase/migrations/030_recipe_bank.sql` — runs the SQL directly via the Management API, bypasses the schema_migrations conflict. Use `npx supabase migration repair --status applied <version>` first if you want `db push` to track the row going forward.
+
+**v1.18.0+ async job queue:** migration 031 must be applied before deploying `meal-plan-worker`. Use `npx supabase db query --linked -f supabase/migrations/031_meal_plan_jobs.sql`. The migration adds `meal_plan_jobs` + `meal_plan_job_slots` + the `claim_next_meal_plan_job()` RPC + adds both tables to the `supabase_realtime` publication (for postgres_changes subscriptions). The `npm run deploy:functions` script now includes `meal-plan-worker` (4 functions total: meal-engine, plan-event, ai-chat, meal-plan-worker). The worker is invoked immediately after job-create via `triggerWorker()` from client; cron (every 2 min) is a v1.19.0 safety net that hasn't shipped yet — current setup relies entirely on the immediate trigger.
 
 **v1.17.0+ recipe-bank seeding:** two paths after migration 030 is applied.
 - Quick (no key needed): `npx supabase db query --linked -f supabase/seeds/recipe_bank_starter.sql` — inserts 12 hand-crafted starters covering common dinner mains + a few breakfasts/lunches.
