@@ -449,7 +449,7 @@ export function MealPlannerInterview({
               />
             )}
 
-            {stage === 'collecting' && currentQuestion && (
+            {stage === 'collecting' && currentQuestion && currentQuestion.kind !== 'review' && (
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentQuestion.id}
@@ -469,12 +469,15 @@ export function MealPlannerInterview({
               </AnimatePresence>
             )}
 
-            {/* All questions answered — show summary + "Generate plan" CTA.
-                v2.6.0: surface a populated screen so the user can SEE that
-                their selections were captured, plus an in-body Generate
-                button so it isn't hidden in the footer below the fold. */}
+            {/* Show summary + "Generate plan" CTA on q_review or when all
+                questions answered. v2.6.1: q_review is a real question in
+                the tree (kind='review'), so currentQuestion is non-null
+                and `allAnswered` (=== currentQuestion === null) never fires
+                until after the user clicks Continue past q_review — which
+                made the screen look empty (title + help only, no body, no
+                Generate button). Detect q_review explicitly. */}
             {(stage === 'collecting' || stage === 'ready_to_propose') &&
-              allAnswered && (
+              (allAnswered || currentQuestion?.kind === 'review') && (
                 <div className="flex flex-col items-center gap-4 py-6">
                   <Sparkles className="h-9 w-9 text-rp-brand" />
                   <p className="font-display italic text-xl text-rp-ink text-center">
@@ -523,8 +526,9 @@ export function MealPlannerInterview({
             )}
           </div>
 
-          {/* Footer — Back + Skip + Continue while collecting */}
-          {stage === 'collecting' && currentQuestion && currentQuestion.id !== 'q_freeform' && (
+          {/* Footer — Back + Skip + Continue while collecting (NOT on
+              q_review — that uses the Generate-plan footer below). */}
+          {stage === 'collecting' && currentQuestion && currentQuestion.id !== 'q_freeform' && currentQuestion.kind !== 'review' && (
             <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-between gap-2">
               <button
                 type="button"
@@ -570,8 +574,9 @@ export function MealPlannerInterview({
             </div>
           )}
 
-          {/* Footer — "Generate plan" when all questions are answered */}
-          {(stage === 'collecting' || stage === 'ready_to_propose') && allAnswered && (
+          {/* Footer — "Generate plan" on q_review or when all questions
+              are answered. */}
+          {(stage === 'collecting' || stage === 'ready_to_propose') && (allAnswered || currentQuestion?.kind === 'review') && (
             <div className="border-t border-rp-ink/10 bg-rp-bg-soft px-4 py-3 sm:px-6 flex items-center justify-between gap-2">
               <button
                 type="button"
