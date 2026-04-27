@@ -38,7 +38,7 @@ const MODEL = 'claude-haiku-4-5-20251001'
  * Override with COMPOSE_MODEL env var if needed (e.g. to revert to Haiku).
  */
 const COMPOSE_MODEL = Deno.env.get('COMPOSE_MODEL') ?? 'claude-sonnet-4-5-20250929'
-const APP_VERSION = '2.4.0'
+const APP_VERSION = '2.5.0'
 const DEPLOYED_AT = '2026-04-26T18:00:00Z'
 
 // v1.17.0: recipe bank wiring — service-role Supabase client used for the
@@ -1479,15 +1479,24 @@ async function opProposePlan(input: Record<string, unknown>): Promise<unknown> {
   // v2.4.0: also throw when days exist but every day has an empty meals array
   // (Anthropic returned partial structure with no actual content).
   if (!out?.days || (Array.isArray(out.days) && out.days.length === 0)) {
+    console.warn('[opProposePlan] empty days:', JSON.stringify(out).slice(0, 600))
     throw new Error('propose_plan returned no days')
   }
-  if (
-    Array.isArray(out.days) &&
-    (out.days as Array<{ meals?: unknown[] }>).every(
-      (d) => !d.meals || d.meals.length === 0,
+  // v2.5.0: also reject when at least one day exists but no day has any meal
+  // with any slot. Previously v2.4 only checked meals?.length, which let a
+  // shape like `meals: [{type:'Dinner', slots: []}]` slip through and render a
+  // blank dialog client-side.
+  type DayShape = { meals?: Array<{ slots?: unknown[] }> }
+  const days = out.days as DayShape[]
+  const hasAnyContent = days.some(
+    (d) => Array.isArray(d.meals) && d.meals.some((m) => Array.isArray(m.slots) && m.slots.length > 0),
+  )
+  if (!hasAnyContent) {
+    console.warn(
+      '[opProposePlan] no day contained any slot:',
+      JSON.stringify(out).slice(0, 800),
     )
-  ) {
-    throw new Error('propose_plan returned days with no meals')
+    throw new Error('propose_plan returned no slots')
   }
   return { days: out.days }
 }

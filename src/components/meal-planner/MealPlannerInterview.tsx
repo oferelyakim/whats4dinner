@@ -287,10 +287,20 @@ export function MealPlannerInterview({
         { answers, circleContext, recentDishes },
         ProposePlanResultSchema,
       )
-      // v2.3.0: an empty days[] is a silent failure — Anthropic returned no
-      // tool_use, or the schema's `.default([])` swallowed a malformed shape.
-      // Treat as a retryable error rather than navigating to an empty review.
-      if (!out.days?.length || out.days.every((d) => !d.meals?.length)) {
+      // v2.3.0 / v2.4.0 / v2.5.0: an empty proposal is a silent failure —
+      // Anthropic returned no tool_use, partial structure, or the schema let
+      // through empty meals[] / empty slots[] arrays. v2.5.0 broadens to the
+      // deepest level: every day must have at least one meal AND at least one
+      // slot total, otherwise ReviewStep renders day headers + meal-type
+      // labels + zero rows = "blank dialog".
+      const hasAnyContent = out.days?.some(
+        (d) => d.meals?.some((m) => (m.slots?.length ?? 0) > 0),
+      )
+      if (!out.days?.length || !hasAnyContent) {
+        console.warn(
+          '[interview] propose-plan returned empty proposal:',
+          JSON.stringify(out).slice(0, 800),
+        )
         setError(t('interview.proposing.empty'))
         setStage('ready_to_propose')
         return
@@ -463,7 +473,11 @@ export function MealPlannerInterview({
               />
             )}
 
-            {error && stage !== 'ready_to_propose' && (
+            {/* v2.5.0: removed `stage !== 'ready_to_propose'` gate. When a
+                propose-plan attempt fails, runProposePlan reverts to that
+                stage AND sets error — gating it on stage hid the message and
+                made the failure look like the dialog "did nothing". */}
+            {error && (
               <p className="mt-3 text-sm text-red-600">{error}</p>
             )}
           </div>
@@ -1075,11 +1089,14 @@ function ReviewStep({
   onRetry: () => void
 }) {
   const t = useI18n((s) => s.t)
-  // v2.3.0: belt-and-braces. The runProposePlan caller already routes empty
-  // results back to ready_to_propose, but if a propose-plan response slips
-  // through with zero rows (e.g. partial schema-default), render a clear
-  // retry CTA instead of a blank dialog.
-  if (!proposal.days?.length || proposal.days.every((d) => !d.meals?.length)) {
+  // v2.3 / v2.4 / v2.5: belt-and-braces. The runProposePlan caller already
+  // routes empty results back to ready_to_propose, but if a propose-plan
+  // response slips through with zero usable rows (no day has any meal with
+  // any slot), render a clear retry CTA instead of a blank dialog.
+  const hasAnyContent = proposal.days?.some((d) =>
+    d.meals?.some((m) => (m.slots?.length ?? 0) > 0),
+  )
+  if (!proposal.days?.length || !hasAnyContent) {
     return (
       <div className="flex flex-col items-center gap-4 py-10">
         <Sparkles className="h-10 w-10 text-rp-brand" />

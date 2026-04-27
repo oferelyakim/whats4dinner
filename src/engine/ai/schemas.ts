@@ -181,19 +181,29 @@ export const ProposePlanResultSchema = z.object({
       z.object({
         date: z.string().min(1),
         theme: z.string().nullable().optional().catch(null),
-        meals: z.array(
-          z.object({
-            type: z.string().min(1),
-            slots: z.array(
-              z.object({
-                role: z.string().min(1),
-                candidates: z.array(z.string().min(1)).min(1).max(3),
-              }),
-            ),
-          }),
-        ),
+        // v2.5.0: tighten — `meals` and `slots` MUST be non-empty. v2.3 + v2.4
+        // guarded these at runtime but the schema kept them lax, so a malformed
+        // Anthropic response (e.g. `meals: [{type:'Dinner', slots: []}]`) would
+        // pass parse, slip past the meal-level guard, and render a blank
+        // dialog (day header + meal type label + zero rows). Strict at parse
+        // time → fails into the catch block + retry CTA cleanly.
+        meals: z
+          .array(
+            z.object({
+              type: z.string().min(1),
+              slots: z
+                .array(
+                  z.object({
+                    role: z.string().min(1),
+                    candidates: z.array(z.string().min(1)).min(1).max(3),
+                  }),
+                )
+                .min(1),
+            }),
+          )
+          .min(1),
       }),
     )
-    .default([]),
+    .min(1),
 })
 export type ProposePlanResult = z.infer<typeof ProposePlanResultSchema>

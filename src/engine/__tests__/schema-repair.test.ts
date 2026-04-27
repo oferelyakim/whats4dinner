@@ -257,8 +257,29 @@ describe('ProposePlanResultSchema — strict on candidates (v2.0.0)', () => {
     expect(r.days[0].theme).toBeNull()
   })
 
-  it('defaults to empty days array on missing field', () => {
-    const r = ProposePlanResultSchema.parse({})
-    expect(r.days).toEqual([])
+  it('v2.5.0: rejects missing days field (was: defaulted to []; that hid blank-page bugs)', () => {
+    // Pre-v2.5 the schema had `.default([])` on days, which silently accepted
+    // any malformed Anthropic response and let the client render an empty
+    // review dialog. v2.5.0 tightened to `.min(1)` so a malformed response
+    // throws a ZodError → caught by runProposePlan's try/catch → user sees
+    // the retry CTA instead of a blank "Here is your draft" page.
+    expect(() => ProposePlanResultSchema.parse({})).toThrow()
+    expect(() => ProposePlanResultSchema.parse({ days: [] })).toThrow()
+  })
+
+  it('v2.5.0: rejects days with empty meals array', () => {
+    expect(() =>
+      ProposePlanResultSchema.parse({
+        days: [{ date: '2026-05-01', meals: [] }],
+      }),
+    ).toThrow()
+  })
+
+  it('v2.5.0: rejects meals with empty slots array (the actual blank-page bug)', () => {
+    expect(() =>
+      ProposePlanResultSchema.parse({
+        days: [{ date: '2026-05-01', meals: [{ type: 'Dinner', slots: [] }] }],
+      }),
+    ).toThrow()
   })
 })
