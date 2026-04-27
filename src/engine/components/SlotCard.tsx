@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Lock, RefreshCw, Loader2, AlertCircle, Clock, Unlock, Sparkles, X, Trash2 } from 'lucide-react'
+import { Lock, RefreshCw, Loader2, AlertCircle, Clock, Unlock, Sparkles, X, Trash2, ShoppingCart } from 'lucide-react'
 import type { Slot } from '../types'
 import { useSlot } from '../hooks/useSlot'
 import { getEngine } from '../MealPlanEngine'
 import { cn } from '@/lib/cn'
 import { useI18n } from '@/lib/i18n'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
+import { useAppStore } from '@/stores/appStore'
 
 interface Props {
   slotId: string
@@ -35,9 +37,11 @@ const STAGE_LABEL: Record<Slot['status'], string> = {
 export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
   const slot = useSlot(slotId)
   const t = useI18n((s) => s.t)
+  const { activeCircle } = useAppStore()
   const [showHint, setShowHint] = useState(false)
   const [hint, setHint] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showShopSheet, setShowShopSheet] = useState(false)
 
   if (!slot) return <div className="rounded-xl bg-rp-bg-soft animate-pulse h-20" />
 
@@ -203,6 +207,16 @@ export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
               Generate
             </button>
           )}
+          {slot.status === 'ready' && slot.recipeId && (
+            <button
+              onClick={() => setShowShopSheet(true)}
+              aria-label={t('plan.shop.addToList')}
+              title={t('plan.shop.addToList')}
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors"
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+            </button>
+          )}
           {(slot.status === 'ready' || slot.status === 'link_ready' || slot.status === 'error') && (
             <button
               onClick={() => setShowHint((v) => !v)}
@@ -250,6 +264,15 @@ export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
         destructive
         onConfirm={() => engine.removeSlot(slot.id)}
       />
+
+      {slot.status === 'ready' && slot.recipeId && (
+        <ShopFromPlanV2Sheet
+          open={showShopSheet}
+          onClose={() => setShowShopSheet(false)}
+          slots={[slot]}
+          circleId={activeCircle?.id}
+        />
+      )}
     </div>
   )
 }

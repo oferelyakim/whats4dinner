@@ -1,11 +1,14 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Trash2, X as XIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { Trash2, X as XIcon, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react'
 import { useEngine } from '../hooks/useEngine'
 import { usePlan } from '../hooks/usePlan'
 import type { MealPlan } from '../types'
 import { DayCard } from './DayCard'
 import { RecipeView } from './RecipeView'
+import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useI18n } from '@/lib/i18n'
+import { useAppStore } from '@/stores/appStore'
 import {
   cancelJob,
   getJob,
@@ -55,12 +58,17 @@ const MAX_WEEK_OFFSET = 3  // 3 weeks ahead
 export function PlanV2View() {
   const engine = useEngine()
   const t = useI18n((s) => s.t)
+  const { activeCircle } = useAppStore()
   const [plans, setPlans] = useState<MealPlan[]>([])
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
   // v2.0.0: tracks a `link_ready` slot the user opened so RecipeView can
   // hydrate the URL on mount.
   const [openSlotId, setOpenSlotId] = useState<string | null>(null)
+  // v2.4.0: week-level shop sheet
+  const [showWeekShopSheet, setShowWeekShopSheet] = useState(false)
+  // v2.4.0: confirm-before-delete the active week plan
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const { plan, refresh } = usePlan(activePlanId)
   // v1.18.0 — async job state. activeJobId drives the progress bar.
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
@@ -260,6 +268,17 @@ export function PlanV2View() {
   const weekDateSet = new Set(weekDates)
   const visibleDays = (plan?.days ?? []).filter((d) => weekDateSet.has(d.date))
 
+  // v2.4.0 — all ready slots in the visible week for the shop sheet
+  const weekReadySlots = useMemo(
+    () =>
+      visibleDays.flatMap((day) =>
+        day.meals.flatMap((meal) =>
+          meal.slots.filter((s) => s.status === 'ready' && s.recipeId),
+        ),
+      ),
+    [visibleDays],
+  )
+
   // Monday of the visible week for the label
   const weekMonday = weekDates[0]
 
@@ -276,8 +295,18 @@ export function PlanV2View() {
           </h1>
         </div>
         <div className="flex gap-1.5">
+          {weekReadySlots.length > 0 && (
+            <button
+              onClick={() => setShowWeekShopSheet(true)}
+              aria-label={t('plan.shop.addWeekToList')}
+              title={t('plan.shop.addWeekToList')}
+              className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft"
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
-            onClick={() => void clearPlan()}
+            onClick={() => setShowDeleteConfirm(true)}
             aria-label={t('common.delete')}
             className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft"
           >
@@ -285,6 +314,18 @@ export function PlanV2View() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title={t('plan.week.deleteConfirm.title')}
+        description={t('plan.week.deleteConfirm.body')}
+        confirmLabel={t('confirm.delete')}
+        cancelLabel={t('confirm.cancel')}
+        onConfirm={async () => {
+          await clearPlan()
+        }}
+      />
 
       {/* Week navigation row */}
       <div className="flex items-center justify-between gap-2">
@@ -406,6 +447,13 @@ export function PlanV2View() {
           {plans.length} plan{plans.length === 1 ? '' : 's'} stored locally
         </p>
       )}
+
+      <ShopFromPlanV2Sheet
+        open={showWeekShopSheet}
+        onClose={() => setShowWeekShopSheet(false)}
+        slots={weekReadySlots}
+        circleId={activeCircle?.id}
+      />
     </div>
   )
 }

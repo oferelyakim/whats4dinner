@@ -202,6 +202,13 @@ export function MealPlannerInterview({
     if (currentQuestion.kind === 'open_text' && currentQuestion.id === 'q_dislikes') {
       return true
     }
+    // q_calories and q_cooking_skill are choice questions — optional.
+    if (
+      currentQuestion.id === 'q_calories' ||
+      currentQuestion.id === 'q_cooking_skill'
+    ) {
+      return true
+    }
     return false
   }
 
@@ -283,7 +290,7 @@ export function MealPlannerInterview({
       // v2.3.0: an empty days[] is a silent failure — Anthropic returned no
       // tool_use, or the schema's `.default([])` swallowed a malformed shape.
       // Treat as a retryable error rather than navigating to an empty review.
-      if (!out.days || out.days.length === 0) {
+      if (!out.days?.length || out.days.every((d) => !d.meals?.length)) {
         setError(t('interview.proposing.empty'))
         setStage('ready_to_propose')
         return
@@ -1072,7 +1079,7 @@ function ReviewStep({
   // results back to ready_to_propose, but if a propose-plan response slips
   // through with zero rows (e.g. partial schema-default), render a clear
   // retry CTA instead of a blank dialog.
-  if (!proposal.days || proposal.days.length === 0) {
+  if (!proposal.days?.length || proposal.days.every((d) => !d.meals?.length)) {
     return (
       <div className="flex flex-col items-center gap-4 py-10">
         <Sparkles className="h-10 w-10 text-rp-brand" />

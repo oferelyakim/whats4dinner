@@ -308,6 +308,14 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.shopThisWeek': { en: 'Shop this week', he: 'קנייה לשבוע זה', es: 'Comprar esta semana' },
   'plan.shopThisDay': { en: 'Shop day', he: 'קנייה ליום', es: 'Comprar día' },
   'plan.shopThisMeal': { en: 'Shop', he: 'קנייה', es: 'Comprar' },
+
+  // v2.4.0 — plan-v2 add-to-list entry points
+  'plan.shop.addToList': { en: 'Add to shopping list', he: 'הוסף לרשימת קניות', es: 'Añadir a lista de compras' },
+  'plan.shop.addMealToList': { en: 'Add meal to list', he: 'הוסף ארוחה לרשימה', es: 'Añadir comida a lista' },
+  'plan.shop.addDayToList': { en: 'Add day to list', he: 'הוסף יום לרשימה', es: 'Añadir día a lista' },
+  'plan.shop.addWeekToList': { en: 'Add week to list', he: 'הוסף שבוע לרשימה', es: 'Añadir semana a lista' },
+  'plan.shop.v2.empty': { en: 'No ingredients to add — select slots with recipes', he: 'אין מרכיבים להוסיף — בחר משבצות עם מתכונים', es: 'Sin ingredientes — selecciona recetas del plan' },
+  'plan.shop.v2.noRecipes': { en: 'No recipes loaded yet for selected slots', he: 'אין מתכונים טעונים עדיין למשבצות הנבחרות', es: 'Sin recetas cargadas aún para los espacios seleccionados' },
   'plan.removeDishTitle': { en: 'Remove dish?', he: 'להסיר מנה?', es: '¿Eliminar plato?' },
   'plan.removeDishDesc': { en: 'Remove "{title}" from the meal plan?', he: 'להסיר את "{title}" מתוכנית הארוחות?', es: '¿Eliminar "{title}" del plan de comidas?' },
 
@@ -960,6 +968,16 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.week.prev': { en: 'Previous week', he: 'שבוע קודם', es: 'Semana anterior' },
   'plan.week.next': { en: 'Next week', he: 'שבוע הבא', es: 'Semana siguiente' },
   'plan.week.label': { en: 'Week of {date}', he: 'שבוע של {date}', es: 'Semana del {date}' },
+  'plan.week.deleteConfirm.title': {
+    en: 'Delete this week\u2019s plan?',
+    he: 'למחוק את התוכנית של השבוע?',
+    es: '¿Eliminar el plan de esta semana?',
+  },
+  'plan.week.deleteConfirm.body': {
+    en: 'All days, meals, and slots in this plan will be removed. This cannot be undone.',
+    he: 'כל הימים, הארוחות והמנות בתוכנית הזו יימחקו. לא ניתן לבטל.',
+    es: 'Todos los días, comidas y porciones de este plan se eliminarán. Esto no se puede deshacer.',
+  },
 
   // Event AI planner
   'event.aiPlan': { en: 'AI Plan Event', he: 'תכנן עם AI', es: 'Planificar con IA' },

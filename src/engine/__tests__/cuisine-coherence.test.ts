@@ -150,6 +150,87 @@ describe('tryFillSlotFromBank — sibling cuisine lock', () => {
   })
 })
 
+describe('tryFillSlotFromBank — preset cuisine hard constraint (Bug A regression)', () => {
+  it('rejects a Peruvian candidate when Burger preset locked slot.notes to american', async () => {
+    // Burger preset sets cuisineId='american' on its slots, so fillSlotsFromPreset
+    // writes notes="american (modern) burger" on the main slot. Previously,
+    // tryFillSlotFromBank only checked lockedSiblingCuisineId (other slots in
+    // the meal) — not the slot's OWN preset cuisine. Peruvian chicken was being
+    // accepted as the first bank candidate even though slot.notes said "american".
+    const engine = new MealPlanEngine()
+    const plan = await engine.createPlan('2026-05-01')
+    const day = await engine.addDay(plan.id, '2026-05-01')
+
+    // Apply Burger preset to the day — this creates a dinner meal with
+    // main + side slots, each with notes carrying the 'american' cuisine token.
+    await engine.applyPreset('sys-day-burger', { dayId: day.id })
+
+    const dinner = (await db.meals.where('dayId').equals(day.id).toArray())[0]
+    const slots = await db.slots.where('mealId').equals(dinner.id).sortBy('position')
+    const mainSlot = slots.find((s) => s.role === 'main')
+    expect(mainSlot).toBeDefined()
+    // Verify the preset actually wrote an american cuisine token into notes.
+    const presetHint = parseUserHint(mainSlot!.notes)
+    expect(presetHint.cuisineId).toBe('american')
+
+    // Mock the bank to return Peruvian first, American second.
+    __setMealEngineMock(async (op) => {
+      if (op !== 'sample-from-bank') throw new Error(`unexpected op: ${op}`)
+      return {
+        candidates: [
+          buildBankRow({
+            title: 'Peruvian Chicken (Pollo a la Brasa)',
+            cuisineId: 'peruvian',
+            ingredientMain: 'whole roast chicken',
+            proteinFamily: 'poultry',
+          }),
+          buildBankRow({
+            title: 'Classic American Cheeseburger',
+            cuisineId: 'american',
+            ingredientMain: 'ground beef (85/15)',
+            proteinFamily: 'red-meat',
+          }),
+        ],
+      }
+    })
+
+    const filled = await engine.tryFillSlotFromBank(mainSlot!.id, [], [], [])
+    expect(filled).toBe(true)
+    const finalMain = await db.slots.get(mainSlot!.id)
+    // Slot must land on the American candidate, not the Peruvian one.
+    expect(finalMain?.envelope?.cuisineId).toBe('american')
+    expect(finalMain?.dishName).toBe('Classic American Cheeseburger')
+  })
+
+  it('returns false when bank only has non-american candidates for an american-preset slot', async () => {
+    const engine = new MealPlanEngine()
+    const plan = await engine.createPlan('2026-05-01')
+    const day = await engine.addDay(plan.id, '2026-05-01')
+    await engine.applyPreset('sys-day-burger', { dayId: day.id })
+    const dinner = (await db.meals.where('dayId').equals(day.id).toArray())[0]
+    const slots = await db.slots.where('mealId').equals(dinner.id).sortBy('position')
+    const mainSlot = slots.find((s) => s.role === 'main')!
+
+    // Bank returns only non-American candidates — slot must fall through to AI.
+    __setMealEngineMock(async (op) => {
+      if (op !== 'sample-from-bank') throw new Error(`unexpected op: ${op}`)
+      return {
+        candidates: [
+          buildBankRow({ title: 'Peruvian Chicken', cuisineId: 'peruvian', ingredientMain: 'chicken', proteinFamily: 'poultry' }),
+          buildBankRow({ title: 'Korean Short Ribs', cuisineId: 'korean', ingredientMain: 'beef short ribs', proteinFamily: 'red-meat' }),
+        ],
+      }
+    })
+
+    const filled = await engine.tryFillSlotFromBank(mainSlot.id, [], [], [])
+    // No matching cuisine → return false so the caller falls through to AI.
+    expect(filled).toBe(false)
+    const slot = await db.slots.get(mainSlot.id)
+    // Status unchanged — still the preset's empty state (not marked ready).
+    expect(slot?.status).not.toBe('ready')
+  })
+})
+
 describe('applyInterviewResult — cuisine propagation', () => {
   it('writes the meal cuisine into still-empty sibling slot.notes after the first sibling lands', async () => {
     const engine = new MealPlanEngine()

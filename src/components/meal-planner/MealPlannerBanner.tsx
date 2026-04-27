@@ -65,6 +65,88 @@ export function MealPlannerBanner({
     return t('interview.banner.weekTitle')
   }
 
+  // ── Day scope: compact single-row layout ─────────────────────────────────
+  if (scope === 'day') {
+    return (
+      <>
+        <div
+          className={`
+            relative mb-2 rounded-xl border px-3 py-2 transition
+            ${isPaid
+              ? 'bg-rp-bg-soft border-rp-brand/30 hover:shadow-rp-card'
+              : 'bg-rp-bg-soft border-rp-ink/10 opacity-80'}
+          `}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className={`
+                flex h-8 w-8 shrink-0 items-center justify-center rounded-xl
+                ${isPaid ? 'bg-rp-brand text-white' : 'bg-rp-ink/10 text-rp-ink'}
+              `}
+              aria-hidden
+            >
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <span className="flex-1 min-w-0 text-sm font-medium text-rp-ink truncate">
+              {t('interview.banner.dayTitle')}
+            </span>
+            {isPaid ? (
+              <button
+                type="button"
+                onClick={handleClick}
+                disabled={!planId}
+                className="
+                  inline-flex items-center gap-1 rounded-full bg-rp-brand px-3 py-1.5
+                  text-xs font-medium text-white transition shrink-0
+                  hover:bg-rp-brand/90 active:scale-[0.98]
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                "
+              >
+                {t('interview.banner.start')}
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleClick}
+                className="
+                  inline-flex items-center gap-1 rounded-full
+                  border border-rp-brand bg-transparent px-3 py-1.5
+                  text-xs font-medium text-rp-brand transition shrink-0
+                  hover:bg-rp-brand/5 active:scale-[0.98]
+                "
+              >
+                {t('interview.banner.upgrade')}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {showUpgradeModal && (
+          <AIUpgradeModal
+            open={showUpgradeModal}
+            onOpenChange={setShowUpgradeModal}
+            isLimitReached={upgradeReason === 'ai_limit'}
+            isImportCapReached={upgradeReason === 'recipe_import_cap'}
+          />
+        )}
+
+        {interviewOpen && planId && (
+          <MealPlannerInterview
+            open={interviewOpen}
+            onOpenChange={setInterviewOpen}
+            planId={planId}
+            circleId={circleId}
+            onApprove={onApprove}
+            scope={scope}
+            targetDayDate={targetDayDate}
+          />
+        )}
+      </>
+    )
+  }
+
+  // ── Week scope: full card layout ──────────────────────────────────────────
   return (
     <>
       <div

@@ -2,6 +2,8 @@ import { supabase } from './supabase'
 import type { ShoppingList, ShoppingListItem } from '@/types'
 import type { Unit } from '@/lib/constants'
 import { normalizeIngredient } from '@/lib/ingredientNormalize'
+import type { Slot } from '@/engine/types'
+import { db } from '@/engine/db'
 
 export interface AggregatedIngredient {
   key: string
@@ -315,6 +317,211 @@ export async function computePlanIngredients(planIds: string[]): Promise<Aggrega
         sourceRecipeIds: [ing.recipe_id],
         sourceRecipeTitles: [title],
       })
+    }
+  }
+
+  return [...aggregated.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// ── Spice/seasoning set — these are listed once, no qty summing ──────────────
+
+const SPICE_NAMES = new Set([
+  'salt', 'pepper', 'paprika', 'cumin', 'oregano', 'thyme', 'basil', 'rosemary',
+  'turmeric', 'cinnamon', 'nutmeg', 'cardamom', 'coriander', 'fennel', 'dill',
+  'sage', 'tarragon', 'marjoram', 'bay', 'cloves', 'allspice', 'chili', 'cayenne',
+  'saffron', 'sumac', 'zaatar', 'za\'atar', 'harissa', 'garam masala', 'curry',
+  'chili powder', 'garlic powder', 'onion powder', 'smoked paprika',
+  'black pepper', 'white pepper', 'red pepper', 'pepper flakes',
+  'sesame seeds', 'poppy seeds', 'caraway', 'fenugreek', 'mustard seed',
+  'vanilla', 'extract',
+])
+
+// Simple fraction parser: "1/2" → 0.5, "2 1/2" → 2.5
+function parseFraction(s: string): number {
+  const mixed = s.trim().match(/^(\d+)\s+(\d+)\/(\d+)$/)
+  if (mixed) return parseInt(mixed[1]) + parseInt(mixed[2]) / parseInt(mixed[3])
+  const simple = s.trim().match(/^(\d+)\/(\d+)$/)
+  if (simple) return parseInt(simple[1]) / parseInt(simple[2])
+  const num = parseFloat(s)
+  return isNaN(num) ? 0 : num
+}
+
+// UNIT_WORDS mirrors the set in ingredientNormalize.ts but as an Array for iteration
+const PARSEABLE_UNITS = [
+  'tablespoons', 'tablespoon', 'tbsp',
+  'teaspoons', 'teaspoon', 'tsp',
+  'cups', 'cup',
+  'ounces', 'ounce', 'oz',
+  'pounds', 'pound', 'lb', 'lbs',
+  'grams', 'gram', 'gr', 'g',
+  'kilograms', 'kilogram', 'kg',
+  'milliters', 'milliliter', 'ml',
+  'liters', 'liter', 'l',
+  'cloves', 'clove',
+  'slices', 'slice',
+  'pieces', 'piece',
+  'cans', 'can',
+  'bunches', 'bunch',
+  'heads', 'head',
+  'packages', 'package', 'packs', 'pack',
+  'pinches', 'pinch',
+  'dashes', 'dash',
+]
+
+// Parse a freeform ingredient string like "2 cups all-purpose flour" or "salt to taste"
+// into { quantityNum, unit, baseName }.
+function parseIngredientString(raw: string): {
+  quantityNum: number | null
+  unit: string
+  baseName: string
+} {
+  const text = raw.toLowerCase().trim()
+
+  // Match leading number (int, decimal, fraction, unicode fraction)
+  const numMatch = text.match(/^([\d./\u00BC-\u00BE\u2150-\u215E]+(?:\s+\d+\/\d+)?)\s*/)
+  if (!numMatch) {
+    return { quantityNum: null, unit: '', baseName: text }
+  }
+
+  const quantityNum = parseFraction(numMatch[1])
+  let rest = text.slice(numMatch[0].length).trim()
+
+  // Match unit
+  let matchedUnit = ''
+  for (const u of PARSEABLE_UNITS) {
+    if (rest.startsWith(u + ' ') || rest === u) {
+      matchedUnit = u
+      rest = rest.slice(u.length).trim()
+      // strip leading "of"
+      if (rest.startsWith('of ')) rest = rest.slice(3).trim()
+      break
+    }
+  }
+
+  return { quantityNum, unit: matchedUnit, baseName: rest }
+}
+
+/**
+ * v2.4.0 — compute an aggregated ingredient list from a set of v2 engine Slot
+ * objects.  Reads Recipe rows from the local Dexie database (no Supabase call).
+ * Only `ready` and `link_ready` slots with a `recipeId` are included; slots in
+ * any other state (empty, generating, error, queued_server) are skipped.
+ *
+ * Rules per user spec:
+ *  - Spice / seasoning ingredients → appear once, no quantity.
+ *  - Same-unit numerics → sum them.
+ *  - Mixed units (count vs volumetric) → no summed qty; recipe names listed.
+ *  - No quantity on either side → no qty; recipe names listed.
+ */
+export async function computeIngredientsFromSlots(
+  slots: Slot[],
+): Promise<AggregatedIngredient[]> {
+  // Only slots that have a fully-hydrated recipe
+  const readySlots = slots.filter(
+    (s) => (s.status === 'ready') && s.recipeId,
+  )
+  if (!readySlots.length) return []
+
+  // Load recipes from Dexie
+  const recipeIds = [...new Set(readySlots.map((s) => s.recipeId!))]
+  const recipes = await db.recipes.bulkGet(recipeIds)
+  const recipeMap = new Map(
+    recipes
+      .filter((r): r is NonNullable<typeof r> => r !== undefined)
+      .map((r) => [r.id, r])
+  )
+
+  // Build slot → recipe title map
+  const slotToTitle = new Map<string, string>()
+  const slotToRecipeId = new Map<string, string>()
+  for (const slot of readySlots) {
+    if (slot.recipeId) {
+      const recipe = recipeMap.get(slot.recipeId)
+      if (recipe) {
+        slotToTitle.set(slot.id, recipe.title)
+        slotToRecipeId.set(slot.id, slot.recipeId)
+      }
+    }
+  }
+
+  // Aggregate
+  const aggregated = new Map<string, AggregatedIngredient>()
+
+  for (const slot of readySlots) {
+    const recipeId = slotToRecipeId.get(slot.id)
+    if (!recipeId) continue
+    const recipe = recipeMap.get(recipeId)
+    if (!recipe) continue
+    const recipeTitle = slotToTitle.get(slot.id) ?? recipe.title
+
+    for (const ing of recipe.ingredients) {
+      // ing.item is the full freeform string e.g. "2 cups flour"
+      const rawText = ing.item.trim()
+      const { base, form } = normalizeIngredient(rawText)
+
+      // Spice check — name-only row, no qty
+      const isSpice = SPICE_NAMES.has(base) || SPICE_NAMES.has(base.split(' ')[0])
+
+      const key = `${base}|${form ?? ''}`
+      const displayName = form ? `${form} ${base}` : base
+
+      const existing = aggregated.get(key)
+
+      if (isSpice) {
+        if (!existing) {
+          aggregated.set(key, {
+            key,
+            name: displayName,
+            quantity: null,
+            unit: '' as Unit,
+            sourceRecipeIds: [recipeId],
+            sourceRecipeTitles: [recipeTitle],
+          })
+        } else {
+          if (!existing.sourceRecipeIds.includes(recipeId)) {
+            existing.sourceRecipeIds.push(recipeId)
+            existing.sourceRecipeTitles.push(recipeTitle)
+          }
+        }
+        continue
+      }
+
+      // Parse quantity from the freeform ingredient string
+      const { quantityNum, unit: parsedUnit } = parseIngredientString(rawText)
+
+      if (!existing) {
+        aggregated.set(key, {
+          key,
+          name: displayName,
+          quantity: quantityNum,
+          unit: parsedUnit as Unit,
+          sourceRecipeIds: [recipeId],
+          sourceRecipeTitles: [recipeTitle],
+        })
+      } else {
+        // Sum if units match and both have numeric quantities
+        if (
+          existing.quantity !== null &&
+          quantityNum !== null &&
+          existing.unit === parsedUnit &&
+          parsedUnit !== ''
+        ) {
+          existing.quantity = existing.quantity + quantityNum
+        } else if (quantityNum !== null && existing.quantity === null && existing.unit === '') {
+          // Upgrade from no-qty to a qty (first time we get a measurement)
+          existing.quantity = quantityNum
+          existing.unit = parsedUnit as Unit
+        } else {
+          // Mixed units or one side missing — drop qty
+          existing.quantity = null
+          existing.unit = '' as Unit
+        }
+
+        if (!existing.sourceRecipeIds.includes(recipeId)) {
+          existing.sourceRecipeIds.push(recipeId)
+          existing.sourceRecipeTitles.push(recipeTitle)
+        }
+      }
     }
   }
 

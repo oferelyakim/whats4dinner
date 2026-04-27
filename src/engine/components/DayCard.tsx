@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Plus, Layers, Trash2, BookOpen, X } from 'lucide-react'
+import { Plus, Layers, Trash2, BookOpen, X, ShoppingCart } from 'lucide-react'
 import type { DayView, Preset, PresetSlot } from '../types'
 import type { InterviewResult } from '../interview/types'
 import { MealCard } from './MealCard'
@@ -9,6 +9,7 @@ import { PresetPicker } from './PresetPicker'
 import { PresetConfirmDialog } from '@/components/meal-planner/PresetConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
+import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
 import { useI18n } from '@/lib/i18n'
 import { db } from '../db'
 import { getMealMenus } from '@/services/mealMenus'
@@ -32,6 +33,7 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
   const [showPresets, setShowPresets] = useState(false)
   const [confirmPreset, setConfirmPreset] = useState<Preset | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showShopSheet, setShowShopSheet] = useState(false)
   // v2.3.0 — manual template-application dialog
   const [showTemplates, setShowTemplates] = useState(false)
   const [templates, setTemplates] = useState<(MealMenu & { recipes: Recipe[] })[] | null>(null)
@@ -40,6 +42,15 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
   const engine = getEngine()
   const t = useI18n((s) => s.t)
   const { activeCircle } = useAppStore()
+
+  // Collect all ready slots with a recipeId across all meals in this day
+  const readySlots = useMemo(
+    () =>
+      day.meals.flatMap((meal) =>
+        meal.slots.filter((s) => s.status === 'ready' && s.recipeId),
+      ),
+    [day.meals],
+  )
 
   // Lazy-load templates on first dialog open.
   useEffect(() => {
@@ -77,6 +88,16 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
           <Layers className="h-3 w-3" />
           Day preset
         </button>
+        {readySlots.length > 0 && (
+          <button
+            onClick={() => setShowShopSheet(true)}
+            aria-label={t('plan.shop.addDayToList')}
+            title={t('plan.shop.addDayToList')}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors shrink-0"
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           onClick={() => setShowDeleteConfirm(true)}
           aria-label={t('plan.day.delete')}
@@ -246,6 +267,13 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      <ShopFromPlanV2Sheet
+        open={showShopSheet}
+        onClose={() => setShowShopSheet(false)}
+        slots={readySlots}
+        circleId={activeCircle?.id}
+      />
     </div>
   )
 }

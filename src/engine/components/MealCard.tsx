@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Plus, Wand2, Layers, Trash2, Eraser } from 'lucide-react'
+import { Plus, Wand2, Layers, Trash2, Eraser, ShoppingCart } from 'lucide-react'
 import type { MealView, Preset, PresetSlot } from '../types'
 import { SlotCard } from './SlotCard'
 import { getEngine } from '../MealPlanEngine'
 import { PresetPicker } from './PresetPicker'
 import { PresetConfirmDialog } from '@/components/meal-planner/PresetConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
 import { useI18n } from '@/lib/i18n'
+import { useAppStore } from '@/stores/appStore'
 import { db } from '../db'
 
 interface Props {
@@ -19,8 +21,15 @@ export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
   const [showPresets, setShowPresets] = useState(false)
   const [confirmPreset, setConfirmPreset] = useState<Preset | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showShopSheet, setShowShopSheet] = useState(false)
   const engine = getEngine()
   const t = useI18n((s) => s.t)
+  const { activeCircle } = useAppStore()
+
+  // Collect only ready slots with a recipeId for shopping
+  const readySlots = meal.slots.filter(
+    (s) => s.status === 'ready' && s.recipeId,
+  )
 
   return (
     <div className="space-y-2">
@@ -59,6 +68,16 @@ export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
+          {readySlots.length > 0 && (
+            <button
+              onClick={() => setShowShopSheet(true)}
+              aria-label={t('plan.shop.addMealToList')}
+              title={t('plan.shop.addMealToList')}
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors"
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             onClick={() => setShowDeleteConfirm(true)}
             aria-label={t('plan.meal.delete')}
@@ -138,6 +157,13 @@ export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
         cancelLabel={t('confirm.cancel')}
         destructive
         onConfirm={() => engine.removeMeal(meal.id)}
+      />
+
+      <ShopFromPlanV2Sheet
+        open={showShopSheet}
+        onClose={() => setShowShopSheet(false)}
+        slots={readySlots}
+        circleId={activeCircle?.id}
       />
     </div>
   )

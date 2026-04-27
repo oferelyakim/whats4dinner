@@ -38,7 +38,7 @@ const MODEL = 'claude-haiku-4-5-20251001'
  * Override with COMPOSE_MODEL env var if needed (e.g. to revert to Haiku).
  */
 const COMPOSE_MODEL = Deno.env.get('COMPOSE_MODEL') ?? 'claude-sonnet-4-5-20250929'
-const APP_VERSION = '2.3.0'
+const APP_VERSION = '2.4.0'
 const DEPLOYED_AT = '2026-04-26T18:00:00Z'
 
 // v1.17.0: recipe bank wiring — service-role Supabase client used for the
@@ -1476,8 +1476,18 @@ async function opProposePlan(input: Record<string, unknown>): Promise<unknown> {
   // v2.3.0: surface a real error instead of returning an empty plan. The
   // client previously rendered an empty review page when this happened
   // because zod's `.default([])` swallowed the failure shape.
+  // v2.4.0: also throw when days exist but every day has an empty meals array
+  // (Anthropic returned partial structure with no actual content).
   if (!out?.days || (Array.isArray(out.days) && out.days.length === 0)) {
     throw new Error('propose_plan returned no days')
+  }
+  if (
+    Array.isArray(out.days) &&
+    (out.days as Array<{ meals?: unknown[] }>).every(
+      (d) => !d.meals || d.meals.length === 0,
+    )
+  ) {
+    throw new Error('propose_plan returned days with no meals')
   }
   return { days: out.days }
 }

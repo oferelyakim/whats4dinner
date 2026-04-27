@@ -1052,14 +1052,39 @@ export class MealPlanEngine {
     //  1. doesn't share protein-family with siblings (variety within meal)
     //  2. WHEN a sibling cuisine is locked, MUST share that cuisine
     //     (coherence within meal — Greek main → Greek sides, not Korean)
-    const picked = candidates.find((c) => {
-      if (c.proteinFamily && siblingProteinFamilies.has(c.proteinFamily)) return false
-      if (lockedSiblingCuisineId && c.cuisineId !== lockedSiblingCuisineId) return false
-      return true
-    }) ?? candidates.find((c) =>
-      // Relaxation 1: drop the protein-family constraint, keep cuisine lock.
-      lockedSiblingCuisineId ? c.cuisineId === lockedSiblingCuisineId : true,
-    ) ?? candidates[0]
+    // v2.4.0 — also enforce the slot's OWN cuisine constraint (from preset notes
+    //  or user hint). lockedSiblingCuisineId only covers OTHER slots in the meal;
+    //  effectiveHint.cuisineId covers this slot's preset (e.g. "american" from
+    //  Burger preset). Without this, the first bank candidate is accepted even
+    //  if it is Peruvian when the slot's notes carry "american".
+    //
+    // requiredCuisineId = the slot's own cuisine (from preset/user hint) OR a
+    // locked sibling cuisine. When set, ANY candidate that doesn't match is
+    // rejected outright — if no match exists, return false so the slot falls
+    // through to per-slot AI generation (which respects slot.notes).
+    const requiredCuisineId = effectiveHint.cuisineId ?? lockedSiblingCuisineId
+
+    let picked: BankCandidate | undefined
+    if (requiredCuisineId) {
+      // Hard constraint: only accept cuisine-matching candidates.
+      picked =
+        candidates.find((c) => {
+          if (c.proteinFamily && siblingProteinFamilies.has(c.proteinFamily)) return false
+          return c.cuisineId === requiredCuisineId
+        }) ??
+        // Relaxation: drop protein constraint, keep cuisine hard.
+        candidates.find((c) => c.cuisineId === requiredCuisineId)
+      // No matching candidate → fall through to AI generation.
+      if (!picked) return false
+    } else {
+      picked =
+        candidates.find((c) => {
+          if (c.proteinFamily && siblingProteinFamilies.has(c.proteinFamily)) return false
+          return true
+        }) ??
+        candidates[0]
+    }
+    if (!picked) return false
 
     const envelopeSnapshot: SlotEnvelopeSnapshot = {
       cuisineId: picked.cuisineId,
@@ -1137,11 +1162,14 @@ export class MealPlanEngine {
         imageUrl: picked.recipe.imageUrl,
       }
       await db.recipes.add(recipe)
+      // v2.4.0 — Bug B fix: use recipe.title (which is picked.recipe.title,
+      // authoritative for composed-payload rows) not just picked.title, so
+      // SlotCard and RecipeView always show the same title.
       await this.patchSlot(slotId, {
         status: 'ready',
         ingredient: picked.ingredientMain,
-        dishName: picked.title,
-        searchKeywords: [picked.title],
+        dishName: recipe.title,
+        searchKeywords: [recipe.title],
         recipeId: recipe.id,
         replaceHint: undefined,
         generatingStartedAt: undefined,
@@ -1748,9 +1776,15 @@ export class MealPlanEngine {
 
     if (!recipe) return null
     await db.recipes.add(recipe)
+    // v2.4.0 — Bug B fix: write the real title back to slot.dishName so
+    // SlotCard's title matches the recipe that opens in RecipeView. Before
+    // this fix, dishName stayed at whatever the bank row or AI candidate had
+    // set (e.g. "Homemade American Burger"), while the fetched recipe title
+    // could be "Classic Double Smash Burger" — card and sheet mismatched.
     await this.patchSlot(slotId, {
       status: 'ready',
       recipeId: recipe.id,
+      dishName: recipe.title,
       linkData: undefined,
     })
     // Bump times_served on the bank row (best-effort, off the critical path).
