@@ -40,6 +40,11 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // v2.5.0: activate new bundles immediately on update — without these,
+        // PWA users stayed on the cached v2.4 bundle and never picked up
+        // the v2.5 schema fix until they fully closed all tabs.
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
