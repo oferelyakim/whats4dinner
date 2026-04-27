@@ -39,6 +39,7 @@ import {
   progressPercent,
   remainingQuestions,
 } from '@/engine/interview/runtime'
+import { getQuestion } from '@/engine/interview/questions'
 import type {
   AnswerMap,
   InterviewResult,
@@ -247,6 +248,22 @@ export function MealPlannerInterview({
     }
   }
 
+  // ─── v2.6.0 telemetry: detect users stuck on the "Ready to build your
+  // plan" screen. If the user lingers >5s in ready_to_propose without
+  // clicking Generate, drop a localStorage breadcrumb so future debugging
+  // can correlate the stuck state with reported "blank page" complaints. ──
+  useEffect(() => {
+    if (stage !== 'ready_to_propose' || !allAnswered) return
+    const id = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem('proposeIdleObserved', String(Date.now()))
+      } catch {
+        // ignore quota / private-mode failures
+      }
+    }, 5000)
+    return () => window.clearTimeout(id)
+  }, [stage, allAnswered])
+
   // ─── parse-intake ────────────────────────────────────────────────────────
 
   async function runParseIntake(freeform: string) {
@@ -279,6 +296,11 @@ export function MealPlannerInterview({
   async function runProposePlan() {
     setStage('proposing')
     setError(null)
+    try {
+      window.localStorage.removeItem('proposeIdleObserved')
+    } catch {
+      // ignore
+    }
     try {
       const circleContext = await loadCircleContext(circleId)
       const recentDishes = await fetchRecentDishesForPlan(planId)
@@ -447,17 +469,36 @@ export function MealPlannerInterview({
               </AnimatePresence>
             )}
 
-            {/* All questions answered — show "Generate plan" CTA */}
+            {/* All questions answered — show summary + "Generate plan" CTA.
+                v2.6.0: surface a populated screen so the user can SEE that
+                their selections were captured, plus an in-body Generate
+                button so it isn't hidden in the footer below the fold. */}
             {(stage === 'collecting' || stage === 'ready_to_propose') &&
               allAnswered && (
-                <div className="flex flex-col items-center gap-4 py-10">
-                  <Sparkles className="h-10 w-10 text-rp-brand" />
+                <div className="flex flex-col items-center gap-4 py-6">
+                  <Sparkles className="h-9 w-9 text-rp-brand" />
                   <p className="font-display italic text-xl text-rp-ink text-center">
                     {t('interview.q.review')}
                   </p>
                   <p className="text-sm text-rp-ink/60 text-center leading-snug max-w-xs">
                     {t('interview.q.reviewHelp')}
                   </p>
+
+                  <SelectionSummary answers={answers} />
+
+                  <button
+                    type="button"
+                    onClick={() => void runProposePlan()}
+                    className="
+                      inline-flex items-center gap-1.5 rounded-full bg-rp-brand px-6 py-3
+                      text-sm font-medium text-white hover:bg-rp-brand/90 active:scale-[0.98]
+                      shadow-rp-card mt-2
+                    "
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {t('interview.generatePlan')}
+                  </button>
+
                   {error && (
                     <p className="text-sm text-red-600 text-center">{error}</p>
                   )}
@@ -598,6 +639,96 @@ const BUSY_PHRASE_KEYS = [
   'interview.busy.table',
   'interview.busy.dish',
 ] as const
+
+/**
+ * v2.6.0 — compact summary card surfaced on the q_review screen so the user
+ * can confirm their captured answers BEFORE clicking Generate. Avoids the
+ * "blank page" feel where the screen previously rendered only a title +
+ * subtitle and the Generate button lived only in the footer.
+ */
+function SelectionSummary({ answers }: { answers: AnswerMap }) {
+  const t = useI18n((s) => s.t)
+
+  const lines: { labelKey: string; value: string }[] = []
+
+  const days = answers.q_days?.selectedDates?.length ?? 0
+  if (days > 0) {
+    const valueKey =
+      days === 1 ? 'interview.summary.daysValue' : 'interview.summary.daysValuePlural'
+    lines.push({
+      labelKey: 'interview.summary.days',
+      value: t(valueKey).replace('{count}', String(days)),
+    })
+  }
+
+  const meals = answers.q_meals_per_day
+  if (meals) {
+    const parts: string[] = []
+    if (meals.breakfast > 0) parts.push(`${meals.breakfast}× ${t('plan.breakfast')}`)
+    if (meals.lunch > 0) parts.push(`${meals.lunch}× ${t('plan.lunch')}`)
+    if (meals.dinner > 0) parts.push(`${meals.dinner}× ${t('plan.dinner')}`)
+    if (meals.snack > 0) parts.push(`${meals.snack}× ${t('plan.snack')}`)
+    if (parts.length > 0) {
+      lines.push({ labelKey: 'interview.summary.meals', value: parts.join(' · ') })
+    }
+  }
+
+  const headcount = answers.q_headcount
+  if (headcount && (headcount.adults > 0 || headcount.kids > 0)) {
+    lines.push({
+      labelKey: 'interview.summary.headcount',
+      value: t('interview.summary.headcountValue')
+        .replace('{adults}', String(headcount.adults))
+        .replace('{kids}', String(headcount.kids)),
+    })
+  }
+
+  const dietary = answers.q_dietary
+  if (dietary && dietary.length > 0) {
+    const dietQuestion = getQuestion('q_dietary')
+    const labels = dietary.map((id) => {
+      const opt = dietQuestion?.options?.find((o) => o.id === id)
+      return opt ? t(opt.labelKey) : id
+    })
+    lines.push({ labelKey: 'interview.summary.dietary', value: labels.join(', ') })
+  }
+
+  const prepTime = answers.q_prep_time
+  if (typeof prepTime === 'number' && prepTime > 0) {
+    lines.push({
+      labelKey: 'interview.summary.prepTime',
+      value: t('interview.summary.prepTimeValue').replace('{minutes}', String(prepTime)),
+    })
+  }
+
+  const themes = answers.q_themes
+  if (themes && themes.length > 0) {
+    const themesQuestion = getQuestion('q_themes')
+    const labels = themes.map((id) => {
+      const opt = themesQuestion?.options?.find((o) => o.id === id)
+      return opt ? t(opt.labelKey) : id
+    })
+    lines.push({ labelKey: 'interview.summary.themes', value: labels.join(', ') })
+  }
+
+  if (lines.length === 0) return null
+
+  return (
+    <div className="w-full max-w-sm rounded-2xl border border-rp-ink/10 bg-rp-bg-soft px-4 py-3 mt-1">
+      <p className="text-xs uppercase tracking-wide font-medium text-rp-ink/50 mb-2">
+        {t('interview.summary.title')}
+      </p>
+      <dl className="flex flex-col gap-1.5">
+        {lines.map((line) => (
+          <div key={line.labelKey} className="flex items-baseline gap-3 text-sm">
+            <dt className="text-rp-ink/60 shrink-0 min-w-[6.5rem]">{t(line.labelKey)}</dt>
+            <dd className="text-rp-ink text-right flex-1">{line.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
 
 function BusyState({ message }: { message: string }) {
   const t = useI18n((s) => s.t)
