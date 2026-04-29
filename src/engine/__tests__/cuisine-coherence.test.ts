@@ -315,4 +315,73 @@ describe('applyInterviewResult — cuisine propagation', () => {
       expect(fromEnvelope || fromNotes).toBe(true)
     }
   })
+
+  it('matches proposal candidates against db slots case-insensitively (v2.6.2 regression)', async () => {
+    // v2.6.1 user report: after approving a plan, all days got the same 3 bank
+    // recipes with no relation to the proposal. Root cause: Anthropic returns
+    // `meal.type='Dinner'` (Title Case) but buildDayFromShape writes 'dinner'
+    // (lowercase), so the candidate-lookup keys never matched and every slot
+    // fell through to the residual worker queue (which bank-filled with
+    // whatever generic main-dinner rows existed).
+    const engine = new MealPlanEngine()
+    const plan = await engine.createPlan('2026-05-01')
+
+    // Track which candidate hint reached the bank query.
+    const observedHints: string[] = []
+    __setMealEngineMock(async (op, body) => {
+      if (op !== 'sample-from-bank') return null
+      const cuisineIds = (body as { cuisineIds?: string[] }).cuisineIds ?? []
+      if (cuisineIds.length > 0) observedHints.push(cuisineIds[0])
+      // Return a matching candidate so the slot lands as ready.
+      if (cuisineIds.includes('korean')) {
+        return {
+          candidates: [
+            buildBankRow({
+              title: 'Korean Braised Chicken Thighs',
+              cuisineId: 'korean',
+              ingredientMain: 'chicken thighs',
+              proteinFamily: 'poultry',
+            }),
+          ],
+        }
+      }
+      return { candidates: [] }
+    })
+
+    try {
+      await engine.applyInterviewResult(plan.id, null, {
+        answers: {
+          q_days: { selectedDates: ['2026-05-01'] },
+          q_meals_per_day: { breakfast: 0, lunch: 0, dinner: 1, snack: 0 },
+        },
+        proposal: {
+          days: [
+            {
+              date: '2026-05-01',
+              meals: [
+                // Title Case + capitalised role mirrors what Anthropic returns.
+                {
+                  type: 'Dinner',
+                  slots: [
+                    { role: 'Main', candidates: ['Korean Braised Chicken Thighs'] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        dayPresets: new Map(),
+      })
+    } catch (err) {
+      if (!String(err).includes('Not authenticated')) throw err
+    }
+
+    // The slot must have consumed the candidate (cuisineId='korean' reaching
+    // the bank query proves the hint flowed through despite case mismatch).
+    expect(observedHints).toContain('korean')
+    const days = await db.days.where('planId').equals(plan.id).toArray()
+    const meals = await db.meals.where('dayId').equals(days[0].id).toArray()
+    const slots = await db.slots.where('mealId').equals(meals[0].id).toArray()
+    expect(slots[0].dishName).toBe('Korean Braised Chicken Thighs')
+  })
 })

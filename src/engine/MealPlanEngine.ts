@@ -1430,17 +1430,22 @@ export class MealPlanEngine {
         : prefs.dislikedIngredients
     const recentDishes = await this.getRecentDishNames(planId, prefs.recentDishesWindow)
 
-    // Build a quick lookup: (date, mealType, role) → candidate list (in order).
-    const candidatesByKey = new Map<string, string[]>()
+    // v2.6.2 — Build a flat queue of candidate-lists per (date, mealType, role).
+    // Anthropic returns `meal.type` in Title Case ('Dinner') while
+    // buildDayFromShape writes lowercase ('dinner'); the previous per-meal
+    // positional key was both case-sensitive AND assumed the proposal grouped
+    // slots into meals exactly the way the db does. Normalising case + using
+    // a queue (instead of an idx-keyed map) makes the lookup robust to both.
+    const normKey = (date: string, mealType: string, role: string) =>
+      `${date}|${String(mealType).toLowerCase().trim()}|${String(role).toLowerCase().trim()}`
+    const candidatesByKey = new Map<string, string[][]>()
     for (const day of result.proposal.days) {
       for (const meal of day.meals) {
-        // Track per-meal slot index so we can dedup roles like main/main/main.
-        const positionByRole = new Map<string, number>()
         for (const slot of meal.slots) {
-          const idx = positionByRole.get(slot.role) ?? 0
-          positionByRole.set(slot.role, idx + 1)
-          const key = `${day.date}|${meal.type}|${slot.role}|${idx}`
-          candidatesByKey.set(key, slot.candidates)
+          const key = normKey(day.date, meal.type, slot.role)
+          const queue = candidatesByKey.get(key) ?? []
+          queue.push(slot.candidates)
+          candidatesByKey.set(key, queue)
         }
       }
     }
@@ -1448,19 +1453,24 @@ export class MealPlanEngine {
     let bankFilled = 0
     const misses: string[] = []
 
+    // v2.6.2 — consume candidate-lists in proposal order per (date, mealType,
+    // role). Tracks how many lists have been popped per key so consecutive
+    // sibling slots (main/main/main) each get their own list.
+    const consumedByKey = new Map<string, number>()
+
     for (const iso of selectedDates) {
       const dayId = dateToDayId.get(iso)
       if (!dayId) continue
       const meals = await db.meals.where('dayId').equals(dayId).sortBy('position')
       for (const meal of meals) {
         const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
-        const positionByRole = new Map<string, number>()
         for (const slot of slots) {
           if (slot.locked || slot.status === 'ready' || slot.status === 'link_ready') continue
-          const idx = positionByRole.get(slot.role) ?? 0
-          positionByRole.set(slot.role, idx + 1)
-          const key = `${iso}|${meal.type}|${slot.role}|${idx}`
-          const candidates = candidatesByKey.get(key) ?? []
+          const key = normKey(iso, meal.type, slot.role)
+          const queue = candidatesByKey.get(key) ?? []
+          const consumed = consumedByKey.get(key) ?? 0
+          consumedByKey.set(key, consumed + 1)
+          const candidates = queue[consumed] ?? []
 
           // v2.2.0: respect the slot's existing cuisine constraint (set by
           // a preset like "Greek night"). If slot.notes parses to a cuisine,
