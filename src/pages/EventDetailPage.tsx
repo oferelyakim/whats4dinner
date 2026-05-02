@@ -25,14 +25,6 @@ import type { CircleMember } from '@/types'
 import { useAppStore } from '@/stores/appStore'
 import { useI18n } from '@/lib/i18n'
 import { exportEventToCalendar } from '@/lib/calendar'
-import { EventAIPlanDialog } from '@/components/ui/EventAIPlanDialog'
-import type { EventAIPlanRequest } from '@/components/ui/EventAIPlanDialog'
-import { useAIAccess } from '@/hooks/useAIAccess'
-import { useToast } from '@/components/ui/Toast'
-import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
-import { supabase } from '@/services/supabase'
-import { logAIUsage } from '@/services/ai-usage'
-import { planEvent } from '@/services/event-planner'
 
 // TABS moved inside component for i18n
 
@@ -61,8 +53,6 @@ export function EventDetailPage() {
   const queryClient = useQueryClient()
   const { profile } = useAppStore()
   const { t, locale } = useI18n()
-  const ai = useAIAccess()
-  const toast = useToast()
 
   const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: 'overview', label: t('event.overview'), icon: Users },
@@ -76,12 +66,6 @@ export function EventDetailPage() {
   const [showAddItem, setShowAddItem] = useState(false)
   const [showDeleteEvent, setShowDeleteEvent] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [showAIPlanDialog, setShowAIPlanDialog] = useState(false)
-  const [showAIUpgrade, setShowAIUpgrade] = useState(false)
-  const [isAIPlanLoading, setIsAIPlanLoading] = useState(false)
-  const [clarifyingQuestion, setClarifyingQuestion] = useState<string | null>(null)
-  const [clarifyingShownOnce, setClarifyingShownOnce] = useState(false)
-  const [pendingPlanInput, setPendingPlanInput] = useState<EventAIPlanRequest | null>(null)
   // Add item form
   const [addType, setAddType] = useState<'dish' | 'supply' | 'task'>('dish')
   const [addName, setAddName] = useState('')
@@ -92,13 +76,15 @@ export function EventDetailPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (searchParams.get('aiPlan') === 'opened') {
-      setShowAIPlanDialog(true)
+    // v3.0.0: aiPlan=opened legacy query param redirects to the v1.20.0
+    // EventPlannerPage. The single-shot dialog was removed in v3.0.
+    if (searchParams.get('aiPlan') === 'opened' && id) {
       const next = new URLSearchParams(searchParams)
       next.delete('aiPlan')
       setSearchParams(next, { replace: true })
+      navigate(`/events/${id}/plan`)
     }
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, id, navigate])
 
   const { data: event, isLoading: isEventLoading } = useQuery({
     queryKey: ['event', id],
@@ -217,133 +203,6 @@ export function EventDetailPage() {
     // catalog-only fallback inside the planner — no upfront paywall.
     if (id) {
       navigate(`/events/${id}/plan`)
-    }
-  }
-
-  async function handleAIPlanSubmit(request: EventAIPlanRequest) {
-    if (!id || !event) return
-    if (!ai.checkAIAccess()) {
-      setShowAIPlanDialog(false)
-      return
-    }
-    setPendingPlanInput(request)
-    setIsAIPlanLoading(true)
-    setError('')
-    try {
-      const sessionId = localStorage.getItem('replanish_session_id') ?? crypto.randomUUID()
-      const { plan, _ai_usage } = await planEvent({
-        eventId: id,
-        circleId: event.circle_id!,
-        description: request.description,
-        headcountAdults: request.headcountAdults,
-        headcountKids: request.headcountKids,
-        budget: request.budget,
-        helpNeeded: request.helpNeeded,
-        keyRequirements: request.keyRequirements,
-        sessionId,
-      })
-
-      if (_ai_usage) {
-        const { data: authData } = await supabase.auth.getUser()
-        if (authData.user) {
-          await logAIUsage(
-            authData.user.id,
-            'event_plan',
-            _ai_usage.model,
-            _ai_usage.tokens_in,
-            _ai_usage.tokens_out,
-            _ai_usage.cost_usd,
-            { session_id: sessionId, feature_context: 'event_detail' }
-          )
-        }
-      }
-
-      // Clarifying-question loop: surface ONCE, then persist on next submit (or "Continue anyway").
-      if (plan.clarifying_question && !clarifyingShownOnce) {
-        setClarifyingQuestion(plan.clarifying_question)
-        setClarifyingShownOnce(true)
-        setIsAIPlanLoading(false)
-        return
-      }
-
-      // Persist AI-proposed dishes / supplies / tasks / activities (as tasks) as event_items.
-      // Dedup against existing items (same type + case-insensitive name).
-      const existingKeys = new Set(
-        items.map((it) => `${it.type}:${it.name.trim().toLowerCase()}`)
-      )
-      const inserts: Array<Promise<unknown>> = []
-
-      for (const dish of plan.dishes ?? []) {
-        if (!dish?.name) continue
-        const key = `dish:${dish.name.trim().toLowerCase()}`
-        if (existingKeys.has(key)) continue
-        existingKeys.add(key)
-        inserts.push(addEventItem(id, {
-          type: 'dish',
-          name: dish.name,
-          category: dish.type ?? 'other',
-          notes: dish.notes,
-        }))
-      }
-
-      for (const supply of plan.supplies ?? []) {
-        if (!supply?.name) continue
-        const key = `supply:${supply.name.trim().toLowerCase()}`
-        if (existingKeys.has(key)) continue
-        existingKeys.add(key)
-        inserts.push(addEventItem(id, {
-          type: 'supply',
-          name: supply.name,
-          category: 'other',
-          notes: supply.quantity,
-        }))
-      }
-
-      for (const task of plan.tasks ?? []) {
-        if (!task?.title) continue
-        const key = `task:${task.title.trim().toLowerCase()}`
-        if (existingKeys.has(key)) continue
-        existingKeys.add(key)
-        const noteParts = [task.due_when, task.notes].filter(Boolean)
-        inserts.push(addEventItem(id, {
-          type: 'task',
-          name: task.title,
-          category: 'other',
-          notes: noteParts.length ? noteParts.join(' — ') : undefined,
-        }))
-      }
-
-      // Activities persist as tasks with [Activity] prefix in notes (no DB migration needed).
-      const activityPrefix = t('event.aiActivityPrefix')
-      for (const activity of plan.activities ?? []) {
-        if (!activity?.name) continue
-        const key = `task:${activity.name.trim().toLowerCase()}`
-        if (existingKeys.has(key)) continue
-        existingKeys.add(key)
-        const noteParts = [activityPrefix, activity.when, activity.notes].filter(Boolean)
-        inserts.push(addEventItem(id, {
-          type: 'task',
-          name: activity.name,
-          category: 'during',
-          notes: noteParts.join(' — '),
-        }))
-      }
-
-      await Promise.all(inserts)
-      queryClient.invalidateQueries({ queryKey: ['event-items', id] })
-
-      setShowAIPlanDialog(false)
-      setClarifyingQuestion(null)
-      setPendingPlanInput(null)
-      const count = inserts.length
-      toast.success(count > 0
-        ? t('event.aiPlanAddedCount').replace('{{count}}', String(count))
-        : t('event.aiPlanSuccess'))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.somethingWentWrong'))
-      setShowAIPlanDialog(false)
-    } finally {
-      setIsAIPlanLoading(false)
     }
   }
 
@@ -582,30 +441,24 @@ export function EventDetailPage() {
             </button>
           )}
 
-          {/* AI Plan Event banner — organizer only; access gated at submit */}
+          {/* AI Plan Event banner — organizer only; navigates to /events/:id/plan */}
           {isOrganizer && (
             <button
               onClick={openAIPlanFlow}
-              disabled={isAIPlanLoading}
               className={cn(
                 'w-full text-start rounded-2xl p-4 transition-all',
                 'bg-gradient-to-r from-brand-500/10 to-purple-500/10 border border-brand-500/30',
                 'hover:from-brand-500/15 hover:to-purple-500/15 active:scale-[0.99]',
-                isAIPlanLoading && 'opacity-60'
               )}
               aria-label={t('event.aiPlan')}
             >
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center shrink-0">
-                  {isAIPlanLoading ? (
-                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Sparkles className="h-5 w-5 text-white" />
-                  )}
+                  <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-rp-ink">
-                    {isAIPlanLoading ? t('event.aiGenerating') : t('event.aiPlan')}
+                    {t('event.aiPlan')}
                   </p>
                   <p className="text-xs text-rp-ink-soft mt-0.5 leading-snug">
                     {t('event.aiPlanDesc')}
@@ -915,33 +768,6 @@ export function EventDetailPage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
-
-      {/* AI Plan Event dialog */}
-      <EventAIPlanDialog
-        open={showAIPlanDialog}
-        onOpenChange={(open) => {
-          setShowAIPlanDialog(open)
-          if (!open) {
-            setClarifyingQuestion(null)
-            setClarifyingShownOnce(false)
-            setPendingPlanInput(null)
-          }
-        }}
-        eventTitle={event.name}
-        onSubmit={handleAIPlanSubmit}
-        isLoading={isAIPlanLoading}
-        clarifyingQuestion={clarifyingQuestion}
-        onDismissQuestion={() => setClarifyingQuestion(null)}
-        onContinueAnyway={() => {
-          if (pendingPlanInput) handleAIPlanSubmit(pendingPlanInput)
-        }}
-      />
-
-      {/* AI Upgrade modal — shown when user lacks AI access */}
-      <AIUpgradeModal
-        open={showAIUpgrade}
-        onOpenChange={setShowAIUpgrade}
-      />
 
     </div>
   )

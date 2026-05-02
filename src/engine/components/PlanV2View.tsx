@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Trash2, X as XIcon, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Trash2, ChevronLeft, ChevronRight, Sparkles, Refrigerator } from 'lucide-react'
 import { useEngine } from '../hooks/useEngine'
 import { usePlan } from '../hooks/usePlan'
 import type { MealPlan } from '../types'
@@ -9,14 +9,16 @@ import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useI18n } from '@/lib/i18n'
 import { useAppStore } from '@/stores/appStore'
-import {
-  cancelJob,
-  getJob,
-  subscribeJob,
-  type MealPlanJobRow,
-} from '@/services/meal-plan-jobs'
-import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
-import type { InterviewResult } from '@/engine/interview/types'
+import { useAIAccess } from '@/hooks/useAIAccess'
+import { WeeklyDropDrawer, type DrawerDensity } from '@/components/plan/WeeklyDropDrawer'
+import { FloatingShoppingBar } from '@/components/plan/FloatingShoppingBar'
+import { PantryRerollSheet } from '@/components/plan/PantryRerollSheet'
+import { SmartConsolidateSheet } from '@/components/plan/SmartConsolidateSheet'
+import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
+import { useToast } from '@/components/ui/Toast'
+import type { WeeklyDropEntry } from '@/services/recipe-bank'
+import type { PantryMatch } from '@/services/recipe-bank'
+import { MonoLabel, RingsOrnament } from '@/components/ui/hearth'
 
 // ── Week helpers ──────────────────────────────────────────────────────────────
 
@@ -26,7 +28,7 @@ function isoToday(): string {
 
 function startOfWeekMon(iso: string): string {
   const d = new Date(iso + 'T12:00:00')
-  const dow = d.getDay() // 0=Sun..6=Sat
+  const dow = d.getDay()
   const offsetToMonday = (dow + 6) % 7
   d.setDate(d.getDate() - offsetToMonday)
   return d.toISOString().split('T')[0]
@@ -49,9 +51,28 @@ function formatWeekLabel(mondayIso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-// ── Min / max visible week offsets ────────────────────────────────────────────
-const MIN_WEEK_OFFSET = -1 // 1 week back
-const MAX_WEEK_OFFSET = 3  // 3 weeks ahead
+function formatTodayEyebrow(): string {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).toLowerCase()
+}
+
+const MIN_WEEK_OFFSET = -1
+const MAX_WEEK_OFFSET = 3
+
+const DRAWER_DENSITY_KEY = 'replanish.drawerDensity'
+
+function readStoredDensity(): DrawerDensity {
+  try {
+    const v = localStorage.getItem(DRAWER_DENSITY_KEY)
+    if (v === 'quiet' || v === 'medium' || v === 'hero') return v
+  } catch {
+    // ignore
+  }
+  return 'medium'
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -59,27 +80,20 @@ export function PlanV2View() {
   const engine = useEngine()
   const t = useI18n((s) => s.t)
   const { activeCircle } = useAppStore()
+  const ai = useAIAccess()
+  const toast = useToast()
+
   const [plans, setPlans] = useState<MealPlan[]>([])
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null)
-  // v2.0.0: tracks a `link_ready` slot the user opened so RecipeView can
-  // hydrate the URL on mount.
   const [openSlotId, setOpenSlotId] = useState<string | null>(null)
-  // v2.4.0: week-level shop sheet
   const [showWeekShopSheet, setShowWeekShopSheet] = useState(false)
-  // v2.4.0: confirm-before-delete the active week plan
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showPantrySheet, setShowPantrySheet] = useState(false)
+  const [showSmartConsolidate, setShowSmartConsolidate] = useState(false)
+  const [showUpgrade, setShowUpgrade] = useState(false)
+  const [drawerDensity, setDrawerDensity] = useState<DrawerDensity>(readStoredDensity)
   const { plan, refresh } = usePlan(activePlanId)
-  // v1.18.0 — async job state. activeJobId drives the progress bar.
-  const [activeJobId, setActiveJobId] = useState<string | null>(null)
-  const [jobProgress, setJobProgress] = useState<{
-    completed: number
-    failed: number
-    total: number
-    status: MealPlanJobRow['status']
-  } | null>(null)
-
-  // v2.1.0 — week navigation (default = current week)
   const [viewWeekOffset, setViewWeekOffset] = useState(0)
 
   // ── Bootstrap plan ──────────────────────────────────────────────────────────
@@ -96,10 +110,16 @@ export function PlanV2View() {
     })
   }, [engine])
 
-  // Stuck-slot self-heal: on mount + on tab-foreground, sweep any slots that
-  // got stranded in `generating_*` because the user backgrounded the phone
-  // mid-generation. The engine reverts them to their last good state and
-  // queues a fresh generation. Idempotent — safe to call repeatedly.
+  // Persist drawer density.
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAWER_DENSITY_KEY, drawerDensity)
+    } catch {
+      // ignore
+    }
+  }, [drawerDensity])
+
+  // Stuck-slot self-heal.
   useEffect(() => {
     if (!activePlanId) return
     const sweep = () => {
@@ -118,64 +138,7 @@ export function PlanV2View() {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [activePlanId, engine])
 
-  // v1.18.0 — re-attach to any in-flight async job after a tab close-and-reopen.
-  // The engine reads localStorage for the stored jobId, sweeps any 'done' slots
-  // that completed while the tab was closed, and re-subscribes to live updates.
-  useEffect(() => {
-    if (!activePlanId) return
-    let unsub: (() => void) | undefined
-    void (async () => {
-      const jobId = await engine.reattachActiveJob(activePlanId)
-      if (!jobId) return
-      setActiveJobId(jobId)
-      const job = await getJob(jobId)
-      if (job) {
-        setJobProgress({
-          completed: job.completed_slots,
-          failed: job.failed_slots,
-          total: job.total_slots,
-          status: job.status,
-        })
-      }
-      // Local progress channel — drives the progress bar even though the
-      // engine has its own subscription writing to Dexie.
-      const sub = subscribeJob(
-        jobId,
-        () => undefined,
-        (jobRow) => {
-          setJobProgress((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  completed: jobRow.completed_slots ?? prev.completed,
-                  failed: jobRow.failed_slots ?? prev.failed,
-                  status: jobRow.status ?? prev.status,
-                }
-              : prev,
-          )
-          if (
-            jobRow.status === 'completed' ||
-            jobRow.status === 'failed' ||
-            jobRow.status === 'cancelled'
-          ) {
-            // Clear after a short delay so user can see the final state.
-            setTimeout(() => {
-              setActiveJobId(null)
-              setJobProgress(null)
-            }, 1500)
-          }
-        },
-      )
-      unsub = sub.unsubscribe
-    })()
-    return () => {
-      unsub?.()
-    }
-  }, [activePlanId, engine])
-
-  // v2.1.0 — Auto-populate visible week. On activePlanId or viewWeekOffset
-  // change, ensure all 7 dates of the visible week have a Day row in Dexie.
-  // Idempotent: engine.addDay does nothing if the date already exists.
+  // Auto-populate visible week.
   useEffect(() => {
     if (!activePlanId) return
     const dates = visibleWeekDates(viewWeekOffset)
@@ -185,21 +148,8 @@ export function PlanV2View() {
       }
       await refresh()
     })()
-  // refresh is stable (usePlan returns a memoised ref); engine ref is stable too.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlanId, viewWeekOffset, engine])
-
-  // ── Job cancel ──────────────────────────────────────────────────────────────
-
-  async function handleCancelJob() {
-    if (!activeJobId) return
-    await cancelJob(activeJobId)
-    setActiveJobId(null)
-    setJobProgress(null)
-    await refresh()
-  }
-
-  // ── Clear plan ──────────────────────────────────────────────────────────────
 
   async function clearPlan() {
     if (!activePlanId) return
@@ -209,66 +159,11 @@ export function PlanV2View() {
     setPlans([next])
   }
 
-  // v2.0.0 — interview approval handler. Applies day-presets, runs bank-fill
-  // per slot using the AI's candidate dish names, queues residual misses
-  // through the existing async worker.
-  const handleInterviewApprove = useCallback(
-    async (result: InterviewResult) => {
-      if (!activePlanId) return
-      try {
-        const { jobId, totalQueued, bankFilled } = await engine.applyInterviewResult(
-          activePlanId,
-          null,
-          result,
-        )
-        console.info(`[interview] applied: bankFilled=${bankFilled} queued=${totalQueued}`)
-        if (jobId && totalQueued > 0) {
-          setActiveJobId(jobId)
-          setJobProgress({ completed: 0, failed: 0, total: totalQueued, status: 'queued' })
-          const sub = subscribeJob(
-            jobId,
-            () => undefined,
-            (jobRow) => {
-              setJobProgress((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      completed: jobRow.completed_slots ?? prev.completed,
-                      failed: jobRow.failed_slots ?? prev.failed,
-                      status: jobRow.status ?? prev.status,
-                    }
-                  : prev,
-              )
-              if (
-                jobRow.status === 'completed' ||
-                jobRow.status === 'failed' ||
-                jobRow.status === 'cancelled'
-              ) {
-                setTimeout(() => {
-                  setActiveJobId(null)
-                  setJobProgress(null)
-                  void refresh()
-                }, 1500)
-                sub.unsubscribe()
-              }
-            },
-          )
-        }
-        await refresh()
-      } catch (err) {
-        console.error('[interview] applyInterviewResult failed', err)
-      }
-    },
-    [activePlanId, engine, refresh],
-  )
-
-  // ── Derived: days for the visible week only ─────────────────────────────────
-
+  // ── Derived: days for the visible week ──────────────────────────────────────
   const weekDates = visibleWeekDates(viewWeekOffset)
   const weekDateSet = new Set(weekDates)
   const visibleDays = (plan?.days ?? []).filter((d) => weekDateSet.has(d.date))
 
-  // v2.4.0 — all ready slots in the visible week for the shop sheet
   const weekReadySlots = useMemo(
     () =>
       visibleDays.flatMap((day) =>
@@ -279,156 +174,161 @@ export function PlanV2View() {
     [visibleDays],
   )
 
-  // Monday of the visible week for the label
   const weekMonday = weekDates[0]
+  const drawerHeightPx = drawerDensity === 'quiet' ? 52 : drawerDensity === 'hero' ? 360 : 176
+
+  // ── Drop card → first empty meal slot in today (or first day with capacity) ─
+  async function handleDropAdd(entry: WeeklyDropEntry) {
+    if (!activePlanId) return
+    const todayIso = isoToday()
+    let targetDay = visibleDays.find((d) => d.date === todayIso) ?? visibleDays[0]
+    if (!targetDay) return
+
+    // Find a meal matching the entry's mealType, or create one
+    let meal = targetDay.meals.find((m) => m.type.toLowerCase() === entry.mealType)
+    if (!meal) {
+      const fresh = await engine.addMeal(targetDay.id, entry.mealType)
+      meal = { ...fresh, slots: fresh.slots }
+    }
+    // Find an empty slot or add one
+    const emptySlot = meal.slots.find((s) => s.status === 'empty')
+    let slotId: string
+    if (emptySlot) {
+      slotId = emptySlot.id
+    } else {
+      const newSlot = await engine.addSlot(meal.id, 'main')
+      slotId = newSlot.id
+    }
+    try {
+      await engine.addFromBank(slotId, entry.recipeBankId)
+      toast.success(`Added ${entry.title} to ${entry.mealType}.`)
+      await refresh()
+    } catch (e) {
+      toast.error(`Couldn't add: ${e instanceof Error ? e.message : 'Unknown error'}`)
+    }
+  }
+
+  async function handlePantryAdd(match: PantryMatch) {
+    if (!activePlanId) return
+    const todayIso = isoToday()
+    const targetDay = visibleDays.find((d) => d.date === todayIso) ?? visibleDays[0]
+    if (!targetDay) return
+    const meal = targetDay.meals[0] ?? (await engine.addMeal(targetDay.id, 'dinner'))
+    const emptySlot = meal.slots?.find((s) => s.status === 'empty')
+    const slotId = emptySlot?.id ?? (await engine.addSlot(meal.id, 'main')).id
+    await engine.addFromBank(slotId, match.id)
+    toast.success(`Added ${match.title}.`)
+    setShowPantrySheet(false)
+    await refresh()
+  }
+
+  function handleSmartConsolidate() {
+    if (weekReadySlots.length === 0) {
+      toast.error(t('consolidate.empty'))
+      return
+    }
+    if (!ai.checkAIAccess()) {
+      setShowUpgrade(true)
+      return
+    }
+    setShowSmartConsolidate(true)
+  }
+
+  function handlePantryClick() {
+    if (!ai.checkAIAccess()) {
+      setShowUpgrade(true)
+      return
+    }
+    setShowPantrySheet(true)
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
-
   return (
-    <div className="px-4 py-4 space-y-4 max-w-3xl mx-auto">
-
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display italic text-3xl text-rp-ink">
-            {t('food.mealPlan')}
-          </h1>
-        </div>
-        <div className="flex gap-1.5">
-          {weekReadySlots.length > 0 && (
+    <div
+      className="max-w-3xl mx-auto"
+      style={{
+        // Reserve room for the drawer + bottom nav so day cards never sit under them.
+        paddingBottom: `calc(${drawerHeightPx + 64 + 24}px + env(safe-area-inset-bottom, 0px))`,
+      }}
+    >
+      <div className="px-4 pt-4 pb-2">
+        {/* Header */}
+        <div className="flex items-end justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <MonoLabel>
+              {t('plan.eyebrow').replace('{date}', formatTodayEyebrow())}
+            </MonoLabel>
+            <h1 className="font-display italic text-[28px] text-rp-ink leading-[1.05] mt-0.5">
+              {t('plan.tonightHeader')}
+            </h1>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
             <button
-              onClick={() => setShowWeekShopSheet(true)}
-              aria-label={t('plan.shop.addWeekToList')}
-              title={t('plan.shop.addWeekToList')}
+              onClick={handlePantryClick}
+              aria-label={t('pantry.title')}
+              title={t('pantry.title')}
+              className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft relative"
+            >
+              <Refrigerator className="h-4 w-4" />
+              {!ai.hasAI && (
+                <Sparkles className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5" style={{ color: '#f2c14e' }} />
+              )}
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              aria-label={t('common.delete')}
               className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft"
             >
-              <ShoppingCart className="h-3.5 w-3.5" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
-          )}
+          </div>
+        </div>
+
+        <ConfirmDialog
+          open={showDeleteConfirm}
+          onOpenChange={setShowDeleteConfirm}
+          title={t('plan.week.deleteConfirm.title')}
+          description={t('plan.week.deleteConfirm.body')}
+          confirmLabel={t('confirm.delete')}
+          cancelLabel={t('confirm.cancel')}
+          onConfirm={async () => {
+            await clearPlan()
+          }}
+        />
+
+        {/* Week navigation row */}
+        <div className="flex items-center justify-between gap-2 mt-2 mb-3">
           <button
-            onClick={() => setShowDeleteConfirm(true)}
-            aria-label={t('common.delete')}
-            className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft"
+            onClick={() => setViewWeekOffset((o) => o - 1)}
+            disabled={viewWeekOffset <= MIN_WEEK_OFFSET}
+            aria-label={t('plan.week.prev')}
+            className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+          </button>
+          <span className="text-sm font-medium text-rp-ink flex items-center gap-1.5">
+            <RingsOrnament size={14} className="opacity-50" />
+            {t('plan.week.label').replace('{date}', formatWeekLabel(weekMonday))}
+          </span>
+          <button
+            onClick={() => setViewWeekOffset((o) => o + 1)}
+            disabled={viewWeekOffset >= MAX_WEEK_OFFSET}
+            aria-label={t('plan.week.next')}
+            className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="h-4 w-4 rtl:rotate-180" />
           </button>
         </div>
       </div>
 
-      <ConfirmDialog
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        title={t('plan.week.deleteConfirm.title')}
-        description={t('plan.week.deleteConfirm.body')}
-        confirmLabel={t('confirm.delete')}
-        cancelLabel={t('confirm.cancel')}
-        onConfirm={async () => {
-          await clearPlan()
-        }}
-      />
-
-      {/* Week navigation row */}
-      <div className="flex items-center justify-between gap-2">
-        <button
-          onClick={() => setViewWeekOffset((o) => o - 1)}
-          disabled={viewWeekOffset <= MIN_WEEK_OFFSET}
-          aria-label={t('plan.week.prev')}
-          className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
-        </button>
-        <span className="text-sm font-medium text-rp-ink">
-          {t('plan.week.label').replace(
-            '{date}',
-            formatWeekLabel(weekMonday),
-          )}
-        </span>
-        <button
-          onClick={() => setViewWeekOffset((o) => o + 1)}
-          disabled={viewWeekOffset >= MAX_WEEK_OFFSET}
-          aria-label={t('plan.week.next')}
-          className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="h-4 w-4 rtl:rotate-180" />
-        </button>
-      </div>
-
-      {/* v2.1.0 — per-week AI banner. Passes scope="week" so the
-          MealPlannerInterview can adapt its questionnaire accordingly.
-          The parallel MealPlannerBanner/Interview agent adds the scope prop. */}
-      <MealPlannerBanner
-        planId={activePlanId}
-        circleId={null}
-        scope="week"
-        onApprove={handleInterviewApprove}
-      />
-
-      {/* Async job progress bar */}
-      {jobProgress && activeJobId && (
-        <div className="rounded-xl bg-rp-bg-soft border border-rp-hairline p-3 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <div className="text-rp-ink-mute flex items-center gap-2">
-              <span>
-                {jobProgress.status === 'completed'
-                  ? t('plan.job.completed')
-                  : jobProgress.status === 'failed'
-                    ? t('plan.job.failed')
-                    : jobProgress.status === 'cancelled'
-                      ? t('plan.job.cancelled')
-                      : t('plan.job.progress')
-                          .replace('{completed}', String(jobProgress.completed))
-                          .replace('{total}', String(jobProgress.total))}
-              </span>
-              {jobProgress.failed > 0 && (
-                <span className="text-amber-700">
-                  · {t('plan.job.failedCount').replace('{count}', String(jobProgress.failed))}
-                </span>
-              )}
-            </div>
-            {(jobProgress.status === 'queued' || jobProgress.status === 'running') && (
-              <button
-                onClick={() => void handleCancelJob()}
-                className="flex items-center gap-1 text-rp-ink-mute hover:text-rp-ink"
-                aria-label={t('plan.job.cancelButton')}
-                title={t('plan.job.cancelButton')}
-              >
-                <XIcon className="h-3 w-3" />
-                {t('plan.job.cancelButton')}
-              </button>
-            )}
-          </div>
-          <div className="h-1.5 rounded-full bg-rp-hairline overflow-hidden">
-            <div
-              className={
-                'h-full rounded-full transition-all duration-500 ' +
-                (jobProgress.status === 'completed'
-                  ? 'bg-emerald-500'
-                  : jobProgress.status === 'failed'
-                    ? 'bg-amber-500'
-                    : jobProgress.status === 'cancelled'
-                      ? 'bg-rp-ink-mute'
-                      : 'bg-rp-brand')
-              }
-              style={{
-                width:
-                  jobProgress.total > 0
-                    ? `${Math.min(100, Math.round(((jobProgress.completed + jobProgress.failed) / jobProgress.total) * 100))}%`
-                    : '0%',
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Day cards — only the 7 days of the visible week */}
-      <div className="space-y-3">
+      {/* Day cards */}
+      <div className="px-4 space-y-3">
         {visibleDays.map((day) => (
           <DayCard
             key={day.id}
             day={day}
             onOpenRecipe={setOpenRecipeId}
             onOpenSlot={setOpenSlotId}
-            onInterviewApprove={handleInterviewApprove}
           />
         ))}
       </div>
@@ -443,7 +343,7 @@ export function PlanV2View() {
       />
 
       {plans.length > 0 && (
-        <p className="text-[11px] text-rp-ink-mute text-center pt-4">
+        <p className="text-[11px] text-rp-ink-mute text-center pt-4 px-4">
           {plans.length} plan{plans.length === 1 ? '' : 's'} stored locally
         </p>
       )}
@@ -453,6 +353,38 @@ export function PlanV2View() {
         onClose={() => setShowWeekShopSheet(false)}
         slots={weekReadySlots}
         circleId={activeCircle?.id}
+      />
+
+      <PantryRerollSheet
+        open={showPantrySheet}
+        onClose={() => setShowPantrySheet(false)}
+        onAdd={(m) => void handlePantryAdd(m)}
+      />
+
+      <SmartConsolidateSheet
+        open={showSmartConsolidate}
+        onClose={() => setShowSmartConsolidate(false)}
+        slots={weekReadySlots}
+        circleId={activeCircle?.id}
+      />
+
+      <AIUpgradeModal open={showUpgrade} onOpenChange={setShowUpgrade} />
+
+      {/* Floating shopping bar — sits above the drawer */}
+      <FloatingShoppingBar
+        drawerHeightPx={drawerHeightPx}
+        hidden={drawerDensity === 'hero'}
+        dishCount={weekReadySlots.length}
+        itemCount={weekReadySlots.length * 5 /* heuristic — avg 5 ingredients/dish */}
+        onOpenList={() => setShowWeekShopSheet(true)}
+        onSmartConsolidate={handleSmartConsolidate}
+      />
+
+      {/* Bottom-pinned weekly drop drawer */}
+      <WeeklyDropDrawer
+        density={drawerDensity}
+        onDensityChange={setDrawerDensity}
+        onAdd={(entry) => void handleDropAdd(entry)}
       />
     </div>
   )

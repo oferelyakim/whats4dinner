@@ -27,7 +27,6 @@ function cuisineLabelFromId(id: string): string | undefined {
 }
 import { AbortedByUserError, RateLimitedError } from './errors'
 import { callOp } from './ai/client'
-import { DayPlanResultSchema } from './ai/schemas'
 import { supabase } from '@/services/supabase'
 import { z } from 'zod'
 
@@ -842,14 +841,6 @@ export class MealPlanEngine {
 
   async generateDay(dayId: string): Promise<DayView> {
     const meals = await db.meals.where('dayId').equals(dayId).sortBy('position')
-    // v1.19.0: try a batched Stage A+B for the whole day in one Anthropic
-    // call. Slots that come back populated start the per-slot pipeline at
-    // Stage C. Slots not returned (or any failure path) flow through Stage A
-    // per-slot below. Pure optimisation — no correctness dependency.
-    await this.generateDayBatched(dayId).catch((err) => {
-      console.warn('[generateDay] batched stage A+B threw, continuing per-slot:', err)
-      return 0
-    })
     await Promise.all(meals.map((m) => this.generateMeal(m.id)))
     const fresh: MealView[] = []
     for (const meal of meals) {
@@ -1198,368 +1189,6 @@ export class MealPlanEngine {
   }
 
   /**
-   * v1.19.0 — Day-level batched Stage A+B via meal-engine `day-plan` op.
-   *
-   * Cuts a 7-day plan with all-empty days from ~14 Anthropic calls (Stage A
-   * per slot + Stage B per slot) down to 7 calls (one per day) when the bank
-   * misses most slots. Stage C still runs per-slot (web search + recipe
-   * fetch can't be batched safely).
-   *
-   * Returns the count of slots successfully advanced to `dish_named`. Slots
-   * that come back from the AI are written directly with their ingredient +
-   * dishName + searchKeywords; other slots are left untouched and the
-   * existing per-slot pipeline (`generateMeal`) handles them.
-   *
-   * Falls back gracefully on any failure — the caller's per-slot generation
-   * is invoked next anyway, so this is a pure optimisation, never a
-   * correctness path.
-   */
-  async generateDayBatched(dayId: string): Promise<number> {
-    const day = await db.days.get(dayId)
-    if (!day) return 0
-    const meals = await db.meals.where('dayId').equals(dayId).sortBy('position')
-    if (meals.length === 0) return 0
-
-    const prefs = await this.getPrefs()
-    const recentDishes = await this.getRecentDishNames(day.planId, prefs.recentDishesWindow)
-
-    // Collect candidate slots: empty/error, not locked, not bank-filled, no
-    // user-hint (hints take precedence; per-slot path applies them via
-    // parseUserHint + mergeEnvelope, which day-plan can't easily replicate).
-    type CandidateSlot = {
-      slotId: string
-      mealId: string
-      mealType: string
-      role: string
-      envelope: SlotEnvelopeSnapshot
-    }
-    const candidates: CandidateSlot[] = []
-    const mealsForBatch: { mealId: string; type: string; slots: { slotId: string; role: string; envelope: SlotEnvelopeSnapshot }[] }[] = []
-
-    for (const meal of meals) {
-      const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
-      const mealSlots: { slotId: string; role: string; envelope: SlotEnvelopeSnapshot }[] = []
-      for (const slot of slots) {
-        if (slot.locked) continue
-        if (slot.status === 'ready') continue
-        // Per-slot path handles error/error_rate_limited via its resume logic.
-        if (slot.status === 'error' || slot.status === 'error_rate_limited') continue
-        // Slots already past Stage A — skip; per-slot pipeline picks up.
-        if (slot.status !== 'empty') continue
-        // User hints route through per-slot for full envelope-merge precedence.
-        if (slot.replaceHint || slot.notes) continue
-
-        // Build envelope (same path as generateSlot's Stage A entry).
-        let envelope: SlotEnvelope
-        try {
-          envelope = await buildEnvelope({
-            slotId: slot.id,
-            mealId: meal.id,
-            dayId: day.id,
-            planId: day.planId,
-            slotRole: slot.role,
-            dietaryTags: prefs.dietaryConstraints,
-            dislikedNames: prefs.dislikedIngredients,
-            isWeekend: this.isWeekend(day.date),
-          })
-        } catch {
-          continue
-        }
-        const envSnap: SlotEnvelopeSnapshot = {
-          cuisineId: envelope.cuisineId,
-          cuisineLabel: envelope.cuisineLabel,
-          cuisineRegion: envelope.cuisineRegion,
-          proteinName: envelope.proteinName,
-          proteinFamily: envelope.proteinFamily,
-          styleId: envelope.styleId,
-          styleLabel: envelope.styleLabel,
-          flavorId: envelope.flavorId,
-          flavorLabel: envelope.flavorLabel,
-        }
-        // Persist envelope so the UI / per-slot fallback see the same one.
-        await this.patchSlot(slot.id, { envelope: envSnap })
-        candidates.push({ slotId: slot.id, mealId: meal.id, mealType: meal.type, role: slot.role, envelope: envSnap })
-        mealSlots.push({ slotId: slot.id, role: slot.role, envelope: envSnap })
-      }
-      if (mealSlots.length > 0) {
-        mealsForBatch.push({ mealId: meal.id, type: meal.type, slots: mealSlots })
-      }
-    }
-
-    if (candidates.length < 2) return 0 // Not worth a batch call for 0-1 slots.
-
-    let parsed
-    try {
-      parsed = await callOp(
-        'day-plan',
-        {
-          day: {
-            date: day.date,
-            theme: day.theme,
-            isWeekend: this.isWeekend(day.date),
-          },
-          prefs: {
-            dietaryConstraints: prefs.dietaryConstraints,
-            dislikedIngredients: prefs.dislikedIngredients,
-            pantryItems: prefs.pantryItems,
-          },
-          recentDishes,
-          meals: mealsForBatch,
-        },
-        DayPlanResultSchema,
-      )
-    } catch (err) {
-      // RateLimited or any error → fall back to per-slot pipeline (caller's
-      // generateMeal pass picks these up). Don't throw — this is a pure
-      // optimisation path. Log for diagnostics.
-      console.warn('[generateDayBatched] day-plan failed, falling back to per-slot:', err)
-      return 0
-    }
-
-    // Walk returned slots, write Stage A+B output. Defensive lookup by slotId
-    // (don't trust position even though the op contract says ordered).
-    const byId = new Map<string, CandidateSlot>()
-    for (const c of candidates) byId.set(c.slotId, c)
-    let advanced = 0
-    for (const r of parsed.slots) {
-      const cand = byId.get(r.slotId)
-      if (!cand) continue
-      // Dedup keywords client-side (server already does, but belt+braces).
-      const seenKw = new Set<string>()
-      const keywords: string[] = []
-      for (const k of r.searchKeywords) {
-        const norm = k.trim().toLowerCase()
-        if (!norm || seenKw.has(norm)) continue
-        seenKw.add(norm)
-        keywords.push(k.trim())
-      }
-      const finalKeywords = keywords.length > 0 ? keywords.slice(0, 5) : [r.dishName]
-
-      await this.patchSlot(cand.slotId, {
-        status: 'dish_named',
-        ingredient: r.ingredient,
-        dishName: r.dishName,
-        searchKeywords: finalKeywords,
-      })
-      // Mirror generateSlot's post-Stage-B dishHistory write so subsequent
-      // generations see this slot in their anti-repeat window.
-      await db.dishHistory.add({
-        id: uid(),
-        slotId: cand.slotId,
-        planId: day.planId,
-        dishName: r.dishName,
-        ingredient: r.ingredient,
-        proteinName: cand.envelope.proteinName,
-        proteinFamily: cand.envelope.proteinFamily,
-        cuisineId: cand.envelope.cuisineId,
-        styleId: cand.envelope.styleId,
-        flavorId: cand.envelope.flavorId,
-        plannedAt: now(),
-      })
-      advanced++
-    }
-    return advanced
-  }
-
-  // ─── v2.0.0 — Interactive Interview ───────────────────────────────────────
-
-  /**
-   * Apply an InterviewResult to a plan: deterministic structure first
-   * (presets / meal shape), then bank-fill per slot using the AI proposal's
-   * candidate dish names as hints, then queue residual misses through the
-   * existing async worker.
-   *
-   * AI cost: ZERO calls in this method itself — the propose-plan call
-   * already happened in the dialog. Bank lookups are pure SQL via the
-   * `sample-from-bank` op. Misses go through `generatePlanAsync` which
-   * uses the same v1.18 worker queue.
-   */
-  async applyInterviewResult(
-    planId: string,
-    circleId: string | null,
-    result: import('./interview/types').InterviewResult,
-  ): Promise<{ jobId: string | null; bankFilled: number; totalQueued: number }> {
-    const plan = await db.plans.get(planId)
-    if (!plan) throw new Error(`Plan ${planId} not found`)
-
-    // ─── Step 1: Ensure every selected date has a Day row + apply presets/shape
-    const selectedDates = result.answers.q_days?.selectedDates ?? []
-    const mealsPerDay = result.answers.q_meals_per_day ?? {
-      breakfast: 0,
-      lunch: 0,
-      dinner: 3,
-      snack: 0,
-    }
-    const dateToDayId = new Map<string, string>()
-
-    for (const iso of selectedDates) {
-      // Find or create Day row.
-      let day = (await db.days.where('planId').equals(planId).toArray()).find(
-        (d) => d.date === iso,
-      )
-      if (!day) {
-        const dayCount = await db.days.where('planId').equals(planId).count()
-        day = { id: uid(), planId, date: iso, position: dayCount }
-        await db.days.add(day)
-      }
-      dateToDayId.set(iso, day.id)
-
-      const presetId = result.dayPresets.get(day.id) ?? null
-      if (presetId) {
-        // Day-scoped preset replaces existing meals.
-        await this.applyPreset(presetId, { dayId: day.id })
-      } else {
-        // Build meal structure from q_meals_per_day if the day is bare.
-        const existingMeals = await db.meals.where('dayId').equals(day.id).toArray()
-        if (existingMeals.length === 0) {
-          await this.buildDayFromShape(day.id, mealsPerDay)
-        }
-      }
-    }
-
-    // ─── Step 2: Bank-fill per slot using proposal candidates as hints
-    const prefs = await this.getPrefs()
-    // Prefer answer-supplied dietary if user changed it during interview.
-    const dietaryConstraints =
-      result.answers.q_dietary && result.answers.q_dietary.length > 0
-        ? result.answers.q_dietary
-        : prefs.dietaryConstraints
-    const dislikedIngredients =
-      result.answers.q_dislikes && result.answers.q_dislikes.length > 0
-        ? result.answers.q_dislikes
-        : prefs.dislikedIngredients
-    const recentDishes = await this.getRecentDishNames(planId, prefs.recentDishesWindow)
-
-    // v2.6.2 — Build a flat queue of candidate-lists per (date, mealType, role).
-    // Anthropic returns `meal.type` in Title Case ('Dinner') while
-    // buildDayFromShape writes lowercase ('dinner'); the previous per-meal
-    // positional key was both case-sensitive AND assumed the proposal grouped
-    // slots into meals exactly the way the db does. Normalising case + using
-    // a queue (instead of an idx-keyed map) makes the lookup robust to both.
-    const normKey = (date: string, mealType: string, role: string) =>
-      `${date}|${String(mealType).toLowerCase().trim()}|${String(role).toLowerCase().trim()}`
-    const candidatesByKey = new Map<string, string[][]>()
-    for (const day of result.proposal.days) {
-      for (const meal of day.meals) {
-        for (const slot of meal.slots) {
-          const key = normKey(day.date, meal.type, slot.role)
-          const queue = candidatesByKey.get(key) ?? []
-          queue.push(slot.candidates)
-          candidatesByKey.set(key, queue)
-        }
-      }
-    }
-
-    let bankFilled = 0
-    const misses: string[] = []
-
-    // v2.6.2 — consume candidate-lists in proposal order per (date, mealType,
-    // role). Tracks how many lists have been popped per key so consecutive
-    // sibling slots (main/main/main) each get their own list.
-    const consumedByKey = new Map<string, number>()
-
-    for (const iso of selectedDates) {
-      const dayId = dateToDayId.get(iso)
-      if (!dayId) continue
-      const meals = await db.meals.where('dayId').equals(dayId).sortBy('position')
-      for (const meal of meals) {
-        const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
-        for (const slot of slots) {
-          if (slot.locked || slot.status === 'ready' || slot.status === 'link_ready') continue
-          const key = normKey(iso, meal.type, slot.role)
-          const queue = candidatesByKey.get(key) ?? []
-          const consumed = consumedByKey.get(key) ?? 0
-          consumedByKey.set(key, consumed + 1)
-          const candidates = queue[consumed] ?? []
-
-          // v2.2.0: respect the slot's existing cuisine constraint (set by
-          // a preset like "Greek night"). If slot.notes parses to a cuisine,
-          // skip AI candidates whose own cuisine hint conflicts. The user
-          // reported: applied Greek preset, AI proposed Korean kimchi +
-          // Japanese katsu — those override slot.notes='greek' via the
-          // replaceHint chain. Filtering here prevents that.
-          const slotCuisineHint = slot.notes
-            ? parseUserHint(slot.notes).cuisineId
-            : undefined
-
-          let filled = false
-          for (const candidate of candidates) {
-            if (slotCuisineHint) {
-              const candidateCuisineHint = parseUserHint(candidate).cuisineId
-              if (candidateCuisineHint && candidateCuisineHint !== slotCuisineHint) {
-                continue
-              }
-            }
-            // Set the candidate as a one-shot hint so tryFillSlotFromBank's
-            // user-hint parser routes the cuisine/protein constraint into the
-            // bank query. (When slotCuisineHint is set, prepend it so the
-            // bank query keeps the preset's cuisine in addition to whatever
-            // the candidate adds.)
-            const hint = slotCuisineHint
-              ? `${slot.notes} ${candidate}`
-              : candidate
-            await this.patchSlot(slot.id, { replaceHint: hint })
-            filled = await this.tryFillSlotFromBank(
-              slot.id,
-              dietaryConstraints,
-              dislikedIngredients,
-              recentDishes,
-            )
-            if (filled) {
-              bankFilled++
-              break
-            }
-          }
-          if (!filled) {
-            // Reset hint (so it doesn't taint future generations) and queue
-            // through the residual path. slot.notes (preset cuisine) stays
-            // in place so the worker's envelope still respects it.
-            await this.patchSlot(slot.id, { replaceHint: undefined })
-            misses.push(slot.id)
-          }
-        }
-
-        // v2.3.0 — cuisine coherence pass. After processing all slots in
-        // this meal, find the meal's resolved cuisine (from any filled
-        // sibling's envelope) and propagate it into still-empty siblings'
-        // notes. The async worker reads slot.notes when building its
-        // envelope, so this guarantees Greek main → Greek sides for the
-        // residual generation path too. We propagate ONLY when the meal
-        // has converged on exactly one cuisine — mixed-cuisine meals are
-        // left alone (rare, only happens when the user's hints conflict).
-        const allSiblings = await db.slots.where('mealId').equals(meal.id).toArray()
-        const resolvedCuisines = new Set<string>()
-        for (const s of allSiblings) {
-          if (s.envelope?.cuisineId) resolvedCuisines.add(s.envelope.cuisineId)
-          else if (s.notes) {
-            const h = parseUserHint(s.notes).cuisineId
-            if (h) resolvedCuisines.add(h)
-          }
-        }
-        if (resolvedCuisines.size === 1) {
-          const cuisineId = Array.from(resolvedCuisines)[0]
-          const cuisineLabel = cuisineLabelFromId(cuisineId)
-          if (cuisineLabel) {
-            for (const s of allSiblings) {
-              if (s.envelope?.cuisineId) continue // already locked via envelope
-              const existingHint = parseUserHint(s.notes).cuisineId
-              if (existingHint) continue // notes already carry a cuisine
-              const composed = [cuisineLabel, s.notes].filter(Boolean).join(' ')
-              await db.slots.update(s.id, { notes: composed, updatedAt: now() })
-            }
-          }
-        }
-      }
-    }
-
-    // ─── Step 3: Residual → async worker queue (existing v1.18 path)
-    if (misses.length === 0) {
-      return { jobId: null, bankFilled, totalQueued: 0 }
-    }
-    const { jobId, totalQueued } = await this.generatePlanAsync(planId, circleId)
-    return { jobId, bankFilled, totalQueued }
-  }
-
   /**
    * v2.3.0 — Apply a user-created meal template (Supabase `meal_menus` row)
    * to a day on the local-first plan. Creates ONE meal of `mealType` with one
@@ -1665,39 +1294,6 @@ export class MealPlanEngine {
 
     // touchPlan emits 'plan:updated' so usePlan re-renders.
     await this.touchPlan(day.planId)
-  }
-
-  /**
-   * Build the meal+slot structure for a day from a q_meals_per_day answer.
-   * Used by applyInterviewResult when no day-preset is selected for a day.
-   * Idempotent: only fires when the day has no meals yet.
-   */
-  private async buildDayFromShape(
-    dayId: string,
-    shape: { breakfast: number; lunch: number; dinner: number; snack: number },
-  ): Promise<void> {
-    const mealTypes: { type: string; count: number; role: string }[] = []
-    if (shape.breakfast > 0) mealTypes.push({ type: 'breakfast', count: shape.breakfast, role: 'main' })
-    if (shape.lunch > 0) mealTypes.push({ type: 'lunch', count: shape.lunch, role: 'main' })
-    if (shape.dinner > 0) mealTypes.push({ type: 'dinner', count: shape.dinner, role: 'main' })
-    if (shape.snack > 0) mealTypes.push({ type: 'snack', count: shape.snack, role: 'main' })
-
-    let pos = 0
-    for (const m of mealTypes) {
-      const meal: Meal = { id: uid(), dayId, type: m.type, position: pos++ }
-      await db.meals.add(meal)
-      for (let i = 0; i < m.count; i++) {
-        await db.slots.add({
-          id: uid(),
-          mealId: meal.id,
-          role: m.role,
-          status: 'empty',
-          locked: false,
-          position: i,
-          updatedAt: now(),
-        })
-      }
-    }
   }
 
   /**
@@ -1809,311 +1405,50 @@ export class MealPlanEngine {
   }
 
   /**
-   * v1.18.0 — Async server-side plan generation.
-   *
-   * The user clicks "Generate plan" → we run bank-fill in parallel for free
-   * slots (Phase 1, identical to `generatePlan`'s phase 1), then enqueue a
-   * single `meal_plan_jobs` row with N slot job rows for whatever the bank
-   * didn't cover, fire the worker, and subscribe via Realtime.
-   *
-   * Slots that need server work transition `empty → queued_server`. The
-   * Realtime subscription writes results into Dexie + flips them to `ready`
-   * as the worker finishes each one.
-   *
-   * Returns `{ jobId, totalQueued }` so callers can show progress.
+   * v3.0.0 — add a recipe_bank row directly to a slot. Used by the
+   * "Add from this week's drop" / "Add from bank" UX. Materializes the
+   * slot at status='link_ready' with linkData populated; the actual
+   * Recipe row is built lazily by hydrateLinkReadySlot on first user-open.
    */
-  async generatePlanAsync(
-    planId: string,
-    circleId: string | null,
-  ): Promise<{ jobId: string | null; totalQueued: number; bankFilled: number }> {
-    // Auto-create the default Dinner+main slot for any empty day, same as
-    // generatePlan() does. Keeps the user-visible behavior consistent.
-    const days = await db.days.where('planId').equals(planId).sortBy('position')
-    for (const d of days) {
-      const mealCount = await db.meals.where('dayId').equals(d.id).count()
-      if (mealCount === 0) {
-        const meal = await this.addMeal(d.id, 'Dinner')
-        const slotCount = await db.slots.where('mealId').equals(meal.id).count()
-        if (slotCount === 0) await this.addSlot(meal.id, 'main')
-      }
+  async addFromBank(slotId: string, recipeBankId: string): Promise<void> {
+    const { data: row, error } = await supabase
+      .from('recipe_bank')
+      .select('*')
+      .eq('id', recipeBankId)
+      .single()
+    if (error || !row) {
+      throw new Error(`recipe_bank row not found: ${recipeBankId}`)
     }
-
-    const refreshedDays = await db.days.where('planId').equals(planId).sortBy('position')
-    const prefs = await this.getPrefs()
-    const recentDishes = await this.getRecentDishNames(planId, prefs.recentDishesWindow)
-
-    // Phase 1: bank-fill in parallel.
-    const allSlotIds: string[] = []
-    for (const day of refreshedDays) {
-      const meals = await db.meals.where('dayId').equals(day.id).sortBy('position')
-      for (const meal of meals) {
-        const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
-        for (const s of slots) {
-          if (!s.locked && s.status !== 'ready') allSlotIds.push(s.id)
-        }
-      }
+    const linkData = {
+      bankId: row.id as string,
+      source: (row.source_kind_v2 ?? 'composed') as 'web' | 'user_import' | 'composed' | 'community',
+      sourceUrl: row.source_url ?? undefined,
+      sourceDomain: row.source_domain ?? undefined,
+      imageUrl: row.image_url ?? undefined,
+      mainIngredient: row.ingredient_main as string,
+      secondaryIngredients: (row.secondary_ingredients ?? []) as string[],
+      dietaryTags: (row.dietary_tags ?? []) as string[],
+      cuisineId: row.cuisine_id as string,
+      proteinFamily: row.protein_family ?? undefined,
+      prepTimeMin: row.prep_time_min ?? undefined,
+      cookTimeMin: row.cook_time_min ?? undefined,
+      servings: row.servings ?? undefined,
+      composedPayload: row.composed_payload ?? undefined,
     }
-    const bankResults = await Promise.all(
-      allSlotIds.map((slotId) =>
-        this.tryFillSlotFromBank(slotId, prefs.dietaryConstraints, prefs.dislikedIngredients, recentDishes).catch(
-          () => false,
-        ),
-      ),
-    )
-    const bankFilled = bankResults.filter(Boolean).length
-
-    // Phase 2: collect remaining (still-empty) slots for the job queue.
-    const { createMealPlanJob, triggerWorker, subscribeJob } = await import(
-      '../services/meal-plan-jobs'
-    )
-    const slotInputs: import('../services/meal-plan-jobs').SlotJobInput[] = []
-    for (const day of refreshedDays) {
-      const meals = await db.meals.where('dayId').equals(day.id).sortBy('position')
-      for (const meal of meals) {
-        const slots = await db.slots.where('mealId').equals(meal.id).sortBy('position')
-        for (const slot of slots) {
-          if (slot.locked || slot.status === 'ready') continue
-          if (slot.status === 'queued_server') continue // already queued
-
-          // Build envelope client-side so the worker has a deterministic input.
-          let envelope: SlotEnvelope
-          try {
-            envelope = await buildEnvelope({
-              slotId: slot.id,
-              mealId: meal.id,
-              dayId: day.id,
-              planId,
-              slotRole: slot.role,
-              dietaryTags: prefs.dietaryConstraints,
-              dislikedNames: prefs.dislikedIngredients,
-              isWeekend: this.isWeekend(day.date),
-            })
-          } catch {
-            continue
-          }
-          const userHint = parseUserHint(slot.replaceHint || slot.notes)
-          const finalEnvelope = mergeEnvelope(envelope, userHint)
-          const envelopeSnap: SlotEnvelopeSnapshot = {
-            cuisineId: finalEnvelope.cuisineId,
-            cuisineLabel: finalEnvelope.cuisineLabel,
-            cuisineRegion: finalEnvelope.cuisineRegion,
-            proteinName: finalEnvelope.proteinName,
-            proteinFamily: finalEnvelope.proteinFamily,
-            styleId: finalEnvelope.styleId,
-            styleLabel: finalEnvelope.styleLabel,
-            flavorId: finalEnvelope.flavorId,
-            flavorLabel: finalEnvelope.flavorLabel,
-          }
-          // Flip slot to queued_server so the UI shows "Queued — server will fill".
-          await this.patchSlot(slot.id, { status: 'queued_server', envelope: envelopeSnap })
-          slotInputs.push({
-            slotId: slot.id,
-            mealId: meal.id,
-            dayId: day.id,
-            slotRole: slot.role,
-            mealType: meal.type,
-            envelope: envelopeSnap,
-            dietaryConstraints: prefs.dietaryConstraints,
-            dislikedIngredients: prefs.dislikedIngredients,
-            recentDishNames: recentDishes,
-          })
-        }
-      }
-    }
-
-    if (slotInputs.length === 0) {
-      // Bank covered everything — emit and return.
-      const view = await this.getPlan(planId)
-      if (view) this.bus.emit('plan:updated', view)
-      return { jobId: null, totalQueued: 0, bankFilled }
-    }
-
-    const { jobId } = await createMealPlanJob(planId, circleId, slotInputs)
-
-    // Persist jobId so a closed-then-reopened tab can re-attach.
-    try {
-      localStorage.setItem(`active_job:${planId}`, jobId)
-    } catch {
-      /* private browsing — ignore */
-    }
-
-    // Subscribe to Realtime updates → write results into Dexie as they arrive.
-    const sub = subscribeJob(
-      jobId,
-      async (slotRow) => {
-        if (slotRow.status === 'done' && slotRow.result) {
-          await this.applyJobSlotResult(slotRow.slot_id, slotRow.result, planId)
-        } else if (slotRow.status === 'failed') {
-          await this.patchSlot(slotRow.slot_id, {
-            status: 'error',
-            errorStage: 'recipe',
-            errorMessage: slotRow.error_message ?? 'Server error',
-          })
-        }
-      },
-      async (jobRow) => {
-        if (jobRow.status === 'completed' || jobRow.status === 'failed' || jobRow.status === 'cancelled') {
-          sub.unsubscribe()
-          try {
-            localStorage.removeItem(`active_job:${planId}`)
-          } catch {
-            /* ignore */
-          }
-          const view = await this.getPlan(planId)
-          if (view) this.bus.emit('plan:updated', view)
-        }
-      },
-    )
-
-    // Fire worker immediately — don't wait for cron.
-    void triggerWorker()
-
-    return { jobId, totalQueued: slotInputs.length, bankFilled }
-  }
-
-  /**
-   * v1.18.0 — write a single worker-produced result into Dexie + flip slot
-   * to ready. Shared between live Realtime updates and the post-mount
-   * re-attach catch-up sweep.
-   */
-  private async applyJobSlotResult(
-    slotId: string,
-    result: Record<string, unknown>,
-    planId: string,
-  ): Promise<void> {
-    const slot = await db.slots.get(slotId)
-    if (!slot) return
-    if (slot.status === 'ready') return // already filled (e.g. concurrent reattach)
-    const recipeShape = result as {
-      title: string
-      source: 'web' | 'ai-fallback' | 'composed'
-      url?: string
-      sourceDomain?: string
-      ingredients: Array<{ item: string; quantity?: string }>
-      steps: string[]
-      prepTimeMin?: number
-      cookTimeMin?: number
-      servings?: number
-      imageUrl?: string
-      _ingredient?: string
-      _dishName?: string
-    }
-    const recipe: Recipe = {
-      id: uid(),
-      fetchedAt: now(),
-      source: recipeShape.source,
-      url: recipeShape.url,
-      sourceDomain: recipeShape.sourceDomain,
-      title: recipeShape.title,
-      ingredients: recipeShape.ingredients ?? [],
-      steps: recipeShape.steps ?? [],
-      prepTimeMin: recipeShape.prepTimeMin,
-      cookTimeMin: recipeShape.cookTimeMin,
-      servings: recipeShape.servings,
-      imageUrl: recipeShape.imageUrl,
-    }
-    await db.recipes.add(recipe)
     await this.patchSlot(slotId, {
-      status: 'ready',
-      ingredient: recipeShape._ingredient ?? recipeShape.title,
-      dishName: recipeShape._dishName ?? recipeShape.title,
-      recipeId: recipe.id,
-      replaceHint: undefined,
-      generatingStartedAt: undefined,
-      errorMessage: undefined,
-      errorStage: undefined,
+      status: 'link_ready',
+      dishName: row.title as string,
+      locked: true,
+      linkData,
     })
-    // dishHistory bookkeeping for cross-plan anti-repeat.
-    const meal = await db.meals.get(slot.mealId)
-    if (meal && slot.envelope) {
-      await db.dishHistory.add({
-        id: uid(),
-        slotId,
-        planId,
-        dishName: recipeShape._dishName ?? recipeShape.title,
-        ingredient: recipeShape._ingredient,
-        proteinName: slot.envelope.proteinName,
-        proteinFamily: slot.envelope.proteinFamily,
-        cuisineId: slot.envelope.cuisineId,
-        styleId: slot.envelope.styleId,
-        flavorId: slot.envelope.flavorId,
-        plannedAt: now(),
-      })
-    }
-  }
-
-  /**
-   * v1.18.0 — re-attach an in-flight job after a tab close-and-reopen.
-   *
-   * On `PlanV2View` mount: read `localStorage[active_job:{planId}]`. If a
-   * jobId is stored AND the job is still queued/running in Postgres,
-   * sweep any 'done' slots that completed while the tab was closed (write
-   * their results into Dexie now) and re-subscribe to live updates.
-   *
-   * Returns the active jobId, or null if none.
-   */
-  async reattachActiveJob(planId: string): Promise<string | null> {
-    let storedJobId: string | null = null
-    try {
-      storedJobId = localStorage.getItem(`active_job:${planId}`)
-    } catch {
-      return null
-    }
-    if (!storedJobId) return null
-
-    const { getJob, listJobSlots, subscribeJob } = await import('../services/meal-plan-jobs')
-    const job = await getJob(storedJobId)
-    if (!job || (job.status !== 'queued' && job.status !== 'running')) {
-      try {
-        localStorage.removeItem(`active_job:${planId}`)
-      } catch {
-        /* ignore */
-      }
-      return null
-    }
-
-    // Catch-up: write any results we missed while the tab was closed.
-    const slots = await listJobSlots(storedJobId)
-    for (const sr of slots) {
-      if (sr.status === 'done' && sr.result) {
-        await this.applyJobSlotResult(sr.slot_id, sr.result, planId)
-      } else if (sr.status === 'failed') {
-        await this.patchSlot(sr.slot_id, {
-          status: 'error',
-          errorStage: 'recipe',
-          errorMessage: sr.error_message ?? 'Server error',
-        })
+    const slot = await db.slots.get(slotId)
+    if (slot) {
+      const meal = await db.meals.get(slot.mealId)
+      if (meal) {
+        const day = await db.days.get(meal.dayId)
+        if (day) await this.touchPlan(day.planId)
       }
     }
-
-    // Resume live subscription.
-    const sub = subscribeJob(
-      storedJobId,
-      async (slotRow) => {
-        if (slotRow.status === 'done' && slotRow.result) {
-          await this.applyJobSlotResult(slotRow.slot_id, slotRow.result, planId)
-        } else if (slotRow.status === 'failed') {
-          await this.patchSlot(slotRow.slot_id, {
-            status: 'error',
-            errorStage: 'recipe',
-            errorMessage: slotRow.error_message ?? 'Server error',
-          })
-        }
-      },
-      async (jobRow) => {
-        if (jobRow.status === 'completed' || jobRow.status === 'failed' || jobRow.status === 'cancelled') {
-          sub.unsubscribe()
-          try {
-            localStorage.removeItem(`active_job:${planId}`)
-          } catch {
-            /* ignore */
-          }
-          const view = await this.getPlan(planId)
-          if (view) this.bus.emit('plan:updated', view)
-        }
-      },
-    )
-    return storedJobId
   }
 
   /**

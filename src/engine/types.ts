@@ -40,12 +40,6 @@ export type SlotStatus =
    */
   | 'error_rate_limited'
   /**
-   * v1.18.0: slot enqueued to server-side `meal_plan_jobs` queue and is
-   * waiting for the worker to fill it. UI shows a dashed "Queued — server
-   * will fill" pill. Realtime UPDATE flips it to `ready` (or `error`).
-   */
-  | 'queued_server'
-  /**
    * v2.0.0: link-first bank hit. Slot carries metadata only (dishName,
    * sourceUrl, mainIngredient, secondaryIngredients, dietaryTags, cuisineId,
    * prepTimeMin, calories?) in `linkData`. The full recipe (ingredients +

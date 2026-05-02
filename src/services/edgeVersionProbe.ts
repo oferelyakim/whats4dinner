@@ -1,22 +1,21 @@
 // Edge function version probe.
 //
-// v1.16.0: catches the failure mode where source has a fix that was never
-// deployed to Supabase (the v1.15.7 plan-event scenario). On app boot we ping
-// the deployed edge functions, compare to APP_VERSION, and surface a banner
-// if there's a mismatch — so the user knows AI features may misbehave until
-// the deploy catches up, instead of clicking and getting opaque 500s.
+// On app boot we ping the deployed edge functions, compare to APP_VERSION,
+// and surface a banner if there's a mismatch — so the user knows AI features
+// may misbehave until the deploy catches up, instead of clicking and
+// getting opaque 500s.
 
 import { APP_VERSION } from '@/lib/version'
 
 interface PingResponse {
   fn: string
   version: string
-  model: string
+  model?: string
   composeModel?: string
   deployedAt: string
 }
 
-const FUNCTIONS = ['meal-engine', 'plan-event'] as const
+const FUNCTIONS = ['meal-engine', 'event-engine', 'weekly-drop-generator'] as const
 const STORAGE_KEY = 'edgeVersionMismatch'
 
 function getSupabaseFnUrl(): string {

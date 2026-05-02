@@ -1,273 +1,175 @@
 # Replanish — Deploy Runbook
 
-**Last verified: v2.2.0, 2026-04-26.** Update this file every time the deploy process changes.
+**Last verified: v3.0.0, 2026-05-02.** Update this file every time the deploy process changes.
 
-**Pre-flight gate (read this before pushing to master):** Run `npx tsc -b` (not just `npx tsc --noEmit`). Vercel's build is `rm -rf node_modules/.tmp dist && tsc -b && vite build`, which is stricter than `--noEmit` — it picks up unused imports, unused parameters, wrong-enum assignments. v2.0.0 → v2.0.2 burned three deploys because of this exact gap. `--noEmit` is fine while editing; `tsc -b` is the deploy gate.
-
-## v2.0.0 — Bank link-first + Interactive Interview + Auditor (NEW)
-
-This release ships the bank-first / link-first / interview-driven meal planner. Read this section before shipping v2.0.0 — it has steps that the standard runbook below doesn't cover (database webhook configuration, mig 034, new edge fn, new env var).
-
-**New surface:**
-- Migration 034 — `recipe_bank` link-first columns + new RPCs (`under_covered_cells`, `retire_stale_recipes`) + `recipe_bank_audit_log` table.
-- New edge fn `auditor-from-imports` — promotes user URL imports to the bank.
-- Updated `recipe-bank-refresher` — new `BANK_MODE` env (default `link-first`).
-- Updated `meal-engine` — three new ops (`parse-intake`, `propose-plan`, `fetch-recipe-url`).
-- Frontend `MealPlannerBanner` + `MealPlannerInterview` on `/plan-v2`.
-
-**Deploy steps (in this order):**
-
-```bash
-# 1. Apply migration 034 (run from MAIN repo path, not a worktree).
-npx supabase db query --linked -f supabase/migrations/034_recipe_bank_link_first.sql
-
-# 2. ONE-TIME database webhook (Supabase dashboard → Database → Webhooks):
-#    Source table: public.recipes  |  Event: INSERT
-#    HTTP target: https://<project>.functions.supabase.co/auditor-from-imports
-#    Filter: source_url IS NOT NULL
-#    Headers: Authorization: Bearer <SERVICE_ROLE_KEY>
-
-# 3. Deploy edge functions (mandatory after function code changes).
-npm run deploy:functions
-# now covers: meal-engine, plan-event, ai-chat, meal-plan-worker,
-#             recipe-bank-refresher, auditor-from-imports (new)
-
-# 4. Verify ?ping=1 returns 2.0.0:
-curl 'https://<project>.functions.supabase.co/meal-engine?ping=1'
-curl 'https://<project>.functions.supabase.co/auditor-from-imports?ping=1'
-
-# 5. Push frontend (Vercel auto-deploys).
-git push origin master
-
-# 6. Backfill the bank with link-first rows (one-time).
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... \
-  node scripts/seed-recipe-bank-urls.mjs --target=30 --limit=20
-
-# 7. Smoke the auditor end-to-end.
-SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
-  node scripts/smoke-auditor.mjs
-```
-
-**Post-deploy browser smoke (mandatory):**
-
-1. Open `app.replanish.app/plan-v2` as a paid user → AI banner visible.
-2. Click banner → interview opens. In q_freeform type "dinner only, 3 dishes — kids hate fish".
-3. Confirm `q_dietary` / `q_dislikes` get skipped (parse-intake worked).
-4. Approve → some slots show "From <domain> — tap to open" (`link_ready` state).
-5. Tap one → recipe loads + caches.
-6. As free user → banner shows disabled state with "Upgrade to plan with AI →" CTA.
-7. Quick fill button (replaces old "Generate plan") works for both tiers.
-
-**Rollback:** mig 034 is column-additive (never drops). Set `BANK_MODE=composed-legacy` on `recipe-bank-refresher` env to revert generation. The `composed_payload` archive means no data loss even on full revert. Roll the frontend tag in Vercel to revert UI without touching the DB.
+**Pre-flight gate (read before pushing to master):** Run `npx tsc -b` (not just `npx tsc --noEmit`). Vercel's build is `rm -rf node_modules/.tmp dist && tsc -b && vite build`, which is stricter than `--noEmit` — it picks up unused imports, unused parameters, wrong-enum assignments. `--noEmit` is fine while editing; `tsc -b` is the deploy gate.
 
 ---
 
-This file is the single source of truth for deploying Replanish. The two deploy targets (Vercel for frontend, Supabase for edge functions + migrations) each have a different command and a different "is it actually live?" check. Skipping or confusing them is the most common cause of "I deployed but the change isn't there."
+## v3.0.0 — Bank-Driven Weekly Drop + Per-Meal AI
 
-## Pre-flight (every deploy)
+This release retires per-user AI weekly plans in favor of a **shared cron-generated weekly drop** + **manual planning** + **four per-meal AI hooks**. See `docs/v3/PRODUCT.md` for the full product story and `docs/v3/RELEASE-NOTES-v3.0.md` for the changelog.
 
-Run these from the worktree you're shipping (project root, `package.json` next to you):
+### What's new in this release
 
-```bash
-npx tsc --noEmit            # 0 errors — frontend type-check
-npx vitest run              # all tests pass — engine invariants
-```
+- **Migrations 035–038:**
+  - `035_weekly_menu.sql` — `weekly_menu` + `weekly_menu_drops` tables + `get_current_weekly_drop()` / `get_weekly_drop_for_week()` / `iso_monday()` RPCs.
+  - `036_pantry_match.sql` — `match_recipes_by_ingredients` RPC for the pantry-reroll AI hook.
+  - `037_drop_meal_plan_jobs.sql` — drops the retired async job tables (`meal_plan_jobs`, `meal_plan_job_slots`).
+  - `038_pg_cron_weekly_drop.sql` — schedules `weekly-drop-generator` every Sunday at 10:00 UTC (06:00 EDT / 05:00 EST).
+- **NEW edge function:** `weekly-drop-generator` — picks 126 cards/week from `recipe_bank` (10 dinner + 5 lunch + 3 breakfast per day × 7).
+- **RETIRED edge functions:** `meal-plan-worker`, `plan-event`, `generate-meal-plan` (deleted from `supabase/functions/`).
+- **RETIRED meal-engine ops:** `propose-plan`, `parse-intake`, `day-plan`. Remaining ops: `dish`, `find-recipe`, `extract`, `compose-fallback`, `sample-from-bank`, `fetch-recipe-url`.
+- **NEW client service:** `src/services/recipe-bank.ts` (`getCurrentWeeklyDrop`, `searchBank`, `matchByPantry`).
+- **NEW engine method:** `MealPlanEngine.addFromBank(slotId, recipeBankId)` — used by the upcoming "Add from this week's drop" UX.
 
-If either fails, **don't deploy**. Investigate first.
-
-Then bump the version. Two files MUST stay in sync — bump both:
-
-```
-src/lib/version.ts   →  export const APP_VERSION = 'X.Y.Z'
-package.json         →  "version": "X.Y.Z"
-```
-
-Versioning convention:
-
-- **Patch (1.15.5 → 1.15.6)** — bug fix, small UX, prompt tweak, doc-only release.
-- **Minor (1.15.6 → 1.16.0)** — new feature, new edge function, new migration.
-- **Major (1.x → 2.0.0)** — architecture change, breaking schema, full reskin.
-
-Bump on **every** production push. The version is shown in the chat welcome screen + Profile footer ("Replanish v{APP_VERSION}") so the user can confirm which build they're testing.
-
-## 1. Frontend (Vercel) — `git push origin master`
-
-Vercel auto-deploys from GitHub `master`. Pushing to master IS the deploy.
+### Deploy steps (in this order)
 
 ```bash
-git add <specific files>                      # never -A; avoid .env / settings.local.json
-git commit -m "feat|fix|chore(scope): vX.Y.Z — message"
-git push origin master                        # ← Vercel deploy fires here
+# 1. Apply migrations 035–038 (run from MAIN repo path, not a worktree).
+npx supabase db query --linked -f supabase/migrations/035_weekly_menu.sql
+npx supabase db query --linked -f supabase/migrations/036_pantry_match.sql
+npx supabase db query --linked -f supabase/migrations/037_drop_meal_plan_jobs.sql
+npx supabase db query --linked -f supabase/migrations/038_pg_cron_weekly_drop.sql
+
+# 2. Verify pg_cron schedule is registered.
+npx supabase db query --linked "SELECT jobname, schedule, active FROM cron.job WHERE jobname IN ('weekly-drop-generator', 'recipe-bank-refresher')"
+# Expected: both rows present, active=t.
+
+# 3. Deploy edge functions (mandatory after function code changes).
+npm run deploy:functions
+# v3.0 ships: meal-engine, ai-chat, recipe-bank-refresher, event-engine,
+#             auditor-from-imports, weekly-drop-generator (NEW).
+
+# 4. Verify ?ping=1 returns 3.0.0 on the new function.
+curl 'https://<project>.functions.supabase.co/weekly-drop-generator?ping=1'
+curl 'https://<project>.functions.supabase.co/meal-engine?ping=1'
+
+# 5. Push frontend (Vercel auto-deploys from master).
+git push origin master
+
+# 6. Verify the bank has enough coverage BEFORE the first weekly drop runs.
+npx supabase db query --linked "SELECT count(*) FROM recipe_bank WHERE retired_at IS NULL"
+# Target: ≥400 rows.
+
+npx supabase db query --linked "SELECT * FROM recipe_bank_coverage ORDER BY row_count ASC LIMIT 10"
+# Every (diet × meal_type × slot_role) cell should have ≥10 rows.
+
+# 7. (Optional) Manually trigger the first drop to verify generation.
+curl -X POST 'https://<project>.functions.supabase.co/weekly-drop-generator' \
+  -H 'content-type: application/json' -d '{}'
+# Expected response: { "ok": true, "week_start": "YYYY-MM-DD", "total_recipes": 126, "diet_coverage": {...} }
 ```
 
-If you're working on a Claude worktree branch (`claude/<name>`), push the branch HEAD to master directly:
+### Bank coverage — getting to 400
+
+If `recipe_bank_coverage` shows gaps, run the seed script (one-time, ~$5 in Anthropic Haiku spend):
 
 ```bash
-git push origin HEAD:master                   # fast-forward push from any branch
+# Pre-flight: verify Anthropic credit balance > $10.
+# Then seed up to the gap.
+SUPABASE_URL=https://<project>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=... \
+ANTHROPIC_API_KEY=... \
+  node scripts/seed-recipe-bank-urls.mjs --target=10 --limit=250
 ```
 
-This works only if your branch was based on the current origin/master HEAD (no divergence). If the push is rejected as non-fast-forward, you have unmerged work elsewhere — `git fetch origin && git rebase origin/master` first, never `--force`.
+After v3.0 ships, the `recipe-bank-refresher` cron (every 6h, see migration 032) keeps the corpus topped up automatically. The `auditor-from-imports` flow promotes user URL imports to the shared bank.
 
-**Verify:**
+### Database webhook (one-time, already configured for v2.0.0)
 
-- Open the production URL: https://app.replanish.app (and https://replanish.app for the marketing site).
-- Open the in-app chat or the Profile footer — confirm it shows `v{APP_VERSION}` matching what you just bumped.
-- Vercel dashboard: https://vercel.com/oferelyakim (deploy is "Ready" within ~90s).
+Source: `public.recipes` · Event: `INSERT` · Filter: `source_url IS NOT NULL` · Target: `auditor-from-imports`. If this isn't already set up, see the v2.0.0 entry below.
 
-## 2. Edge Functions (Supabase) — `npx supabase functions deploy`
+---
 
-**Vercel does NOT deploy edge functions.** Supabase edge functions live on Supabase's runtime and only ship via the Supabase CLI. If you change anything in `supabase/functions/<name>/`, you MUST redeploy that function or the change won't be live for users.
+## Standard runbook (every release)
 
-Run from the **main repo path** (NOT a Claude worktree — only the main checkout has the linked Supabase project):
-
+### 1. Type-check
 ```bash
-cd C:/Users/OferElyakim/oferProjects/Replanish_App
-npx supabase functions deploy <function-name> --no-verify-jwt
+npx tsc -b
+```
+**Vercel runs this — must be clean before push.**
+
+### 2. Run vitest + production build
+```bash
+npx vitest run
+npm run build
 ```
 
-The `--no-verify-jwt` flag tells the CLI not to require a fresh JWT — the functions handle auth internally via the request `Authorization` header.
+### 3. Bump version
+- `src/lib/version.ts` — `APP_VERSION = 'X.Y.Z'`
+- `package.json` — `"version": "X.Y.Z"`
+- `supabase/functions/<changed>/index.ts` — `APP_VERSION` constant matches
 
-**The 14 edge functions:**
-
-| Function | Purpose | Redeploy when |
-|---|---|---|
-| `ai-chat` | In-app chat assistant (Claude Haiku) | Prompt changes, tool changes, scope rules |
-| `meal-engine` | Slot-based `/plan-v2` engine (Stages A/B/C/D) | Variety taxonomy, prompts, retry policy |
-| `plan-event` | AI Event Planner (legacy single-shot, v1.15.6 → v1.19.0; deprecated in v1.20.0, deletable in v1.21.0) | Tool schema, prompts (e.g. activities) |
-| `event-engine` | Event Planner v2 dynamic questionnaire (v1.20.0+) — 3 ops: intake / propose / revise | Question tree, prompts, edge ops |
-| `generate-meal-plan` | Legacy chat-driven plan flow (dead post-v1.15.5) | Don't — being retired |
-| `scrape-recipe` | Recipe URL import | HTML preprocessing, JSON-LD parsing |
-| `get-recipe` | Recipe URL fetcher used by /plan-v2 Stage C | URL discovery / extraction logic |
-| `nlp-action` | Home quick-action input | Prompt changes |
-| `create-checkout` | Stripe checkout session | Pricing, billing periods, trial config |
-| `stripe-webhook` | Stripe webhook receiver | Webhook signature, plan mapping |
-| `kroger-oauth-start`, `kroger-oauth-callback` | Kroger grocer OAuth | Kroger API changes |
-| `kroger-search`, `kroger-stores`, `kroger-add-to-cart` | Kroger product flow | Kroger API changes |
-
-You can deploy multiple in one command:
-
+### 4. Deploy edge functions (only if any function changed)
 ```bash
-npx supabase functions deploy ai-chat plan-event meal-engine --no-verify-jwt
-```
-
-**v1.16.0+ shortcut:** `npm run deploy:functions` ships `meal-engine`, `plan-event`, and `ai-chat` together. Use this whenever you change any of those three. From the **main repo path** (the worktree script invocation just shells out):
-
-```bash
-cd C:/Users/OferElyakim/oferProjects/Replanish_App
 npm run deploy:functions
 ```
+**Run from the MAIN repo path, NOT a worktree** — the supabase CLI resolves project linkage from the working directory.
 
-**v1.16.0+ version probe:** both `meal-engine` and `plan-event` now expose `GET ?ping=1` returning `{ fn, version, model, deployedAt }`. The client calls these on every app boot and surfaces a console warning + localStorage flag if the deployed version doesn't match the bundled `APP_VERSION`. If a user reports an AI feature failing right after a deploy, ask them to open DevTools console — `[edgeVersionProbe] mismatch detected: …` is the unambiguous signal that step 2 was skipped.
-
-**v1.17.0+ migration application:** `npx supabase db push` will fail when local migrations include duplicate-version files (two `019_*.sql` exist). The reliable workaround that worked for migration 030 is `npx supabase db query --linked -f supabase/migrations/030_recipe_bank.sql` — runs the SQL directly via the Management API, bypasses the schema_migrations conflict. Use `npx supabase migration repair --status applied <version>` first if you want `db push` to track the row going forward.
-
-**v1.18.0+ async job queue:** migration 031 must be applied before deploying `meal-plan-worker`. Use `npx supabase db query --linked -f supabase/migrations/031_meal_plan_jobs.sql`. The migration adds `meal_plan_jobs` + `meal_plan_job_slots` + the `claim_next_meal_plan_job()` RPC + adds both tables to the `supabase_realtime` publication (for postgres_changes subscriptions). The `npm run deploy:functions` script now includes `meal-plan-worker` and `recipe-bank-refresher` (5 functions total as of v1.19.0: meal-engine, plan-event, ai-chat, meal-plan-worker, recipe-bank-refresher). The worker is invoked immediately after job-create via `triggerWorker()` from client.
-
-**v1.19.0+ recipe-bank cron:** migration 032 (`supabase/migrations/032_pg_cron_recipe_bank_refresher.sql`) registers a `pg_cron` job named `recipe-bank-refresher` running `0 */6 * * *` that POSTs to the `recipe-bank-refresher` edge function. Apply via `npx supabase db query --linked -f supabase/migrations/032_pg_cron_recipe_bank_refresher.sql`. Idempotent — safe to re-run. Verify after with `npx supabase db query --linked "SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'recipe-bank-refresher';"` — should return `active: true`.
-
-**v1.20.0+ event-engine + planner v2:** migration 033 (`supabase/migrations/033_event_planner_v2.sql`) adds `events.archetype text` + `events.questionnaire jsonb default '{}'` + `events.draft_plan jsonb` columns + the `event_activity_catalog` table seeded with 31 vendor / activity rows + the `match_event_activities()` RPC that powers the engine's deterministic catalog-fallback path. Apply via `npx supabase db query --linked -f supabase/migrations/033_event_planner_v2.sql`. Idempotent (`ADD COLUMN IF NOT EXISTS` + `ON CONFLICT (slug) DO UPDATE`). The `npm run deploy:functions` script now includes `event-engine` (6 functions total as of v1.20.0: meal-engine, plan-event, ai-chat, meal-plan-worker, recipe-bank-refresher, event-engine). Verify edge fn after deploy: `curl -s "https://zgebzhvbszhqvaryfiwk.supabase.co/functions/v1/event-engine?ping=1"` should return `{"fn":"event-engine","version":"1.20.0",...}`. The legacy `plan-event` edge fn is kept one release as a fallback; safe to delete in v1.21.0 cleanup.
-
-**v1.17.0+ recipe-bank seeding:** two paths after migration 030 is applied.
-- Quick (no key needed): `npx supabase db query --linked -f supabase/seeds/recipe_bank_starter.sql` — inserts 12 hand-crafted starters covering common dinner mains + a few breakfasts/lunches.
-- Full coverage (~50 recipes, ~$0.50 in Anthropic spend): from main repo path, `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… ANTHROPIC_API_KEY=… node scripts/seed-recipe-bank.mjs`. The Anthropic key is NOT in repo `.env` — pull it from https://console.anthropic.com or the Supabase Edge Function secrets dashboard.
-
-**Verify the function is live:**
-
+### 5. Apply migrations (only if any new migration)
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" -X POST \
-  "https://zgebzhvbszhqvaryfiwk.supabase.co/functions/v1/<function-name>" \
-  -H "Content-Type: application/json" \
-  -d '{}'
+npx supabase db query --linked -f supabase/migrations/<NNN>_<name>.sql
 ```
 
-- **`401`** = function deployed and authenticating (expected — your curl has no token).
-- **`404`** = function not deployed.
-- **`501`** = function up but a required secret (e.g. `ANTHROPIC_API_KEY`) is missing.
-- **`500`** = function deployed but threw — check the dashboard logs.
-
-Dashboard: https://supabase.com/dashboard/project/zgebzhvbszhqvaryfiwk/functions
-
-**Common pitfall: "Cannot find project ref. Have you run supabase link?"** — the worktree you're in isn't linked. Run from `C:/Users/OferElyakim/oferProjects/Replanish_App` (the main repo path), not from `.claude/worktrees/<name>/`.
-
-## 3. Database Migrations (Supabase) — manual paste
-
-Migrations live in `supabase/migrations/NNN_description.sql`. They are **NOT auto-applied** by `supabase db push` in this project's current setup — they get pasted manually into the SQL Editor.
-
-Process:
-
-1. Open https://supabase.com/dashboard/project/zgebzhvbszhqvaryfiwk/sql/new
-2. Paste the migration contents.
-3. Run it.
-4. Confirm success in the result panel.
-
-**Migrations must be idempotent.** If a migration adds a column, use `ADD COLUMN IF NOT EXISTS`. If it creates a function, use `CREATE OR REPLACE FUNCTION`. If a migration ever needs to be re-run after a partial failure, idempotency is what saves you.
-
-Current migration state: master is at **032_pg_cron_recipe_bank_refresher.sql** (applied 2026-04-26). Migration 033 (`033_event_planner_v2.sql`) is on branch `claude/festive-poitras-ab2661` for the v1.20.0 Event Planner v2 — pending merge + apply.
-
-## 4. Worktree etiquette
-
-The repo uses git worktrees heavily — each Claude session gets a `.claude/worktrees/<name>/` checkout. **The `master` branch is checked out at the main repo path** (`C:/Users/OferElyakim/oferProjects/Replanish_App`). Worktrees track their own `claude/<name>` branch.
-
-When you finish a session's work:
-
-1. Push the branch HEAD to origin/master (fast-forward) — see § 1.
-2. In the main repo path: `git pull --ff-only origin master` to sync local master.
-3. Other worktrees stay on their own branches; they auto-see the new origin/master via `git fetch`.
-4. Worktrees with abandoned work should be flagged in CLAUDE.md ("Lost branches") and either committed-and-pushed or removed via `git worktree remove`.
-
-`.claude/settings.local.json` is per-machine and **must never be committed**. If git status shows it as untracked in a worktree, ignore it.
-
-## 5. Common scenarios
-
-### "My edge function change isn't taking effect"
-
-You forgot step 2. The Vercel push only ships frontend code. Edge functions need their own `supabase functions deploy`.
-
-### "I see version 1.15.5 but I just shipped 1.15.6"
-
-Hard-refresh the browser (Ctrl+Shift+R). Vercel may serve a cached `index.html` for ~30s after deploy. The PWA service worker can also cache an older bundle — the user can resolve via DevTools → Application → Service Workers → Unregister.
-
-### "I added a new edge function — how do I add it to the deploy?"
-
-`npx supabase functions deploy <new-name> --no-verify-jwt` (from the linked main repo path) once. After that any time you edit it, redeploy with the same command. Add an entry to the function table in § 2.
-
-### "The branch already had unrelated uncommitted work"
-
-Stop. Stage only the files for the current change (`git add <specific files>` — never `-A`). If unrelated work is present, finish it and commit it first OR stash it. Mixing concerns in one commit makes the deploy harder to revert if something breaks.
-
-### "Pre-commit hook failed mid-commit"
-
-The commit didn't happen. Fix the issue, re-stage, **make a NEW commit** (never `--amend` after a hook failure — `--amend` modifies the previous commit and can lose work).
-
-## 6. Where things live
-
-- **GitHub repo**: https://github.com/oferelyakim/whats4dinner
-- **App**: https://app.replanish.app
-- **Marketing site**: https://replanish.app
-- **Vercel dashboard**: https://vercel.com/oferelyakim
-- **Supabase dashboard**: https://supabase.com/dashboard/project/zgebzhvbszhqvaryfiwk
-- **Edge function logs**: https://supabase.com/dashboard/project/zgebzhvbszhqvaryfiwk/functions
-
-## 7. Quick reference (copy-paste)
-
+### 6. Push to master (triggers Vercel)
 ```bash
-# Pre-flight
-npx tsc --noEmit && npx vitest run
-
-# Frontend deploy (from any worktree on a branch based on origin/master)
-git add <files>
-git commit -m "..."
-git push origin HEAD:master
-
-# Edge function deploy (from main repo path only)
-cd C:/Users/OferElyakim/oferProjects/Replanish_App
-npx supabase functions deploy <name> --no-verify-jwt
-
-# Sync local master
-git pull --ff-only origin master
-
-# Function smoke test
-curl -s -o /dev/null -w "%{http_code}\n" -X POST \
-  "https://zgebzhvbszhqvaryfiwk.supabase.co/functions/v1/<name>" \
-  -H "Content-Type: application/json" -d '{}'
+git push origin master
 ```
+
+### 7. Verify deploy
+- Frontend: visit `https://app.replanish.app`, check the version in the AI chat welcome.
+- Edge functions: `curl '<project>.functions.supabase.co/<fn>?ping=1'` — version must match `APP_VERSION`.
+- The `edgeVersionProbe.ts` client probe will surface mismatches in DevTools console.
+
+### Vercel deployment behavior
+- Pushing to `master` = production deploy.
+- Pushing to any other branch = Preview deploy only.
+- "Promote to Production" in the Vercel UI works for any deploy on master.
+
+---
+
+## Edge functions in v3.0
+
+| Function | Purpose | Trigger |
+|---|---|---|
+| `meal-engine` | Slot pipeline (Stage A/B/C/D), pantry/swap AI, recipe URL hydration | Client-invoked |
+| `ai-chat` | Chat assistant (paid tier) + scope-limited free fallback | Client-invoked |
+| `event-engine` | v1.20.0 dynamic event-planner questionnaire | Client-invoked |
+| `recipe-bank-refresher` | Cron — tops up under-covered bank cells (every 6h) | pg_cron |
+| `weekly-drop-generator` | Cron — picks 126 cards/week for the shared drop | pg_cron (Sundays 10:00 UTC) |
+| `auditor-from-imports` | Promotes user URL imports to the shared bank | Supabase database webhook |
+| `nlp-action` | Quick-action input on home page | Client-invoked |
+| `scrape-recipe`, `get-recipe` | Recipe URL extraction (legacy chat path) | Client-invoked |
+| `create-checkout`, `stripe-webhook` | Stripe billing | Client + webhook |
+| `kroger-*` | Kroger affiliate integration (flagged) | Client-invoked |
+
+---
+
+## Retired in v3.0 (deleted from `supabase/functions/`)
+
+| Function | What it did | Replacement |
+|---|---|---|
+| `meal-plan-worker` | Async per-user weekly plan generation | Retired — weekly drop replaces |
+| `plan-event` | v1.15.6 single-shot event AI | Retired — superseded by `event-engine` (v1.20.0) |
+| `generate-meal-plan` | v1.x chat-driven plan flow | Retired — chat redirects to `/plan-v2` |
+
+---
+
+## Common issues
+
+### "edge function returned non-2xx"
+Run `curl '<project>.functions.supabase.co/<fn>?ping=1'`. Compare the `version` field to `src/lib/version.ts`. If they differ, the function wasn't redeployed — run `npm run deploy:functions`.
+
+### Vercel build fails on `tsc -b` but `tsc --noEmit` was clean
+You hit `noUnusedLocals` / `noUnusedParameters`. Use `npx tsc -b` locally before pushing.
+
+### Migration silently no-ops
+Verify the migration file is in `supabase/migrations/` and named `NNN_name.sql`. The `db query --linked -f <path>` command runs the file directly — it does not consult the migration history table.
+
+### Cron job didn't fire
+```sql
+SELECT jobname, schedule, active, last_run FROM cron.job;
+SELECT * FROM cron.job_run_details ORDER BY end_time DESC LIMIT 10;
+```
+Check `pg_cron` is enabled (`CREATE EXTENSION pg_cron`). The migration files do this idempotently.

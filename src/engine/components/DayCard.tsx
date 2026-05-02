@@ -2,13 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Plus, Layers, Trash2, BookOpen, X, ShoppingCart } from 'lucide-react'
 import type { DayView, Preset, PresetSlot } from '../types'
-import type { InterviewResult } from '../interview/types'
 import { MealCard } from './MealCard'
 import { getEngine } from '../MealPlanEngine'
 import { PresetPicker } from './PresetPicker'
 import { PresetConfirmDialog } from '@/components/meal-planner/PresetConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { MealPlannerBanner } from '@/components/meal-planner/MealPlannerBanner'
 import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
 import { useI18n } from '@/lib/i18n'
 import { db } from '../db'
@@ -20,16 +18,9 @@ interface Props {
   day: DayView
   onOpenRecipe?: (recipeId: string) => void
   onOpenSlot?: (slotId: string) => void
-  /**
-   * v2.1.0 — when present, mounts a per-day "Plan this day with AI" banner
-   * inside the day card. Approving the day-scoped interview calls back here
-   * so PlanV2View can drive engine.applyInterviewResult + Realtime
-   * subscription. Not provided → no banner (manual planning only).
-   */
-  onInterviewApprove?: (result: InterviewResult) => Promise<void>
 }
 
-export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: Props) {
+export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
   const [showPresets, setShowPresets] = useState(false)
   const [confirmPreset, setConfirmPreset] = useState<Preset | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -107,16 +98,6 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot, onInterviewApprove }: P
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
-
-      {onInterviewApprove && (
-        <MealPlannerBanner
-          planId={day.planId}
-          circleId={null}
-          scope="day"
-          targetDayDate={day.date}
-          onApprove={onInterviewApprove}
-        />
-      )}
 
       <div className="space-y-4">
         {day.meals.map((meal) => (

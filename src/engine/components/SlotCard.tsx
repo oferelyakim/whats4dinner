@@ -30,7 +30,6 @@ const STAGE_LABEL: Record<Slot['status'], string> = {
   ready: '',
   error: '',
   error_rate_limited: '',
-  queued_server: '',
   link_ready: '',
 }
 
@@ -144,18 +143,10 @@ export function SlotCard({ slotId, onOpenRecipe, onOpenSlot }: Props) {
             </div>
           )}
 
-          {slot.status === 'queued_server' && (
-            <div className="flex items-center gap-1.5 text-sm text-rp-ink-mute">
-              <span className="inline-block h-2 w-2 rounded-full bg-rp-brand/40 animate-pulse" />
-              <span className="text-[12px]">{t('plan.job.queuedServer')}</span>
-            </div>
-          )}
-
           {slot.status !== 'ready' &&
             slot.status !== 'link_ready' &&
             slot.status !== 'error' &&
-            slot.status !== 'error_rate_limited' &&
-            slot.status !== 'queued_server' && (
+            slot.status !== 'error_rate_limited' && (
             <div className="flex items-center gap-1.5 text-sm text-rp-ink-mute">
               {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               <span>
