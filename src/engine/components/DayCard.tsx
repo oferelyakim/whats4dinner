@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Plus, Layers, Trash2, BookOpen, X, ShoppingCart } from 'lucide-react'
+import { Plus, Layers, Trash2, BookOpen, X, ShoppingCart, Bookmark } from 'lucide-react'
 import type { DayView, Preset, PresetSlot } from '../types'
 import { MealCard } from './MealCard'
 import { getEngine } from '../MealPlanEngine'
@@ -29,6 +29,10 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
   const [showTemplates, setShowTemplates] = useState(false)
   const [templates, setTemplates] = useState<(MealMenu & { recipes: Recipe[] })[] | null>(null)
   const [templatesLoading, setTemplatesLoading] = useState(false)
+  // v3.0.1 — save-as-template dialog
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [savingTemplate, setSavingTemplate] = useState(false)
   const [theme, setTheme] = useState(day.theme ?? '')
   const engine = getEngine()
   const t = useI18n((s) => s.t)
@@ -87,6 +91,16 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
             className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors shrink-0"
           >
             <ShoppingCart className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {day.meals.length > 0 && (
+          <button
+            onClick={() => { setTemplateName(day.theme || dayName); setShowSaveTemplate(true) }}
+            aria-label={t('action.saveAsTemplate')}
+            title={t('action.saveAsTemplate')}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft transition-colors shrink-0"
+          >
+            <Bookmark className="h-3.5 w-3.5" />
           </button>
         )}
         <button
@@ -255,6 +269,59 @@ export function DayCard({ day, onOpenRecipe, onOpenSlot }: Props) {
         slots={readySlots}
         circleId={activeCircle?.id}
       />
+
+      <Dialog.Root open={showSaveTemplate} onOpenChange={setShowSaveTemplate}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-rp-ink/40 backdrop-blur-sm z-40" />
+          <Dialog.Content
+            className="
+              fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+              w-[min(420px,90vw)] rounded-2xl bg-rp-bg shadow-rp-hover
+              border border-rp-ink/10 p-5
+            "
+          >
+            <Dialog.Title className="font-display italic text-lg text-rp-ink mb-1">
+              {t('action.saveAsTemplate')}
+            </Dialog.Title>
+            <p className="text-xs text-rp-ink/60 mb-3">
+              Reuse this day's meals on a future week.
+            </p>
+            <input
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Template name"
+              className="w-full px-3 py-2 rounded-lg bg-rp-bg-soft text-rp-ink placeholder:text-rp-ink-mute focus:outline-none focus:ring-1 focus:ring-rp-brand text-sm"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4 justify-end">
+              <button
+                onClick={() => setShowSaveTemplate(false)}
+                className="px-4 py-2 rounded-lg text-sm text-rp-ink hover:bg-rp-bg-soft"
+              >
+                {t('confirm.cancel')}
+              </button>
+              <button
+                disabled={!templateName.trim() || savingTemplate}
+                onClick={async () => {
+                  if (!templateName.trim()) return
+                  setSavingTemplate(true)
+                  try {
+                    await engine.saveDayAsPreset(day.id, templateName.trim())
+                    setShowSaveTemplate(false)
+                    setTemplateName('')
+                  } finally {
+                    setSavingTemplate(false)
+                  }
+                }}
+                className="px-4 py-2 rounded-lg text-sm bg-rp-brand text-white hover:bg-rp-brand/90 disabled:opacity-50"
+              >
+                {savingTemplate ? '…' : 'Save'}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 }

@@ -5,7 +5,12 @@
 //   • medium (156px) — adds filter chips + horizontal card scroll
 //   • hero (320px) — 2-col grid, shopping bar hides
 //
-// Cards are sourced from the shared weekly drop (`getCurrentWeeklyDrop()`).
+// Cards are sourced from the shared weekly drop. By default uses
+// `getCurrentWeeklyDrop()` (the earliest still-active drop). When the
+// parent passes a `weekStart` prop (e.g. PlanV2View piping the visible
+// week's Sunday), we switch to `getWeeklyDropForWeek(weekStart)` so the
+// drawer follows the planner's week-nav.
+//
 // Tap a card → calls onAdd(entry) which the parent routes to a slot picker.
 // (Drag-into-slot is a follow-up; tap-to-add is the v3.0 path.)
 
@@ -14,7 +19,7 @@ import { ChevronUp, X } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/cn'
 import { PhotoPlaceholder, MonoLabel, RingsOrnament } from '@/components/ui/hearth'
-import { getCurrentWeeklyDrop, type WeeklyDropEntry } from '@/services/recipe-bank'
+import { getCurrentWeeklyDrop, getWeeklyDropForWeek, type WeeklyDropEntry } from '@/services/recipe-bank'
 
 export type DrawerDensity = 'quiet' | 'medium' | 'hero'
 
@@ -25,16 +30,19 @@ interface Props {
   density: DrawerDensity
   onDensityChange: (d: DrawerDensity) => void
   onAdd?: (entry: WeeklyDropEntry) => void
+  /** ISO date string. When provided, the drawer fetches that week's drop. */
+  weekStart?: string
 }
 
-export function WeeklyDropDrawer({ density, onDensityChange, onAdd }: Props) {
+export function WeeklyDropDrawer({ density, onDensityChange, onAdd, weekStart }: Props) {
   const t = useI18n((s) => s.t)
   const [drop, setDrop] = useState<WeeklyDropEntry[] | null>(null)
   const [activeFilter, setActiveFilter] = useState<Filter>('Dinner')
 
   useEffect(() => {
     let cancelled = false
-    void getCurrentWeeklyDrop()
+    const fetcher = weekStart ? getWeeklyDropForWeek(weekStart) : getCurrentWeeklyDrop()
+    void fetcher
       .then((rows) => {
         if (!cancelled) setDrop(rows)
       })
@@ -44,7 +52,7 @@ export function WeeklyDropDrawer({ density, onDensityChange, onAdd }: Props) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [weekStart])
 
   const collapsed = density === 'quiet'
   const open = density === 'hero'

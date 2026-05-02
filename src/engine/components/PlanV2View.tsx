@@ -26,19 +26,28 @@ function isoToday(): string {
   return new Date().toISOString().split('T')[0]
 }
 
-function startOfWeekMon(iso: string): string {
+// Sunday-Saturday week (US household calendar). The drop generator emits
+// `week_start = next Sunday`, so the planner's calendar must align: the
+// visible week's first day is the Sunday on or before today (or the Sunday
+// `weekOffset` weeks away).
+function startOfWeekSun(iso: string): string {
   const d = new Date(iso + 'T12:00:00')
-  const dow = d.getDay()
-  const offsetToMonday = (dow + 6) % 7
-  d.setDate(d.getDate() - offsetToMonday)
+  const dow = d.getDay() // 0 = Sun, 6 = Sat
+  d.setDate(d.getDate() - dow)
   return d.toISOString().split('T')[0]
 }
 
-function visibleWeekDates(weekOffset: number): string[] {
+function visibleWeekStart(weekOffset: number): string {
   const today = isoToday()
-  const baseMonday = startOfWeekMon(today)
-  const startD = new Date(baseMonday + 'T12:00:00')
+  const baseSunday = startOfWeekSun(today)
+  const startD = new Date(baseSunday + 'T12:00:00')
   startD.setDate(startD.getDate() + weekOffset * 7)
+  return startD.toISOString().split('T')[0]
+}
+
+function visibleWeekDates(weekOffset: number): string[] {
+  const baseSunday = visibleWeekStart(weekOffset)
+  const startD = new Date(baseSunday + 'T12:00:00')
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(startD)
     d.setDate(startD.getDate() + i)
@@ -46,8 +55,8 @@ function visibleWeekDates(weekOffset: number): string[] {
   })
 }
 
-function formatWeekLabel(mondayIso: string): string {
-  const d = new Date(mondayIso + 'T12:00:00')
+function formatWeekLabel(weekStartIso: string): string {
+  const d = new Date(weekStartIso + 'T12:00:00')
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
@@ -380,11 +389,12 @@ export function PlanV2View() {
         onSmartConsolidate={handleSmartConsolidate}
       />
 
-      {/* Bottom-pinned weekly drop drawer */}
+      {/* Bottom-pinned weekly drop drawer — fetches the visible week's drop */}
       <WeeklyDropDrawer
         density={drawerDensity}
         onDensityChange={setDrawerDensity}
         onAdd={(entry) => void handleDropAdd(entry)}
+        weekStart={visibleWeekStart(viewWeekOffset)}
       />
     </div>
   )

@@ -109,12 +109,12 @@ export function FoodHubPage() {
             <Card
               variant="elevated"
               className="p-3.5 cursor-pointer active:scale-[0.97] transition-transform"
-              onClick={() => navigate('/recipes/new')}
+              onClick={() => navigate('/food/templates')}
             >
-              <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center mb-2">
-                <BookOpen className="h-4.5 w-4.5 text-blue-500" />
+              <div className="h-9 w-9 rounded-xl bg-purple-500/10 flex items-center justify-center mb-2">
+                <UtensilsCrossed className="h-4.5 w-4.5 text-purple-500" />
               </div>
-              <p className="text-sm font-semibold text-rp-ink">{t('action.addRecipe')}</p>
+              <p className="text-sm font-semibold text-rp-ink">{t('action.mealTemplates')}</p>
             </Card>
             <Card
               variant="elevated"

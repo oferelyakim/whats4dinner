@@ -1,8 +1,10 @@
-// v3.0.0 — weekly-drop-generator.
+// v3.0.1 — weekly-drop-generator.
 //
-// Cron-fired (Sundays 10:00 UTC ≈ 06:00 EDT / 05:00 EST via pg_cron + pg_net,
-// see migration 038) edge function that materializes the shared weekly recipe
+// Cron-fired (Thursdays 10:00 UTC ≈ 06:00 EDT / 05:00 EST via pg_cron + pg_net,
+// see migration 039) edge function that materializes the shared weekly recipe
 // drop — 126 entries per week, free for all users to read.
+// The drop is for the upcoming **Sunday-Saturday** week (US household
+// calendar), so households see next week's plan ~3 days before it starts.
 //
 // Drop shape per week (7 days):
 //   * 10 dinner positions per day (70 total)
@@ -33,8 +35,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const APP_VERSION = '3.0.0'
-const DEPLOYED_AT = '2026-05-02T00:00:00Z'
+const APP_VERSION = '3.0.1'
+const DEPLOYED_AT = '2026-05-02T18:00:00Z'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,21 +81,18 @@ interface BankRow {
   popularity_score: number | null
 }
 
-// ─── Date helper: get next Monday at 00:00 UTC ────────────────────────────
-// The drop fires Sunday 10:00 UTC, and the drop is for the WEEK STARTING
-// the day after — i.e. Monday. So we add 1 day to today (Sunday) and
-// truncate to ISO-Monday.
-function nextMondayIso(now: Date): string {
-  // Move to ~next Monday using ISO week-of-day math.
+// ─── Date helper: get next Sunday at 00:00 UTC ────────────────────────────
+// The drop fires Thursday 10:00 UTC, and the drop is for the WEEK STARTING
+// the upcoming Sunday (US household calendar — Sun-Sat week). On Thursday
+// that's 3 days out; if you re-trigger manually any other day, we still
+// pick the next Sunday so the math is deterministic.
+function nextSundayIso(now: Date): string {
   const d = new Date(now)
   // getUTCDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat.
-  // We want the upcoming Monday — if today is Sun (0), add 1; Mon (1), add 0
-  // (use *this* Monday for the drop); Tue–Sat, add (7 - day + 1).
+  // We want the upcoming Sunday — if today is Sun (0), use *today*; otherwise
+  // add (7 - dow) to land on next Sun.
   const dow = d.getUTCDay()
-  const daysToAdd =
-    dow === 0 ? 1 : // Sun → next Mon
-    dow === 1 ? 0 : // Mon → today
-    8 - dow         // Tue–Sat → next Mon
+  const daysToAdd = dow === 0 ? 0 : 7 - dow
   d.setUTCDate(d.getUTCDate() + daysToAdd)
   return d.toISOString().split('T')[0]
 }
@@ -114,7 +113,7 @@ serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  const targetWeekStart = nextMondayIso(new Date())
+  const targetWeekStart = nextSundayIso(new Date())
 
   // Idempotent: skip if this week's drop already exists.
   const { data: existing } = await supa

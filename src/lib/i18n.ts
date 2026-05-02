@@ -89,6 +89,8 @@ const translations: Record<string, Record<Locale, string>> = {
   // Quick actions
   'action.newList': { en: 'New List', he: 'רשימה חדשה', es: 'Nueva lista' },
   'action.addRecipe': { en: 'Add Recipe', he: 'הוסף מתכון', es: 'Agregar receta' },
+  'action.mealTemplates': { en: 'Meal Templates', he: 'תבניות ארוחה', es: 'Plantillas de comida' },
+  'action.saveAsTemplate': { en: 'Save as template', he: 'שמור כתבנית', es: 'Guardar como plantilla' },
   'action.planWeek': { en: 'Plan Week', he: 'תכנון שבועי', es: 'Planificar semana' },
   'action.myCircles': { en: 'My Circles', he: 'המעגלים שלי', es: 'Mis círculos' },
 
