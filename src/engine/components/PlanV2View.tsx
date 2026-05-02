@@ -186,30 +186,26 @@ export function PlanV2View() {
   const weekMonday = weekDates[0]
   const drawerHeightPx = drawerDensity === 'quiet' ? 52 : drawerDensity === 'hero' ? 360 : 176
 
-  // ── Drop card → first empty meal slot in today (or first day with capacity) ─
+  // ── Drop card → today's matching meal slot, or prompt to use per-meal sheet ─
   async function handleDropAdd(entry: WeeklyDropEntry) {
     if (!activePlanId) return
     const todayIso = isoToday()
-    let targetDay = visibleDays.find((d) => d.date === todayIso) ?? visibleDays[0]
-    if (!targetDay) return
+    const todayDay = visibleDays.find((d) => d.date === todayIso)
+    if (!todayDay) {
+      toast.success(
+        `Pick a meal and tap "Add to meal → This week menu" to add ${entry.title}.`,
+      )
+      return
+    }
 
     // Find a meal matching the entry's mealType, or create one
-    let meal = targetDay.meals.find((m) => m.type.toLowerCase() === entry.mealType)
+    let meal = todayDay.meals.find((m) => m.type.toLowerCase() === entry.mealType)
     if (!meal) {
-      const fresh = await engine.addMeal(targetDay.id, entry.mealType)
+      const fresh = await engine.addMeal(todayDay.id, entry.mealType)
       meal = { ...fresh, slots: fresh.slots }
     }
-    // Find an empty slot or add one
-    const emptySlot = meal.slots.find((s) => s.status === 'empty')
-    let slotId: string
-    if (emptySlot) {
-      slotId = emptySlot.id
-    } else {
-      const newSlot = await engine.addSlot(meal.id, 'main')
-      slotId = newSlot.id
-    }
     try {
-      await engine.addFromBank(slotId, entry.recipeBankId)
+      await engine.addBankRecipeToMeal(meal.id, entry.recipeBankId, entry.slotRole === 'main' ? 'main' : entry.slotRole.includes('side') ? 'side' : entry.slotRole)
       toast.success(`Added ${entry.title} to ${entry.mealType}.`)
       await refresh()
     } catch (e) {
@@ -336,6 +332,7 @@ export function PlanV2View() {
           <DayCard
             key={day.id}
             day={day}
+            weekStart={visibleWeekStart(viewWeekOffset)}
             onOpenRecipe={setOpenRecipeId}
             onOpenSlot={setOpenSlotId}
           />

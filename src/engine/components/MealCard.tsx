@@ -1,73 +1,85 @@
 import { useState } from 'react'
-import { Plus, Wand2, Layers, Trash2, Eraser, ShoppingCart } from 'lucide-react'
-import type { MealView, Preset, PresetSlot } from '../types'
+import * as Popover from '@radix-ui/react-popover'
+import { BookOpen, Folder, CalendarRange, Trash2, ShoppingCart, Plus } from 'lucide-react'
+import type { MealView } from '../types'
 import { SlotCard } from './SlotCard'
 import { getEngine } from '../MealPlanEngine'
-import { PresetPicker } from './PresetPicker'
-import { PresetConfirmDialog } from '@/components/meal-planner/PresetConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
+import {
+  AddRecipeFromLibrarySheet,
+  AddRecipeFromTemplateSheet,
+  AddRecipeFromWeekMenuSheet,
+} from '@/components/plan/AddToMealSheets'
 import { useI18n } from '@/lib/i18n'
 import { useAppStore } from '@/stores/appStore'
-import { db } from '../db'
 
 interface Props {
   meal: MealView
+  /** ISO Sunday of the visible week — used to scope the "This week menu" sheet. */
+  weekStart: string
   onOpenRecipe?: (recipeId: string) => void
   onOpenSlot?: (slotId: string) => void
 }
 
-export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
-  const [showPresets, setShowPresets] = useState(false)
-  const [confirmPreset, setConfirmPreset] = useState<Preset | null>(null)
+export function MealCard({ meal, weekStart, onOpenRecipe, onOpenSlot }: Props) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showShopSheet, setShowShopSheet] = useState(false)
+  const [showAddPopover, setShowAddPopover] = useState(false)
+  const [showLibrary, setShowLibrary] = useState(false)
+  const [showTemplate, setShowTemplate] = useState(false)
+  const [showWeekMenu, setShowWeekMenu] = useState(false)
   const engine = getEngine()
   const t = useI18n((s) => s.t)
   const { activeCircle } = useAppStore()
 
-  // Collect only ready slots with a recipeId for shopping
-  const readySlots = meal.slots.filter(
-    (s) => s.status === 'ready' && s.recipeId,
-  )
+  const readySlots = meal.slots.filter((s) => s.status === 'ready' && s.recipeId)
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-display italic capitalize text-rp-ink">{meal.type}</h4>
         <div className="flex items-center gap-1">
-          {meal.presetId && (
-            <button
-              onClick={() => void engine.clearMealPreset(meal.id)}
-              aria-label={t('plan.meal.clearPreset')}
-              title={t('plan.meal.clearPreset')}
-              className="h-8 px-2 rounded-lg flex items-center gap-1 text-rp-ink-mute hover:bg-rp-bg-soft text-xs"
-            >
-              <Eraser className="h-3 w-3" />
-            </button>
-          )}
-          <button
-            onClick={() => setShowPresets(true)}
-            aria-label="Apply preset"
-            className="h-8 px-2 rounded-lg flex items-center gap-1 text-rp-ink-mute hover:bg-rp-bg-soft text-xs"
-          >
-            <Layers className="h-3 w-3" />
-            Preset
-          </button>
-          <button
-            onClick={() => void engine.generateMeal(meal.id)}
-            className="h-8 px-2 rounded-lg flex items-center gap-1 bg-rp-brand text-white text-xs font-medium"
-          >
-            <Wand2 className="h-3 w-3" />
-            Generate all
-          </button>
-          <button
-            onClick={() => void engine.addSlot(meal.id, 'main')}
-            aria-label="Add slot"
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-rp-ink-mute hover:bg-rp-bg-soft"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          <Popover.Root open={showAddPopover} onOpenChange={setShowAddPopover}>
+            <Popover.Trigger asChild>
+              <button
+                aria-label={t('plan.addToMeal.label')}
+                className="h-8 px-2 rounded-lg flex items-center gap-1 bg-rp-brand text-white text-xs font-medium"
+              >
+                <Plus className="h-3 w-3" />
+                {t('plan.addToMeal.label')}
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                align="end"
+                sideOffset={6}
+                className="z-50 rounded-xl bg-rp-card border border-rp-ink/10 shadow-rp-hover overflow-hidden w-[220px]"
+              >
+                <button
+                  onClick={() => { setShowAddPopover(false); setShowLibrary(true) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-rp-ink hover:bg-rp-bg-soft text-left"
+                >
+                  <BookOpen className="h-4 w-4 text-rp-brand" />
+                  {t('plan.addToMeal.recipeLibrary')}
+                </button>
+                <button
+                  onClick={() => { setShowAddPopover(false); setShowTemplate(true) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-rp-ink hover:bg-rp-bg-soft text-left border-t border-rp-ink/5"
+                >
+                  <Folder className="h-4 w-4 text-rp-brand" />
+                  {t('plan.addToMeal.fromTemplate')}
+                </button>
+                <button
+                  onClick={() => { setShowAddPopover(false); setShowWeekMenu(true) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-rp-ink hover:bg-rp-bg-soft text-left border-t border-rp-ink/5"
+                >
+                  <CalendarRange className="h-4 w-4 text-rp-brand" />
+                  {t('plan.addToMeal.thisWeekMenu')}
+                </button>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
           {readySlots.length > 0 && (
             <button
               onClick={() => setShowShopSheet(true)}
@@ -93,61 +105,9 @@ export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
           <SlotCard key={s.id} slotId={s.id} onOpenRecipe={onOpenRecipe} onOpenSlot={onOpenSlot} />
         ))}
         {meal.slots.length === 0 && (
-          <p className="text-xs text-rp-ink-mute italic">No slots — apply a preset or add one.</p>
+          <p className="text-xs text-rp-ink-mute italic">No dishes yet — tap "{t('plan.addToMeal.label')}".</p>
         )}
       </div>
-
-      <PresetPicker
-        open={showPresets}
-        onOpenChange={setShowPresets}
-        scope="meal"
-        onPick={(id) => {
-          setShowPresets(false)
-          // Resolve the preset from Dexie so we can pass the full shape to the
-          // confirm dialog without fetching again inside the dialog.
-          void db.presets.get(id).then((p) => {
-            if (p) setConfirmPreset(p)
-          })
-        }}
-      />
-
-      {confirmPreset && (
-        <PresetConfirmDialog
-          open={confirmPreset !== null}
-          onOpenChange={(open) => { if (!open) setConfirmPreset(null) }}
-          preset={confirmPreset}
-          scope="meal"
-          onAddToPlan={async (adjusted) => {
-            // adjusted is PresetSlot[] for meal scope
-            const slots = adjusted as PresetSlot[]
-            // Use a synthetic copy of the preset with the adjusted slots so
-            // applyPreset sees the user's choices without mutating the stored preset.
-            const syntheticId = `__confirm_${confirmPreset.id}`
-            const synthetic: Preset = {
-              ...confirmPreset,
-              id: syntheticId,
-              slots,
-            }
-            await db.presets.put(synthetic)
-            await engine.applyPreset(syntheticId, { mealId: meal.id })
-            await db.presets.delete(syntheticId)
-          }}
-          onGenerateAll={async (adjusted) => {
-            const slots = adjusted as PresetSlot[]
-            const syntheticId = `__confirm_${confirmPreset.id}`
-            const synthetic: Preset = {
-              ...confirmPreset,
-              id: syntheticId,
-              slots,
-            }
-            await db.presets.put(synthetic)
-            await engine.applyPreset(syntheticId, { mealId: meal.id })
-            await db.presets.delete(syntheticId)
-            // Fire bank/AI fill for all slots in the meal
-            void engine.generateMeal(meal.id)
-          }}
-        />
-      )}
 
       <ConfirmDialog
         open={showDeleteConfirm}
@@ -164,6 +124,15 @@ export function MealCard({ meal, onOpenRecipe, onOpenSlot }: Props) {
         onClose={() => setShowShopSheet(false)}
         slots={readySlots}
         circleId={activeCircle?.id}
+      />
+
+      <AddRecipeFromLibrarySheet open={showLibrary} onOpenChange={setShowLibrary} mealId={meal.id} />
+      <AddRecipeFromTemplateSheet open={showTemplate} onOpenChange={setShowTemplate} mealId={meal.id} />
+      <AddRecipeFromWeekMenuSheet
+        open={showWeekMenu}
+        onOpenChange={setShowWeekMenu}
+        mealId={meal.id}
+        weekStart={weekStart}
       />
     </div>
   )

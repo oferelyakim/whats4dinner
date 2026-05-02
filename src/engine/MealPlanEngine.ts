@@ -207,8 +207,16 @@ export class MealPlanEngine {
   }
 
   async removeSlot(slotId: string): Promise<void> {
+    const slot = await db.slots.get(slotId)
     await db.dishHistory.where('slotId').equals(slotId).delete()
     await db.slots.delete(slotId)
+    if (slot) {
+      const meal = await db.meals.get(slot.mealId)
+      if (meal) {
+        const day = await db.days.get(meal.dayId)
+        if (day) await this.touchPlan(day.planId)
+      }
+    }
   }
 
   async updateSlotNotes(slotId: string, notes: string): Promise<void> {
@@ -1294,6 +1302,107 @@ export class MealPlanEngine {
 
     // touchPlan emits 'plan:updated' so usePlan re-renders.
     await this.touchPlan(day.planId)
+  }
+
+  /**
+   * Add a recipe (from Supabase recipes table) directly to an existing
+   * meal as a new slot. Used by the per-meal "Add recipe" sheet.
+   */
+  async addRecipeToMeal(
+    mealId: string,
+    supabaseRecipe: {
+      id: string
+      title: string
+      source_url?: string | null
+      image_url?: string | null
+      prep_time_min?: number | null
+      cook_time_min?: number | null
+      servings?: number | null
+      instructions?: string | null
+      ingredients?: Array<{ name: string; quantity?: number | null; unit?: string | null }>
+    },
+    role: string = 'main',
+  ): Promise<void> {
+    const meal = await db.meals.get(mealId)
+    if (!meal) throw new Error(`Meal ${mealId} not found`)
+    const day = await db.days.get(meal.dayId)
+    if (!day) throw new Error(`Day for meal ${mealId} not found`)
+
+    const ingredients = (supabaseRecipe.ingredients ?? []).map((ing) => ({
+      item: ing.name,
+      quantity:
+        ing.quantity != null
+          ? `${ing.quantity}${ing.unit ? ' ' + ing.unit : ''}`.trim()
+          : undefined,
+    }))
+    const steps = supabaseRecipe.instructions
+      ? supabaseRecipe.instructions.split(/\r?\n+/).map((s) => s.trim()).filter((s) => s.length > 0)
+      : []
+    const dexieRecipe: Recipe = {
+      id: uid(),
+      fetchedAt: now(),
+      title: supabaseRecipe.title,
+      source: supabaseRecipe.source_url ? 'web' : 'composed',
+      url: supabaseRecipe.source_url ?? undefined,
+      ingredients,
+      steps,
+      prepTimeMin: supabaseRecipe.prep_time_min ?? undefined,
+      cookTimeMin: supabaseRecipe.cook_time_min ?? undefined,
+      servings: supabaseRecipe.servings ?? undefined,
+      imageUrl: supabaseRecipe.image_url ?? undefined,
+    }
+    await db.recipes.add(dexieRecipe)
+
+    const existing = await db.slots.where('mealId').equals(mealId).count()
+    const slot: Slot = {
+      id: uid(),
+      mealId,
+      role,
+      status: 'ready',
+      dishName: supabaseRecipe.title,
+      recipeId: dexieRecipe.id,
+      locked: false,
+      position: existing,
+      updatedAt: now(),
+    }
+    await db.slots.add(slot)
+    await db.dishHistory.add({
+      id: uid(),
+      slotId: slot.id,
+      planId: day.planId,
+      dishName: supabaseRecipe.title,
+      cuisineId: 'unknown',
+      styleId: 'unknown',
+      flavorId: 'unknown',
+      plannedAt: now(),
+    })
+    await this.touchPlan(day.planId)
+  }
+
+  /**
+   * Add a bank recipe to an existing meal. Mirrors handleDropAdd in
+   * PlanV2View but scoped to a specific meal so the per-meal "This week
+   * menu" sheet can add to the meal the user clicked from.
+   */
+  async addBankRecipeToMeal(
+    mealId: string,
+    recipeBankId: string,
+    role: string = 'main',
+  ): Promise<void> {
+    const meal = await db.meals.get(mealId)
+    if (!meal) throw new Error(`Meal ${mealId} not found`)
+    const slotCount = await db.slots.where('mealId').equals(mealId).count()
+    const slot: Slot = {
+      id: uid(),
+      mealId,
+      role,
+      status: 'empty',
+      locked: false,
+      position: slotCount,
+      updatedAt: now(),
+    }
+    await db.slots.add(slot)
+    await this.addFromBank(slot.id, recipeBankId)
   }
 
   /**
