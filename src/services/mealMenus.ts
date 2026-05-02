@@ -4,7 +4,7 @@ import type { MealMenu, Recipe } from '@/types'
 export async function getMealMenus(circleId?: string): Promise<(MealMenu & { recipes: Recipe[] })[]> {
   let query = supabase
     .from('meal_menus')
-    .select('*, recipes:meal_menu_recipes(recipe:recipes(*))')
+    .select('*, recipes:meal_menu_recipes(recipe:recipes(*, ingredients:recipe_ingredients(*)))')
     .order('created_at', { ascending: false })
 
   if (circleId) {
