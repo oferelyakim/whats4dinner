@@ -73,7 +73,7 @@ interface DropRpcRow {
   day_idx: number
   meal_type: string
   slot_role: string
-  position: number
+  card_position: number
   recipe_bank_id: string
   title: string
   cuisine_id: string
@@ -95,7 +95,7 @@ function mapDropRow(row: DropRpcRow): WeeklyDropEntry {
     dayIdx: row.day_idx,
     mealType: row.meal_type,
     slotRole: row.slot_role,
-    position: row.position,
+    position: row.card_position,
     recipeBankId: row.recipe_bank_id,
     title: row.title,
     cuisineId: row.cuisine_id,

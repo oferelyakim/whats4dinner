@@ -81,7 +81,7 @@ RETURNS TABLE(
   day_idx            int,
   meal_type          text,
   slot_role          text,
-  position           int,
+  card_position      int,
   recipe_bank_id     uuid,
   title              text,
   cuisine_id         text,
@@ -107,7 +107,7 @@ AS $$
     LIMIT 1
   )
   SELECT
-    wm.week_start, wm.day_idx, wm.meal_type, wm.slot_role, wm.position,
+    wm.week_start, wm.day_idx, wm.meal_type, wm.slot_role, wm.position AS card_position,
     rb.id AS recipe_bank_id, rb.title, rb.cuisine_id, rb.dietary_tags,
     rb.ingredient_main, rb.protein_family,
     rb.prep_time_min, rb.cook_time_min, rb.servings,
@@ -128,7 +128,7 @@ RETURNS TABLE(
   day_idx            int,
   meal_type          text,
   slot_role          text,
-  position           int,
+  card_position      int,
   recipe_bank_id     uuid,
   title              text,
   cuisine_id         text,
@@ -148,7 +148,7 @@ SECURITY DEFINER
 STABLE
 AS $$
   SELECT
-    wm.week_start, wm.day_idx, wm.meal_type, wm.slot_role, wm.position,
+    wm.week_start, wm.day_idx, wm.meal_type, wm.slot_role, wm.position AS card_position,
     rb.id AS recipe_bank_id, rb.title, rb.cuisine_id, rb.dietary_tags,
     rb.ingredient_main, rb.protein_family,
     rb.prep_time_min, rb.cook_time_min, rb.servings,
