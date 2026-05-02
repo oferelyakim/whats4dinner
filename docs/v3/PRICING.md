@@ -43,7 +43,7 @@ The whole app — meal planning, shopping lists, events, chores, activities — 
 **Everything in Free, plus:**
 - ✨ Per-meal AI swap — *"make this vegan", "swap chicken for tofu"*
 - ✨ Pantry / leftover reroll — *"I have chicken and broccoli, what can I make?"*
-- ✨ Smart shopping consolidation — dedupe across the week, suggest bulk buys, build the cheapest cart
+- ✨ Smart shopping consolidation — dedupe ingredients across the week, add them to an existing or new shopping list
 - ✨ Unlimited recipe URL imports
 - ✨ AI event planner — adaptive questionnaire that proposes dishes / supplies / tasks / activities
 - ✨ AI chat assistant — quick actions in your circle

@@ -31,7 +31,7 @@ For App Store / Google Play submissions, journalists, podcast hosts, partnership
 >
 > **Coordinate the rest of family life.** Events and potlucks (claim/assign dishes, supplies, tasks). Chores rotation (daily/weekly/monthly). Recurring activities (soccer practice, piano lessons). All scoped to your circle — your household, your friend group, your event-specific group.
 >
-> **Optional Replanish AI ($6/mo or $60/yr).** For the daily-decision moments: swap a single meal ("make this vegan"), reroll based on what's in your pantry ("I have chicken and broccoli"), import unlimited recipes from any URL, and consolidate your shopping list into the cheapest cart.
+> **Optional Replanish AI ($6/mo or $60/yr).** For the daily-decision moments: swap a single meal ("make this vegan"), reroll based on what's in your pantry ("I have chicken and broccoli"), import unlimited recipes from any URL, and consolidate your week's ingredients into a single tidy shopping list.
 >
 > Free forever. No ads. No data sold. 14-day free trial on the annual AI plan.
 

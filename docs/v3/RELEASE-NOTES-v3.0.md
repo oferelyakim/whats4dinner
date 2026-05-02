@@ -60,7 +60,7 @@ Four hooks, all designed for daily-decision moments:
 | **Per-meal swap & personalize** | "Make this dinner vegan", "swap chicken for tofu", "lower carbs" — rewrites just the slot you tapped. |
 | **Pantry / leftover reroll** | "I have chicken and broccoli" → 3 dishes from the bank that match. |
 | **Unlimited recipe URL imports** | Free tier is capped at 10/month. AI users have no cap. |
-| **Smart shopping consolidation** | Dedupes ingredients across the week, suggests bulk buys, builds the cheapest cart. |
+| **Smart shopping consolidation** | Dedupes ingredients across the week's recipes; adds the result to an existing shopping list or creates a new one. |
 
 **Pricing unchanged:** $6/month or $60/year (14-day trial on annual). 4 seats included on annual — share with your household.
 

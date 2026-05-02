@@ -58,7 +58,7 @@ Yes. Everyone in the circle sees the same list in real time. Anyone can add item
 ## About Replanish AI
 
 ### What does Replanish AI actually do?
-Four things: swap a single meal ("make this dinner vegan"), reroll based on what you already have ("I've got chicken and broccoli"), import any recipe URL with no monthly cap, and consolidate your shopping list into the cheapest cart.
+Four things: swap a single meal ("make this dinner vegan"), reroll based on what you already have ("I've got chicken and broccoli"), import any recipe URL with no monthly cap, and consolidate your week's ingredients into one tidy shopping list (dedup across recipes, add to an existing or new list).
 
 ### Does AI plan my whole week?
 No. We deliberately don't do that. The weekly drop covers the "what should I eat this week" question for free. AI is for the "this dinner isn't quite right tonight" moment.

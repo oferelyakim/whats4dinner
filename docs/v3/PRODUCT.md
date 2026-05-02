@@ -39,7 +39,7 @@ Replanish is built around a single foundational unit — the **circle** (a house
 - Offline-first, real-time sync across the household.
 - Build automatically from selected recipes, or add ad-hoc.
 - Department sorting, store routes, item check-off.
-- **AI shopping consolidation** (paid): dedupe ingredients across the week, suggest bulk swaps, propose a Walmart cart.
+- **AI shopping consolidation** (paid): dedupe ingredients across the week, then add them to an existing shopping list or a new one — one tidy list instead of duplicate rows from each recipe.
 - **Walmart cart export** (v3.1, planned): one-tap send to Walmart's affiliate cart.
 
 ### 3. Events — *the coordination module*

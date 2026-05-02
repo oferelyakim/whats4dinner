@@ -110,7 +110,7 @@ Replanish AI is the *swap* — the moment when you've got a plan but tonight isn
 - **Per-meal swap & personalize** — "make this dinner vegan", "swap chicken for tofu", "lower carbs"
 - **Pantry / leftover reroll** — "I have chicken and broccoli" → 3 dishes that match
 - **Unlimited recipe imports** — save any recipe URL to your bank (free is capped at 10/month)
-- **Smart shopping consolidation** — dedupe across the week, suggest bulk buys, build the cheapest cart
+- **Smart shopping consolidation** — dedupe ingredients across the week's recipes, drop them into an existing or new shopping list
 
 **Pricing block:**
 - $6 / month
@@ -210,7 +210,7 @@ One tap. Your week's groceries land in your Walmart cart. Pickup or delivery —
 
 ### When you want AI in the loop
 
-Replanish AI is optional. $6/month. It handles the "actually, tonight isn't quite right" moments — swap a single dinner, reroll based on what's in your fridge, dedupe the shopping list, build a cheaper cart.
+Replanish AI is optional. $6/month. It handles the "actually, tonight isn't quite right" moments — swap a single dinner, reroll based on what's in your fridge, dedupe ingredients across the week's recipes into one tidy list.
 
 **CTA:** Try Replanish AI free for 14 days
 
