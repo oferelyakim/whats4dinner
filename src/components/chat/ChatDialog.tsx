@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, type FormEvent } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { useNavigate } from 'react-router-dom'
 import { X, Send, Sparkles, Trash2 } from 'lucide-react'
 import { useChat } from '@/hooks/useChat'
 import { useI18n } from '@/lib/i18n'
@@ -27,6 +28,7 @@ export function ChatDialog() {
     setShowUpgradeModal,
   } = useChat()
 
+  const navigate = useNavigate()
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -56,7 +58,10 @@ export function ChatDialog() {
     const msg = messages.find((m) => m.id === messageId)
     if (!msg?.action) return
     try {
-      await applyAction(msg.action)
+      // Auto-close the dialog when the action is a pure navigate so the
+      // user lands on the destination page instead of fighting the modal.
+      if (msg.action.type === 'navigate') closeChat()
+      await applyAction(msg.action, { navigate })
       updateMessage(messageId, { action: undefined })
     } catch (err) {
       addMessage({
@@ -66,7 +71,7 @@ export function ChatDialog() {
         timestamp: Date.now(),
       })
     }
-  }, [messages, applyAction, addMessage, updateMessage])
+  }, [messages, applyAction, addMessage, updateMessage, navigate, closeChat])
 
   const handleActionDismiss = useCallback((messageId: string) => {
     updateMessage(messageId, { action: undefined })
