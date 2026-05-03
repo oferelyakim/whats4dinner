@@ -1112,6 +1112,35 @@ const translations: Record<string, Record<Locale, string>> = {
   'event.planner.manage.startFreshHelp': { en: 'Run the questionnaire again. Your existing items stay on the event.', he: 'הרץ את השאלון שוב. הפריטים הקיימים יישארו באירוע.', es: 'Vuelve a hacer el cuestionario. Tus elementos actuales se mantienen.' },
   'event.planner.manage.startFresh': { en: 'New plan', he: 'תכנית חדשה', es: 'Nuevo plan' },
 
+  // Intent picker — shown when AI is opened on an event that already has items.
+  'event.planner.intent.title': { en: 'How do you want to plan this?', he: 'איך תרצה/י לתכנן?', es: '¿Cómo quieres planear esto?' },
+  'event.planner.intent.subtitle': { en: 'This event already has items. Pick a starting point.', he: 'באירוע הזה כבר יש פריטים. בחר/י נקודת התחלה.', es: 'Este evento ya tiene elementos. Elige un punto de partida.' },
+  'event.planner.intent.itemCount': { en: '{count} items currently on this event', he: '{count} פריטים נמצאים כעת באירוע', es: '{count} elementos actualmente en el evento' },
+  'event.planner.intent.add.title': { en: 'Add to existing items', he: 'הוסף לפריטים הקיימים', es: 'Agregar a los elementos existentes' },
+  'event.planner.intent.add.help': { en: "Keep what's on the event. AI will add new dishes, supplies, tasks, and activities on top.", he: 'שומר על מה שיש באירוע. ה-AI יוסיף מנות, ציוד, משימות ופעילויות חדשות מעל.', es: 'Conserva lo que ya está en el evento. La IA agregará nuevos platos, suministros, tareas y actividades.' },
+  'event.planner.intent.fresh.title': { en: 'Start from scratch', he: 'התחל מאפס', es: 'Empezar desde cero' },
+  'event.planner.intent.fresh.help': { en: 'Delete every existing item, then build a brand-new plan.', he: 'מחק את כל הפריטים הקיימים, ובנה תכנית חדשה לגמרי.', es: 'Elimina todos los elementos existentes y crea un plan nuevo.' },
+  'event.planner.intent.pick.title': { en: 'Pick what to remove first', he: 'בחר/י מה להסיר תחילה', es: 'Elegir qué quitar primero' },
+  'event.planner.intent.pick.help': { en: 'Choose specific items to delete, then plan additions on top of the rest.', he: 'בחר/י פריטים ספציפיים למחיקה, ואז נתכנן תוספות מעל מה שנשאר.', es: 'Elige elementos específicos para eliminar y planea adiciones sobre el resto.' },
+  'event.planner.intent.fresh.confirmTitle': { en: 'Delete every item?', he: 'למחוק את כל הפריטים?', es: '¿Eliminar todos los elementos?' },
+  'event.planner.intent.fresh.confirmBody': { en: "All {count} dishes, supplies, tasks, and activities will be removed from this event. This can't be undone.", he: 'כל {count} המנות, הציוד, המשימות והפעילויות יוסרו מהאירוע. לא ניתן לבטל.', es: 'Todos los {count} platos, suministros, tareas y actividades se eliminarán del evento. No se puede deshacer.' },
+  'event.planner.intent.fresh.confirmCta': { en: 'Delete & start fresh', he: 'מחק והתחל מחדש', es: 'Eliminar y empezar de nuevo' },
+
+  // Pick-to-remove sub-flow.
+  'event.planner.pick.title': { en: 'Pick items to remove', he: 'בחר/י פריטים להסרה', es: 'Elige elementos para quitar' },
+  'event.planner.pick.subtitle': { en: 'Tap items you want to delete. Untouched items stay on the event.', he: 'הקש/י על פריטים שתרצה/י למחוק. פריטים שלא סומנו יישארו באירוע.', es: 'Toca los elementos que quieras eliminar. Los demás se quedan.' },
+  'event.planner.pick.selected': { en: '{count} selected to delete', he: '{count} נבחרו למחיקה', es: '{count} seleccionados para eliminar' },
+  'event.planner.pick.deleteSelected': { en: 'Delete & continue', he: 'מחק והמשך', es: 'Eliminar y continuar' },
+  'event.planner.pick.skipSelection': { en: "Skip — don't delete anything", he: 'דלג — אל תמחק כלום', es: 'Saltar — no eliminar nada' },
+  'event.planner.pick.back': { en: 'Back to choices', he: 'חזרה לאפשרויות', es: 'Volver a las opciones' },
+  'event.planner.pick.confirmTitle': { en: 'Delete {count} items?', he: 'למחוק {count} פריטים?', es: '¿Eliminar {count} elementos?' },
+  'event.planner.pick.confirmBody': { en: "These items will be removed from the event. This can't be undone.", he: 'הפריטים האלה יוסרו מהאירוע. לא ניתן לבטל.', es: 'Estos elementos se eliminarán del evento. No se puede deshacer.' },
+  'event.planner.pick.empty': { en: 'No items on this event yet.', he: 'עדיין אין פריטים באירוע.', es: 'Aún no hay elementos en el evento.' },
+
+  // Confirm dialog used on Menu / Supplies / Tasks list X buttons (EventDetailPage).
+  'event.item.deleteConfirmTitle': { en: 'Remove this item?', he: 'להסיר את הפריט?', es: '¿Eliminar este elemento?' },
+  'event.item.deleteConfirmBody': { en: 'This deletes "{name}" from the event for everyone.', he: 'הפעולה תמחק את "{name}" מהאירוע לכולם.', es: 'Se eliminará "{name}" del evento para todos.' },
+
   // Question prompts
   'event.planner.q.archetype': { en: "What kind of gathering?", he: 'איזה סוג אירוע?', es: '¿Qué tipo de reunión?' },
   'event.planner.q.archetype.help': { en: 'Pick the closest match — I\'ll tune everything from here.', he: 'בחר/י את הקרוב ביותר — אני אתאים את הכל לפי זה.', es: 'Elige lo más cercano — ajustaré todo desde ahí.' },

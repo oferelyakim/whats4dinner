@@ -152,6 +152,41 @@ export class EventPlanEngine {
     }
   }
 
+  /**
+   * Wipe planner state for an event so the questionnaire starts from scratch.
+   * Clears in-memory state + DB (events.questionnaire / draft_plan / archetype).
+   * Does NOT touch event_items — caller decides whether to wipe those too.
+   */
+  async reset(eventId: string): Promise<PlannerState> {
+    this.cancel(eventId)
+    this.states.delete(eventId)
+    this.plans.delete(eventId)
+    if (this.supabase) {
+      try {
+        await this.supabase
+          .from('events')
+          .update({ questionnaire: {}, draft_plan: null, archetype: null })
+          .eq('id', eventId)
+      } catch (err) {
+        console.warn('[EventPlanEngine] reset: db update failed', err)
+      }
+    }
+    const fresh: PlannerState = {
+      eventId,
+      phase: 'intake',
+      archetype: null,
+      answers: {},
+      freeText: '',
+      pendingQuestionId: null,
+      startedAt: now(),
+      updatedAt: now(),
+    }
+    this.states.set(eventId, fresh)
+    this.emitState(eventId)
+    this.emitNextQuestion(eventId)
+    return fresh
+  }
+
   // ─── Intake (free-text NLU) ─────────────────────────────────────────────
 
   /**

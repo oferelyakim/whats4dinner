@@ -260,6 +260,17 @@ export async function deleteEventItem(itemId: string): Promise<void> {
   if (error) throw error
 }
 
+export async function deleteEventItems(itemIds: string[]): Promise<void> {
+  if (itemIds.length === 0) return
+  const { error } = await supabase.from('event_items').delete().in('id', itemIds)
+  if (error) throw error
+}
+
+export async function deleteAllEventItems(eventId: string): Promise<void> {
+  const { error } = await supabase.from('event_items').delete().eq('event_id', eventId)
+  if (error) throw error
+}
+
 // Organizers
 
 export async function getEventOrganizers(eventId: string): Promise<EventOrganizer[]> {

@@ -10,6 +10,7 @@ import { getShareOrigin } from '@/lib/url'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { formatQuantity } from '@/lib/format'
@@ -65,6 +66,7 @@ export function EventDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showAddItem, setShowAddItem] = useState(false)
   const [showDeleteEvent, setShowDeleteEvent] = useState(false)
+  const [pendingItemDelete, setPendingItemDelete] = useState<{ id: string; name: string } | null>(null)
   const [copied, setCopied] = useState(false)
   // Add item form
   const [addType, setAddType] = useState<'dish' | 'supply' | 'task'>('dish')
@@ -500,7 +502,7 @@ export function EventDetailPage() {
           onClaim={(itemId) => claimMutation.mutate(itemId)}
           onUnclaim={(itemId) => unclaimMutation.mutate(itemId)}
           onStatusChange={(itemId, status) => statusMutation.mutate({ itemId, status })}
-          onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
+          onDelete={(itemId, itemName) => setPendingItemDelete({ id: itemId, name: itemName })}
           onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
           onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
           onAssign={(itemId, userId) => assignMutation.mutate({ itemId, userId })}
@@ -520,7 +522,7 @@ export function EventDetailPage() {
           onClaim={(itemId) => claimMutation.mutate(itemId)}
           onUnclaim={(itemId) => unclaimMutation.mutate(itemId)}
           onStatusChange={(itemId, status) => statusMutation.mutate({ itemId, status })}
-          onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
+          onDelete={(itemId, itemName) => setPendingItemDelete({ id: itemId, name: itemName })}
           onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
           onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
           onAssign={(itemId, userId) => assignMutation.mutate({ itemId, userId })}
@@ -539,7 +541,7 @@ export function EventDetailPage() {
           onClaim={(itemId) => claimMutation.mutate(itemId)}
           onUnclaim={(itemId) => unclaimMutation.mutate(itemId)}
           onStatusChange={(itemId, status) => statusMutation.mutate({ itemId, status })}
-          onDelete={(itemId) => deleteItemMutation.mutate(itemId)}
+          onDelete={(itemId, itemName) => setPendingItemDelete({ id: itemId, name: itemName })}
           onUpdateNotes={(itemId, notes) => updateNotesMutation.mutate({ itemId, notes })}
           onRespond={(itemId, accept) => respondMutation.mutate({ itemId, accept })}
           onAssign={(itemId, userId) => assignMutation.mutate({ itemId, userId })}
@@ -750,6 +752,23 @@ export function EventDetailPage() {
         </Dialog.Portal>
       </Dialog.Root>
 
+      {/* Item delete confirm */}
+      <ConfirmDialog
+        open={!!pendingItemDelete}
+        onOpenChange={(open) => {
+          if (!open) setPendingItemDelete(null)
+        }}
+        title={t('event.item.deleteConfirmTitle')}
+        description={t('event.item.deleteConfirmBody').replace('{name}', pendingItemDelete?.name ?? '')}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={async () => {
+          if (pendingItemDelete) {
+            await deleteItemMutation.mutateAsync(pendingItemDelete.id)
+          }
+        }}
+      />
+
       {/* Delete Event Dialog */}
       <Dialog.Root open={showDeleteEvent} onOpenChange={setShowDeleteEvent}>
         <Dialog.Portal>
@@ -786,7 +805,7 @@ function ItemList({
   onClaim: (id: string) => void
   onUnclaim: (id: string) => void
   onStatusChange: (id: string, status: string) => void
-  onDelete: (id: string) => void
+  onDelete: (id: string, name: string) => void
   onUpdateNotes?: (id: string, notes: string) => void
   onRespond?: (id: string, accept: boolean) => void
   onAssign?: (itemId: string, userId: string) => void
@@ -844,7 +863,7 @@ function ItemList({
                         {type === 'task' ? t('event.illDoIt') : t('event.illBringIt')}
                       </Button>
                       {isOrganizer && (
-                        <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-danger">
+                        <button onClick={() => onDelete(item.id, item.name)} className="text-slate-400 hover:text-danger">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       )}
@@ -931,7 +950,7 @@ function ItemRow({
   isOrganizer: boolean
   onUnclaim: (id: string) => void
   onStatusChange: (id: string, status: string) => void
-  onDelete: (id: string) => void
+  onDelete: (id: string, name: string) => void
   onUpdateNotes?: (id: string, notes: string) => void
   onRespond?: (id: string, accept: boolean) => void
 }) {
@@ -989,7 +1008,7 @@ function ItemRow({
         )}
 
         {isOrganizer && (
-          <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-danger shrink-0">
+          <button onClick={() => onDelete(item.id, item.name)} className="text-slate-400 hover:text-danger shrink-0">
             <Trash2 className="h-3 w-3" />
           </button>
         )}

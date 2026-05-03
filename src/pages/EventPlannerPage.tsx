@@ -10,21 +10,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Sparkles, X, ChevronLeft, Trash2, MessageCircle, Plus } from 'lucide-react'
+import { ArrowLeft, Sparkles, X, ChevronLeft, Trash2, MessageCircle, Layers, Sparkle, ListChecks, Check } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import { useToast } from '@/components/ui/Toast'
 import {
   getEvent,
   getEventItems,
-  addEventItem,
-  deleteEventItem,
-  type EventItem,
+  deleteEventItems,
+  deleteAllEventItems,
 } from '@/services/events'
 import { supabase } from '@/services/supabase'
 import { logAIUsage } from '@/services/ai-usage'
@@ -70,10 +70,16 @@ export function EventPlannerPage() {
   const [isRevising, setIsRevising] = useState(false)
   const [tellMoreOpen, setTellMoreOpen] = useState(false)
   const [tellMoreText, setTellMoreText] = useState('')
-  // manage-mode is computed UI state (NOT persisted in engine state). It
+  // intent-mode is computed UI state (NOT persisted in engine state). It
   // overrides phase rendering when there are already applied event_items —
-  // i.e. the user has used the planner before and wants to edit, not re-plan.
-  const [manageMode, setManageMode] = useState(false)
+  // i.e. the user opened the AI planner on an event that already has dishes /
+  // supplies / tasks. We ask them how to proceed (add on top, wipe, or pick
+  // what to remove) BEFORE running the questionnaire.
+  // intentResolved flips true once the user chooses; from then on the normal
+  // engine phase machine drives the UI.
+  const [intentResolved, setIntentResolved] = useState(false)
+  const [hasExistingItems, setHasExistingItems] = useState(false)
+  const [existingItemCount, setExistingItemCount] = useState(0)
 
   // ─── Event lookup (for header) ──────────────────────────────────────────
   const { data: event } = useQuery({
@@ -99,13 +105,16 @@ export function EventPlannerPage() {
         setDraft(engine.getPlan(eventId))
 
         // Probe for existing applied items. If anything is already on the
-        // event, default to manage-mode — that's the only way to avoid the
-        // blank-page when the engine state says "applied" but the in-memory
-        // draft is null (apply() clears events.draft_plan).
+        // event, route through the intent picker so the user explicitly
+        // chooses add-vs-wipe-vs-pick before we start a fresh questionnaire.
+        // (Without this we'd land on a blank page when the engine state says
+        // "applied" but the in-memory draft is null — apply() clears
+        // events.draft_plan but persists phase='applied'.)
         try {
           const items = await getEventItems(eventId)
           if (!cancelled && (items.length > 0 || initial.phase === 'applied')) {
-            setManageMode(true)
+            setHasExistingItems(true)
+            setExistingItemCount(items.length)
           }
         } catch {
           // non-fatal — keep the flow open
@@ -306,95 +315,117 @@ export function EventPlannerPage() {
           </div>
         )}
 
-        {manageMode && eventId ? (
-          <PlanManage
+        {hasExistingItems && !intentResolved && eventId ? (
+          <PlanIntent
             eventId={eventId}
-            circleId={event?.circle_id ?? null}
-            onStartFresh={() => {
-              setManageMode(false)
-              // Reset draft so the propose path can run again
+            itemCount={existingItemCount}
+            onResolved={async ({ wipe }) => {
+              // wipe == true means "Start fresh" or pick-to-remove already
+              // ran its own deletes; either way reset the engine state so the
+              // questionnaire restarts with no leftover answers from a prior
+              // session.
+              await engine.reset(eventId)
               setDraft(null)
+              setErrorMessage(null)
+              setIntentResolved(true)
+              if (wipe) {
+                setHasExistingItems(false)
+                setExistingItemCount(0)
+              } else {
+                // Refresh count for any items the user removed via pick.
+                try {
+                  const items = await getEventItems(eventId)
+                  setExistingItemCount(items.length)
+                  setHasExistingItems(items.length > 0)
+                } catch {
+                  // ignore
+                }
+              }
+              queryClient.invalidateQueries({ queryKey: ['event-items', eventId] })
             }}
+            onCancel={() => navigate(`/events/${eventId}`)}
           />
-        ) : null}
+        ) : (
+          <>
+            {phase === 'intake' && (
+              <PlannerIntake
+                initialText={state?.freeText ?? ''}
+                onSubmit={(text) => handleIntakeSubmit(text)}
+                onSkip={() => handleIntakeSubmit('', { skip: true })}
+              />
+            )}
 
-        {!manageMode && phase === 'intake' && (
-          <PlannerIntake
-            initialText={state?.freeText ?? ''}
-            onSubmit={(text) => handleIntakeSubmit(text)}
-            onSkip={() => handleIntakeSubmit('', { skip: true })}
-          />
-        )}
+            {phase === 'questionnaire' && nextQuestionId && state && (
+              <QuestionTurn
+                key={nextQuestionId}
+                question={getQuestion(nextQuestionId)!}
+                engine={engine}
+                eventId={eventId}
+                onAnswer={(value) => handleAnswer(nextQuestionId, value)}
+                onSkip={handleSkipCurrentQuestion}
+                onBack={Object.keys(state.answers).length > 0 ? handleBack : undefined}
+                onTellMore={() => {
+                  setTellMoreText(state?.freeText ?? '')
+                  setTellMoreOpen(true)
+                }}
+              />
+            )}
 
-        {!manageMode && phase === 'questionnaire' && nextQuestionId && state && (
-          <QuestionTurn
-            key={nextQuestionId}
-            question={getQuestion(nextQuestionId)!}
-            engine={engine}
-            eventId={eventId}
-            onAnswer={(value) => handleAnswer(nextQuestionId, value)}
-            onSkip={handleSkipCurrentQuestion}
-            onBack={Object.keys(state.answers).length > 0 ? handleBack : undefined}
-            onTellMore={() => {
-              setTellMoreText(state?.freeText ?? '')
-              setTellMoreOpen(true)
-            }}
-          />
-        )}
+            {phase === 'questionnaire' && !nextQuestionId && (
+              <Card className="p-6 text-center space-y-4">
+                <Sparkles className="h-10 w-10 text-rp-brand mx-auto" />
+                <p className="font-display text-2xl italic text-rp-ink">
+                  {t('event.planner.review.title')}
+                </p>
+                <p className="text-sm text-rp-ink-soft">
+                  {t('event.planner.subtitle')}
+                </p>
+                <Button onClick={handlePropose} className="w-full">
+                  {t('event.planner.review.title')}
+                </Button>
+              </Card>
+            )}
 
-        {!manageMode && phase === 'questionnaire' && !nextQuestionId && (
-          <Card className="p-6 text-center space-y-4">
-            <Sparkles className="h-10 w-10 text-rp-brand mx-auto" />
-            <p className="font-display text-2xl italic text-rp-ink">
-              {t('event.planner.review.title')}
-            </p>
-            <p className="text-sm text-rp-ink-soft">
-              {t('event.planner.subtitle')}
-            </p>
-            <Button onClick={handlePropose} className="w-full">
-              {t('event.planner.review.title')}
-            </Button>
-          </Card>
-        )}
+            {phase === 'proposing' && (
+              <Card className="p-8 text-center space-y-4">
+                <div className="h-12 w-12 mx-auto rounded-full bg-gradient-to-br from-rp-brand to-purple-500 flex items-center justify-center">
+                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </div>
+                <p className="font-display text-xl italic text-rp-ink">
+                  {t('event.planner.proposing')}
+                </p>
+                <Button variant="secondary" onClick={handleCancelInflight}>
+                  {t('event.planner.cancel')}
+                </Button>
+              </Card>
+            )}
 
-        {!manageMode && phase === 'proposing' && (
-          <Card className="p-8 text-center space-y-4">
-            <div className="h-12 w-12 mx-auto rounded-full bg-gradient-to-br from-rp-brand to-purple-500 flex items-center justify-center">
-              <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            </div>
-            <p className="font-display text-xl italic text-rp-ink">
-              {t('event.planner.proposing')}
-            </p>
-            <Button variant="secondary" onClick={handleCancelInflight}>
-              {t('event.planner.cancel')}
-            </Button>
-          </Card>
-        )}
+            {(phase === 'proposal' || phase === 'applying' || phase === 'applied') && draft && (
+              <PlanReview
+                draft={draft}
+                engine={engine}
+                eventId={eventId}
+                isApplying={phase === 'applying'}
+                reviseInstruction={reviseInstruction}
+                onReviseInstructionChange={setReviseInstruction}
+                isRevising={isRevising}
+                onRevise={handleRevise}
+                onApply={handleApply}
+              />
+            )}
 
-        {!manageMode && (phase === 'proposal' || phase === 'applying' || phase === 'applied') && draft && (
-          <PlanReview
-            draft={draft}
-            engine={engine}
-            eventId={eventId}
-            isApplying={phase === 'applying'}
-            reviseInstruction={reviseInstruction}
-            onReviseInstructionChange={setReviseInstruction}
-            isRevising={isRevising}
-            onRevise={handleRevise}
-            onApply={handleApply}
-          />
-        )}
-
-        {!manageMode && phase === 'error' && (
-          <Card className="p-6 space-y-3">
-            <p className="font-display text-xl italic text-rp-ink">
-              {t('event.planner.error.title')}
-            </p>
-            <p className="text-sm text-rp-ink-soft">
-              {state?.errorMessage ?? errorMessage ?? '—'}
-            </p>
-            <Button onClick={handlePropose}>{t('event.planner.error.retry')}</Button>
-          </Card>
+            {phase === 'error' && (
+              <Card className="p-6 space-y-3">
+                <p className="font-display text-xl italic text-rp-ink">
+                  {t('event.planner.error.title')}
+                </p>
+                <p className="text-sm text-rp-ink-soft">
+                  {state?.errorMessage ?? errorMessage ?? '—'}
+                </p>
+                <Button onClick={handlePropose}>{t('event.planner.error.retry')}</Button>
+              </Card>
+            )}
+          </>
         )}
       </div>
 
@@ -1009,202 +1040,331 @@ function TellMoreSheet({
   )
 }
 
-// ─── PlanManage ────────────────────────────────────────────────────────────
+// ─── PlanIntent ────────────────────────────────────────────────────────────
 //
-// Edit-existing-plan mode. Loads `event_items` directly (the source of
-// truth post-apply) and lets the user add/remove dishes, supplies, tasks,
-// and activities. Reuses the existing event-services CRUD so nothing
-// here needs new RPCs.
+// Shown when the AI planner is opened on an event that already has items.
+// Three options:
+//   1. Add to existing items — straight to questionnaire, new items append.
+//   2. Start from scratch — confirm → wipe ALL event_items → questionnaire.
+//   3. Pick what to remove — sub-screen lets user select items to delete,
+//      then proceed to questionnaire (additions land on top of the rest).
 //
-// Avoids the blank-page bug from EventPlanEngine.apply() clearing
-// events.draft_plan but keeping phase='applied' — when the engine is
-// loaded later, draft is null and the original PlanReview branch can't
-// render. PlanManage doesn't depend on draft at all.
+// onResolved({ wipe }) — called once the user is ready to start the AI
+// questionnaire. wipe=true means we already deleted items (start-fresh OR
+// pick-and-remove) so the page should refresh its existing-items count.
 
-function PlanManage({
+function PlanIntent({
   eventId,
-  circleId: _circleId,
-  onStartFresh,
+  itemCount,
+  onResolved,
+  onCancel,
 }: {
   eventId: string
-  circleId: string | null
-  onStartFresh: () => void
+  itemCount: number
+  onResolved: (opts: { wipe: boolean }) => Promise<void> | void
+  onCancel: () => void
 }) {
   const { t } = useI18n()
-  const queryClient = useQueryClient()
-  const { data: items = [], isLoading } = useQuery({
-    queryKey: ['event-items', eventId],
-    queryFn: () => getEventItems(eventId),
-  })
+  const toast = useToast()
+  const [showFreshConfirm, setShowFreshConfirm] = useState(false)
+  const [pickMode, setPickMode] = useState(false)
+  const [busy, setBusy] = useState(false)
 
-  const dishes = items.filter((it) => it.type === 'dish')
-  const supplies = items.filter((it) => it.type === 'supply')
-  const tasks = items.filter((it) => it.type === 'task' && it.category !== 'activity')
-  const activities = items.filter((it) => it.type === 'task' && it.category === 'activity')
-
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['event-items', eventId] })
+  if (pickMode) {
+    return (
+      <PickItemsToRemove
+        eventId={eventId}
+        onBack={() => setPickMode(false)}
+        onDone={async () => {
+          await onResolved({ wipe: true })
+        }}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">
       <Card className="p-5 space-y-2">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-mono text-rp-brand">
           <Sparkles className="h-3 w-3" />
-          {t('event.planner.manage.title')}
+          {t('event.planner.intent.title')}
         </div>
-        <p className="text-sm text-rp-ink-soft">
-          {isLoading ? t('common.loading') : t('event.planner.manage.subtitle')}
+        <p className="font-display text-2xl italic text-rp-ink leading-tight">
+          {t('event.planner.intent.subtitle')}
+        </p>
+        <p className="text-xs text-rp-ink-mute">
+          {t('event.planner.intent.itemCount').replace('{count}', String(itemCount))}
         </p>
       </Card>
 
-      <ManageSection
-        title={t('event.planner.review.dishes')}
-        type="dish"
-        items={dishes}
-        eventId={eventId}
-        onChanged={refresh}
+      <IntentChoice
+        icon={<Layers className="h-5 w-5" />}
+        title={t('event.planner.intent.add.title')}
+        help={t('event.planner.intent.add.help')}
+        onClick={async () => {
+          if (busy) return
+          setBusy(true)
+          try {
+            await onResolved({ wipe: false })
+          } finally {
+            setBusy(false)
+          }
+        }}
+        disabled={busy}
       />
-      <ManageSection
-        title={t('event.planner.review.supplies')}
-        type="supply"
-        items={supplies}
-        eventId={eventId}
-        onChanged={refresh}
+      <IntentChoice
+        icon={<Sparkle className="h-5 w-5" />}
+        title={t('event.planner.intent.fresh.title')}
+        help={t('event.planner.intent.fresh.help')}
+        onClick={() => setShowFreshConfirm(true)}
+        destructive
+        disabled={busy}
       />
-      <ManageSection
-        title={t('event.planner.review.tasks')}
-        type="task"
-        category="other"
-        items={tasks}
-        eventId={eventId}
-        onChanged={refresh}
-      />
-      <ManageSection
-        title={t('event.planner.review.activities')}
-        type="task"
-        category="activity"
-        items={activities}
-        eventId={eventId}
-        onChanged={refresh}
+      <IntentChoice
+        icon={<ListChecks className="h-5 w-5" />}
+        title={t('event.planner.intent.pick.title')}
+        help={t('event.planner.intent.pick.help')}
+        onClick={() => setPickMode(true)}
+        disabled={busy}
       />
 
-      <Card className="p-4 space-y-2">
-        <p className="text-xs uppercase tracking-wider font-mono text-rp-ink-mute">
-          {t('event.planner.manage.startFreshTitle')}
-        </p>
-        <p className="text-xs text-rp-ink-soft">
-          {t('event.planner.manage.startFreshHelp')}
-        </p>
-        <Button variant="secondary" onClick={onStartFresh} className="w-full">
-          {t('event.planner.manage.startFresh')}
-        </Button>
-      </Card>
+      <button
+        onClick={onCancel}
+        className="w-full text-xs text-rp-ink-mute hover:text-rp-ink py-3"
+      >
+        {t('common.cancel')}
+      </button>
+
+      <ConfirmDialog
+        open={showFreshConfirm}
+        onOpenChange={setShowFreshConfirm}
+        title={t('event.planner.intent.fresh.confirmTitle')}
+        description={t('event.planner.intent.fresh.confirmBody').replace('{count}', String(itemCount))}
+        confirmLabel={t('event.planner.intent.fresh.confirmCta')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={async () => {
+          if (busy) return
+          setBusy(true)
+          try {
+            await deleteAllEventItems(eventId)
+            await onResolved({ wipe: true })
+          } catch (err) {
+            toast.error((err as Error).message ?? 'Failed to delete items')
+          } finally {
+            setBusy(false)
+          }
+        }}
+      />
     </div>
   )
 }
 
-function ManageSection({
+function IntentChoice({
+  icon,
   title,
-  type,
-  category,
-  items,
-  eventId,
-  onChanged,
+  help,
+  onClick,
+  destructive = false,
+  disabled = false,
 }: {
+  icon: React.ReactNode
   title: string
-  type: 'dish' | 'supply' | 'task'
-  category?: string
-  items: EventItem[]
+  help: string
+  onClick: () => void
+  destructive?: boolean
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'w-full text-start rounded-2xl p-4 transition-all border bg-rp-card',
+        'hover:border-rp-brand active:scale-[0.99] disabled:opacity-50',
+        destructive ? 'border-rp-hairline hover:border-red-400' : 'border-rp-hairline',
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
+            destructive ? 'bg-red-50 text-red-600 dark:bg-red-950/30' : 'bg-rp-bg-soft text-rp-brand',
+          )}
+        >
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-rp-ink">{title}</p>
+          <p className="text-xs text-rp-ink-soft mt-0.5 leading-snug">{help}</p>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// ─── PickItemsToRemove ─────────────────────────────────────────────────────
+//
+// Sub-screen of PlanIntent. Lists every event_item with a checkbox; user
+// taps the ones they want gone, confirms, we batch-delete, then proceed.
+
+function PickItemsToRemove({
+  eventId,
+  onBack,
+  onDone,
+}: {
   eventId: string
-  onChanged: () => void
+  onBack: () => void
+  onDone: () => Promise<void> | void
 }) {
   const { t } = useI18n()
-  const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState('')
+  const toast = useToast()
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showConfirm, setShowConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['event-items', eventId],
+    queryFn: () => getEventItems(eventId),
+  })
 
-  async function handleAdd() {
-    const name = draft.trim()
-    if (!name) return
-    setBusy(true)
-    try {
-      await addEventItem(eventId, {
-        type,
-        name,
-        category: category ?? (type === 'dish' ? 'other' : type === 'supply' ? 'other' : 'other'),
-      })
-      setDraft('')
-      setAdding(false)
-      onChanged()
-    } finally {
-      setBusy(false)
-    }
-  }
+  const sectioned = useMemo(() => {
+    const dishes = items.filter((it) => it.type === 'dish')
+    const supplies = items.filter((it) => it.type === 'supply')
+    const tasks = items.filter((it) => it.type === 'task' && it.category !== 'activity')
+    const activities = items.filter((it) => it.type === 'task' && it.category === 'activity')
+    return [
+      { titleKey: 'event.planner.review.dishes', items: dishes },
+      { titleKey: 'event.planner.review.supplies', items: supplies },
+      { titleKey: 'event.planner.review.tasks', items: tasks },
+      { titleKey: 'event.planner.review.activities', items: activities },
+    ].filter((s) => s.items.length > 0)
+  }, [items])
 
-  async function handleRemove(itemId: string) {
-    setBusy(true)
-    try {
-      await deleteEventItem(itemId)
-      onChanged()
-    } finally {
-      setBusy(false)
-    }
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   return (
-    <Card className="p-4 space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-wider font-mono text-rp-ink-mute">{title}</p>
+    <div className="space-y-4">
+      <Card className="p-5 space-y-2">
         <button
-          type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="p-1 rounded text-rp-ink-mute hover:text-rp-brand"
-          aria-label={t('event.planner.manage.add')}
+          onClick={onBack}
+          className="text-xs flex items-center gap-1 text-rp-ink-mute hover:text-rp-ink"
         >
-          <Plus className="h-4 w-4" />
+          <ChevronLeft className="h-3 w-3" />
+          {t('event.planner.pick.back')}
         </button>
-      </div>
+        <p className="font-display text-2xl italic text-rp-ink leading-tight">
+          {t('event.planner.pick.title')}
+        </p>
+        <p className="text-sm text-rp-ink-soft">{t('event.planner.pick.subtitle')}</p>
+      </Card>
 
-      {items.length === 0 && !adding && (
-        <p className="text-xs text-rp-ink-mute italic">{t('event.planner.manage.empty')}</p>
-      )}
-
-      <ul className="divide-y divide-rp-hairline">
-        {items.map((it) => (
-          <li key={it.id} className="flex items-start gap-2 py-2 text-sm">
-            <div className="flex-1 min-w-0">
-              <p className="text-rp-ink truncate">{it.name}</p>
-              {it.notes && <p className="text-xs text-rp-ink-mute truncate">{it.notes}</p>}
-            </div>
-            <button
-              type="button"
-              onClick={() => handleRemove(it.id)}
-              disabled={busy}
-              className="p-1 rounded text-rp-ink-mute hover:text-red-600 disabled:opacity-50"
-              aria-label={t('common.delete')}
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      {adding && (
-        <div className="flex items-center gap-2 pt-2">
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={t('event.planner.manage.addPlaceholder')}
-            className="flex-1"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAdd()
-            }}
-          />
-          <Button onClick={handleAdd} disabled={busy || !draft.trim()}>
-            {t('event.planner.manage.add')}
+      {isLoading ? (
+        <Card className="p-4 text-center text-sm text-rp-ink-mute">{t('common.loading')}</Card>
+      ) : items.length === 0 ? (
+        <Card className="p-6 text-center space-y-3">
+          <p className="text-sm text-rp-ink-soft">{t('event.planner.pick.empty')}</p>
+          <Button onClick={() => onDone()} className="w-full">
+            {t('event.planner.next')}
           </Button>
-        </div>
+        </Card>
+      ) : (
+        <>
+          {sectioned.map((section) => (
+            <Card key={section.titleKey} className="p-4 space-y-2">
+              <p className="text-xs uppercase tracking-wider font-mono text-rp-ink-mute">
+                {t(section.titleKey)}
+              </p>
+              <ul className="divide-y divide-rp-hairline">
+                {section.items.map((it) => {
+                  const checked = selectedIds.has(it.id)
+                  return (
+                    <li key={it.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggle(it.id)}
+                        className="w-full flex items-center gap-3 py-2 text-start"
+                      >
+                        <span
+                          className={cn(
+                            'h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
+                            checked
+                              ? 'bg-red-600 border-red-600'
+                              : 'border-rp-hairline bg-rp-bg-soft',
+                          )}
+                        >
+                          {checked && <Check className="h-3 w-3 text-white" />}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={cn(
+                              'text-sm truncate',
+                              checked ? 'line-through text-rp-ink-mute' : 'text-rp-ink',
+                            )}
+                          >
+                            {it.name}
+                          </p>
+                          {it.notes && (
+                            <p className="text-xs text-rp-ink-mute truncate">{it.notes}</p>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
+          ))}
+
+          <div className="sticky bottom-0 bg-rp-bg pt-3 pb-2 -mx-4 px-4 space-y-2">
+            <p className="text-xs text-center text-rp-ink-mute">
+              {t('event.planner.pick.selected').replace('{count}', String(selectedIds.size))}
+            </p>
+            <Button
+              onClick={() => {
+                if (selectedIds.size === 0) {
+                  void onDone()
+                } else {
+                  setShowConfirm(true)
+                }
+              }}
+              disabled={busy}
+              className="w-full"
+            >
+              {selectedIds.size === 0
+                ? t('event.planner.pick.skipSelection')
+                : t('event.planner.pick.deleteSelected')}
+            </Button>
+          </div>
+        </>
       )}
-    </Card>
+
+      <ConfirmDialog
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title={t('event.planner.pick.confirmTitle').replace('{count}', String(selectedIds.size))}
+        description={t('event.planner.pick.confirmBody')}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={async () => {
+          if (busy || selectedIds.size === 0) return
+          setBusy(true)
+          try {
+            await deleteEventItems(Array.from(selectedIds))
+            await onDone()
+          } catch (err) {
+            toast.error((err as Error).message ?? 'Failed to delete items')
+          } finally {
+            setBusy(false)
+          }
+        }}
+      />
+    </div>
   )
 }
