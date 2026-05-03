@@ -16,6 +16,11 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { loadCircleContext } from '../_shared/circle-context.ts'
 import { anthropicWithRetry, AnthropicRateLimitError } from '../_shared/anthropic.ts'
+import {
+  AIQuotaExceededError,
+  assertAIQuotaAvailable,
+  quotaErrorResponse,
+} from '../_shared/ai-usage-cap.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,7 +34,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const INPUT_COST_PER_1M = 1.0
 const OUTPUT_COST_PER_1M = 5.0
-const APP_VERSION = '1.20.0'
+const APP_VERSION = '3.2.2'
 const DEPLOYED_AT = '2026-04-26T00:00:00Z'
 
 const MIN_INTAKE_CHARS = 12
@@ -321,6 +326,17 @@ serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Server-side AI cost cap. Client `useAIAccess` covers this for normal
+    // flows; this guards against direct functions.invoke() bypasses.
+    try {
+      await assertAIQuotaAvailable(supabase, user.id)
+    } catch (err) {
+      if (err instanceof AIQuotaExceededError) {
+        return quotaErrorResponse(err, corsHeaders)
+      }
+      throw err
     }
 
     const body = (await req.json()) as EngineRequest

@@ -1,6 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { loadCircleContext } from '../_shared/circle-context.ts'
+import {
+  AIQuotaExceededError,
+  assertAIQuotaAvailable,
+  quotaErrorResponse,
+} from '../_shared/ai-usage-cap.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -288,6 +293,17 @@ serve(async (req) => {
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
+    }
+
+    // Server-side AI cost cap. The client `useAIAccess` hook gates the same
+    // thing but can be bypassed by a direct functions.invoke() call.
+    try {
+      await assertAIQuotaAvailable(supabase, user.id)
+    } catch (err) {
+      if (err instanceof AIQuotaExceededError) {
+        return quotaErrorResponse(err, corsHeaders)
+      }
+      throw err
     }
 
     const { messages, circleId, locale } = await req.json()

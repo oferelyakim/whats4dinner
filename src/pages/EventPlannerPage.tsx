@@ -7,7 +7,7 @@
 // Phases: intake → questionnaire (loop) → proposing → proposal (review) →
 // applying → applied. Entry from EventDetailPage banner.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Sparkles, X, ChevronLeft, Trash2, MessageCircle } from 'lucide-react'
@@ -35,13 +35,14 @@ import type {
 
 // Page-level engine instance — distinct from the meal engine. We don't use
 // the singleton from getEventEngine() because tests need fresh state per
-// run; a per-page instance is cheap.
+// run; a per-page instance is cheap. `useState` with an initializer creates
+// the engine exactly once per mount (vs. `useRef` which would require reading
+// `.current` during render — a Rules-of-Hooks violation under React 19).
 const useEngine = () => {
-  const ref = useRef<EventPlanEngine | null>(null)
-  if (!ref.current) {
-    ref.current = new EventPlanEngine(supabase as unknown as never)
-  }
-  return ref.current
+  const [engine] = useState<EventPlanEngine>(
+    () => new EventPlanEngine(supabase as unknown as never),
+  )
+  return engine
 }
 
 export function EventPlannerPage() {
@@ -102,14 +103,16 @@ export function EventPlannerPage() {
     }
   }, [engine, eventId, event?.circle_id])
 
-  if (!eventId) return null
-
-  const phase = state?.phase ?? 'intake'
+  // Hooks must be called before any early return to satisfy Rules of Hooks.
   const totalQuestions = useMemo(() => {
     if (!state) return 0
     const map = EventPlanEngine.answersToMap(state.answers)
     return QUESTIONS.filter((q) => !q.condition || q.condition(map)).length
   }, [state])
+
+  if (!eventId) return null
+
+  const phase = state?.phase ?? 'intake'
   const answeredCount = state ? Object.keys(state.answers).length : 0
 
   // ─── Handlers ───────────────────────────────────────────────────────────

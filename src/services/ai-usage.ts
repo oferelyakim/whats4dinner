@@ -125,9 +125,14 @@ export async function logAIUsage(
 }
 
 /**
- * Activate subscription. Tries Stripe checkout Edge Function first;
- * if Stripe is not configured (501), falls back to mock activation.
- * Returns checkout URL when Stripe is live, or null for mock mode.
+ * Activate subscription. Calls the Stripe checkout Edge Function and returns
+ * the checkout URL.
+ *
+ * In DEV builds only, falls back to a 30-day mock activation when Stripe is
+ * not configured (501). In PRODUCTION builds, a Stripe failure throws — we
+ * never silently grant paid AI access without payment. Without this gate,
+ * any deploy that lost its Stripe secrets would hand out 30 days of free AI
+ * to every user who clicked "Subscribe".
  *
  * @param billingPeriod - 'monthly' | 'annual'. Legacy `plan` string values are
  *   also accepted here and normalised inside the Edge Function.
@@ -139,6 +144,7 @@ export async function activateSubscription(
   if (!session) throw new Error('Not authenticated')
 
   // Try Stripe Edge Function
+  let stripeError: unknown = null
   try {
     const { data, error } = await supabase.functions.invoke('create-checkout', {
       body: { billingPeriod },
@@ -146,11 +152,20 @@ export async function activateSubscription(
 
     if (error) throw error
     if (data?.url) return { url: data.url }
-  } catch {
-    // Stripe not configured — fall back to mock
+    stripeError = new Error('Stripe returned no checkout URL')
+  } catch (err) {
+    stripeError = err
   }
 
-  // Mock fallback (test / non-Stripe mode)
+  // PRODUCTION: never silently grant access. Surface the Stripe failure so
+  // the user gets a real error instead of a free month.
+  if (!import.meta.env.DEV) {
+    throw stripeError instanceof Error
+      ? stripeError
+      : new Error('Subscription activation failed. Please try again later.')
+  }
+
+  // DEV-ONLY mock fallback (test / non-Stripe mode)
   const now = new Date()
   const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 

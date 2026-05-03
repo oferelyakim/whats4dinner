@@ -27,7 +27,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
-const APP_VERSION = '2.0.0'
+const APP_VERSION = '3.2.2'
 const DEPLOYED_AT = '2026-04-26T18:00:00Z'
 const MODEL = 'claude-haiku-4-5-20251001'
 
@@ -387,16 +387,33 @@ async function insertWebRows(
     source_kind_v2: 'web',
     quality_score: Math.max(0, Math.min(100, c.quality_score ?? 70)),
   }))
-  // UPSERT on (source_url, slot_role) so re-runs don't dup-spam.
-  const { error } = await supabase.from('recipe_bank').upsert(rows, {
-    onConflict: 'source_url,slot_role',
-    ignoreDuplicates: true,
-  })
+
+  // Mig 034's uniqueness constraint is a PARTIAL index:
+  //   recipe_bank_url_uniq ON (source_url, slot_role) WHERE source_url IS NOT NULL
+  // PostgREST emits ON CONFLICT (cols) without the WHERE predicate, so PG
+  // rejects every upsert with "no unique constraint matching". Same bug the
+  // seed scripts hit — fix is identical: client-side dedup against the existing
+  // bank rows for this slot_role, then plain INSERT (no ON CONFLICT clause).
+  const sourceUrls = rows.map((r) => r.source_url)
+  const { data: existing, error: lookupError } = await supabase
+    .from('recipe_bank')
+    .select('source_url')
+    .eq('slot_role', cell.slotRole)
+    .in('source_url', sourceUrls)
+  if (lookupError) {
+    console.warn(`[refresher] insertWebRows dedup lookup failed for ${cell.cuisine}/${cell.mealType}: ${lookupError.message}`)
+    return 0
+  }
+  const existingSet = new Set((existing ?? []).map((r) => r.source_url as string))
+  const fresh = rows.filter((r) => !existingSet.has(r.source_url))
+  if (fresh.length === 0) return 0
+
+  const { error } = await supabase.from('recipe_bank').insert(fresh)
   if (error) {
     console.warn(`[refresher] insertWebRows failed for ${cell.cuisine}/${cell.mealType}: ${error.message}`)
     return 0
   }
-  return rows.length
+  return fresh.length
 }
 
 function domainFromUrl(u: string): string {
