@@ -1,26 +1,23 @@
-// v3.0.0 — Floating shopping bar that sits above the WeeklyDropDrawer.
+// Floating shopping bar pinned above the bottom-nav.
 //
 // Dark inverse pill (`bgDeep` background, cream text), shows current dish
 // count, opens the shopping list. Glow CTA next to it triggers the smart
 // consolidation flow (paid AI, dedupe across the week → Add to shopping list).
-// Hidden when the drawer is in `hero` density.
 
 import { ChevronRight, ShoppingCart, Sparkles } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/cn'
 
 interface Props {
-  drawerHeightPx: number
-  hidden: boolean
   dishCount: number
   itemCount: number
   onOpenList: () => void
   onSmartConsolidate: () => void
 }
 
-export function FloatingShoppingBar({ drawerHeightPx, hidden, dishCount, itemCount, onOpenList, onSmartConsolidate }: Props) {
+export function FloatingShoppingBar({ dishCount, itemCount, onOpenList, onSmartConsolidate }: Props) {
   const t = useI18n((s) => s.t)
-  if (hidden || dishCount === 0) return null
+  if (dishCount === 0) return null
 
   return (
     <div
@@ -28,7 +25,7 @@ export function FloatingShoppingBar({ drawerHeightPx, hidden, dishCount, itemCou
         'fixed inset-x-4 z-20 flex items-center gap-2 transition-all duration-200',
       )}
       style={{
-        bottom: `calc(${drawerHeightPx + 64 + 8}px + env(safe-area-inset-bottom, 0px))`,
+        bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
       }}
     >
       <button

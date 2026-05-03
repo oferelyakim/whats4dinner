@@ -11,13 +11,11 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useI18n } from '@/lib/i18n'
 import { useAppStore } from '@/stores/appStore'
 import { useAIAccess } from '@/hooks/useAIAccess'
-import { WeeklyDropDrawer, type DrawerDensity } from '@/components/plan/WeeklyDropDrawer'
 import { FloatingShoppingBar } from '@/components/plan/FloatingShoppingBar'
 // PantryRerollSheet intentionally not imported — entry point moved to /pantry-picks page.
 import { SmartConsolidateSheet } from '@/components/plan/SmartConsolidateSheet'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import { useToast } from '@/components/ui/Toast'
-import type { WeeklyDropEntry } from '@/services/recipe-bank'
 import { MonoLabel, RingsOrnament } from '@/components/ui/hearth'
 
 // ── Week helpers ──────────────────────────────────────────────────────────────
@@ -71,18 +69,6 @@ function formatTodayEyebrow(): string {
 const MIN_WEEK_OFFSET = -1
 const MAX_WEEK_OFFSET = 3
 
-const DRAWER_DENSITY_KEY = 'replanish.drawerDensity'
-
-function readStoredDensity(): DrawerDensity {
-  try {
-    const v = localStorage.getItem(DRAWER_DENSITY_KEY)
-    if (v === 'quiet' || v === 'medium' || v === 'hero') return v
-  } catch {
-    // ignore
-  }
-  return 'medium'
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PlanV2View() {
@@ -100,7 +86,6 @@ export function PlanV2View() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showSmartConsolidate, setShowSmartConsolidate] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
-  const [drawerDensity, setDrawerDensity] = useState<DrawerDensity>(readStoredDensity)
   const { plan, refresh } = usePlan(activePlanId)
   const [viewWeekOffset, setViewWeekOffset] = useState(0)
 
@@ -117,15 +102,6 @@ export function PlanV2View() {
       }
     })
   }, [engine])
-
-  // Persist drawer density.
-  useEffect(() => {
-    try {
-      localStorage.setItem(DRAWER_DENSITY_KEY, drawerDensity)
-    } catch {
-      // ignore
-    }
-  }, [drawerDensity])
 
   // Stuck-slot self-heal.
   useEffect(() => {
@@ -183,34 +159,6 @@ export function PlanV2View() {
   )
 
   const weekMonday = weekDates[0]
-  const drawerHeightPx = drawerDensity === 'quiet' ? 52 : drawerDensity === 'hero' ? 360 : 176
-
-  // ── Drop card → today's matching meal slot, or prompt to use per-meal sheet ─
-  async function handleDropAdd(entry: WeeklyDropEntry) {
-    if (!activePlanId) return
-    const todayIso = isoToday()
-    const todayDay = visibleDays.find((d) => d.date === todayIso)
-    if (!todayDay) {
-      toast.success(
-        `Pick a meal and tap "Add to meal → This week menu" to add ${entry.title}.`,
-      )
-      return
-    }
-
-    // Find a meal matching the entry's mealType, or create one
-    let meal = todayDay.meals.find((m) => m.type.toLowerCase() === entry.mealType)
-    if (!meal) {
-      const fresh = await engine.addMeal(todayDay.id, entry.mealType)
-      meal = { ...fresh, slots: fresh.slots }
-    }
-    try {
-      await engine.addBankRecipeToMeal(meal.id, entry.recipeBankId, entry.slotRole === 'main' ? 'main' : entry.slotRole.includes('side') ? 'side' : entry.slotRole)
-      toast.success(`Added ${entry.title} to ${entry.mealType}.`)
-      await refresh()
-    } catch (e) {
-      toast.error(`Couldn't add: ${e instanceof Error ? e.message : 'Unknown error'}`)
-    }
-  }
 
   function handleSmartConsolidate() {
     if (weekReadySlots.length === 0) {
@@ -228,10 +176,11 @@ export function PlanV2View() {
 
   const isUseMode = planMode === 'use'
 
-  // In Use mode there's no drawer, so we don't need the extra bottom padding.
+  // Plan mode reserves room for the bottom-nav (64px) plus the floating
+  // shopping bar (~50px) plus a small margin. Use mode just clears the nav.
   const bottomPadding = isUseMode
     ? 'calc(64px + env(safe-area-inset-bottom, 0px))'
-    : `calc(${drawerHeightPx + 64 + 24}px + env(safe-area-inset-bottom, 0px))`
+    : 'calc(140px + env(safe-area-inset-bottom, 0px))'
 
   return (
     <div
@@ -404,22 +353,10 @@ export function PlanV2View() {
       {/* Floating shopping bar — Plan mode only */}
       {!isUseMode && (
         <FloatingShoppingBar
-          drawerHeightPx={drawerHeightPx}
-          hidden={drawerDensity === 'hero'}
           dishCount={weekReadySlots.length}
           itemCount={weekReadySlots.length * 5 /* heuristic — avg 5 ingredients/dish */}
           onOpenList={() => setShowWeekShopSheet(true)}
           onSmartConsolidate={handleSmartConsolidate}
-        />
-      )}
-
-      {/* Bottom-pinned weekly drop drawer — Plan mode only */}
-      {!isUseMode && (
-        <WeeklyDropDrawer
-          density={drawerDensity}
-          onDensityChange={setDrawerDensity}
-          onAdd={(entry) => void handleDropAdd(entry)}
-          weekStart={visibleWeekStart(viewWeekOffset)}
         />
       )}
     </div>

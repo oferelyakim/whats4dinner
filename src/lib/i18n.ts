@@ -1261,17 +1261,6 @@ const translations: Record<string, Record<Locale, string>> = {
   'subscription.seats.cap_reached': { en: 'Seat cap reached — remove a member first', he: 'מספר המושבים המקסימלי הגיע — הסר חבר תחילה', es: 'Capacidad alcanzada — elimina un miembro primero' },
   'subscription.seats.you_label': { en: '(You)', he: '(אתה)', es: '(Tú)' },
 
-  // ─── v3.0.0 — Weekly drop drawer ────────────────────────────────────────────
-  'drop.thisWeek': { en: "this week's menu", he: 'התפריט השבועי', es: 'el menú de la semana' },
-  'drop.pullUp': { en: 'pull up to browse', he: 'משוך למעלה לעיון', es: 'desliza para explorar' },
-  'drop.tapToAdd': { en: 'tap a card to add to your plan', he: 'הקש על כרטיס כדי להוסיף לתוכנית', es: 'toca una tarjeta para añadir' },
-  'drop.openCta': { en: 'Open', he: 'פתח', es: 'Abrir' },
-  'drop.toggleDensity': { en: 'Toggle drawer height', he: 'החלף גובה מגירה', es: 'Cambiar altura del cajón' },
-  'drop.loading': { en: 'loading this week…', he: 'טוען שבוע…', es: 'cargando…' },
-  'drop.empty': { en: 'No matches for this filter — try another.', he: 'אין התאמות — נסה סינון אחר.', es: 'Sin coincidencias — prueba otro filtro.' },
-  'drop.add': { en: 'add', he: 'הוסף', es: 'añadir' },
-  'drop.addToPlan': { en: 'Add to plan', he: 'הוסף לתוכנית', es: 'Añadir al plan' },
-
   // ─── v3.0.0 — Add-dish popover ──────────────────────────────────────────────
   'add.fromRecipe': { en: 'From a recipe', he: 'ממתכון', es: 'De una receta' },
   'add.fromTemplate': { en: 'From a template', he: 'מתבנית', es: 'De una plantilla' },
