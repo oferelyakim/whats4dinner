@@ -12,12 +12,14 @@ interface ChatWelcomeProps {
 export function ChatWelcome({ isPaid, freeImportsRemaining, freeImportCap, onSuggestionClick }: ChatWelcomeProps) {
   const { t } = useI18n()
 
+  // No "plan meals for the week" suggestion — that flow lives in /plan-v2,
+  // and the AI helper now actively discourages chat-based week planning.
   const suggestions = isPaid
     ? [
         t('chat.suggestHelp'),
         t('chat.suggestImportRecipe'),
-        t('chat.suggestPlanMeals'),
         t('chat.suggestCreateActivity'),
+        t('chat.suggestPlanEvent'),
       ]
     : [
         t('chat.suggestHelp'),

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
@@ -16,6 +16,8 @@ import {
   RefreshCw,
   Shield,
   FileText,
+  Bug,
+  ShieldCheck,
 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { SkinPicker } from '@/components/skins/SkinPicker'
@@ -36,6 +38,8 @@ import { useToast } from '@/components/ui/Toast'
 import { APP_VERSION } from '@/lib/version'
 import { useAppUpdate } from '@/hooks/useAppUpdate'
 import { Link } from 'react-router-dom'
+import { BugReportDialog } from '@/components/BugReportDialog'
+import { isAppAdmin } from '@/services/bugReports'
 import { AI_PRICING, SEAT_CAP } from '@/lib/subscription'
 import {
   listMySeats,
@@ -635,6 +639,9 @@ export function MorePage() {
   const ai = useAIAccess()
   const grocerFlag = useGrocerFlag()
   const update = useAppUpdate()
+  const [bugDialogOpen, setBugDialogOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => { void isAppAdmin().then(setIsAdmin) }, [])
 
   const menuItems = [
     {
@@ -936,6 +943,36 @@ export function MorePage() {
           <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
         </Link>
       </Card>
+
+      {/* Help & feedback */}
+      <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+        <button
+          onClick={() => setBugDialogOpen(true)}
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 dark:active:bg-surface-dark-overlay transition-colors"
+        >
+          <Bug className="h-5 w-5 text-rp-ink-mute shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-rp-ink">{t('more.help.report')}</p>
+            <p className="text-xs text-slate-400 truncate">{t('more.help.reportDesc')}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
+        </button>
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 dark:active:bg-surface-dark-overlay transition-colors"
+          >
+            <ShieldCheck className="h-5 w-5 text-rp-brand shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-rp-ink">{t('more.help.admin')}</p>
+              <p className="text-xs text-slate-400 truncate">{t('more.help.adminDesc')}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
+          </Link>
+        )}
+      </Card>
+
+      <BugReportDialog open={bugDialogOpen} onOpenChange={setBugDialogOpen} />
 
       {/* Sign out */}
       <button

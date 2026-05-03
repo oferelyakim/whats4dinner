@@ -9,6 +9,8 @@ import { SkinProvider } from '@/components/SkinProvider'
 import { ReviewPrompt } from '@/components/ReviewPrompt'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { UpdateBanner } from '@/components/UpdateBanner'
+import { BetaBanner } from '@/components/BetaBanner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/services/supabase'
 import { probeEdgeVersions } from '@/services/edgeVersionProbe'
 
@@ -45,6 +47,7 @@ const GrocerCallbackPage = lazy(() => import('@/pages/GrocerCallbackPage').then(
 const PantryPicksPage = lazy(() => import('@/pages/PantryPicksPage').then(m => ({ default: m.PantryPicksPage })))
 const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })))
 const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })))
+const AdminPage = lazy(() => import('@/pages/AdminPage').then(m => ({ default: m.AdminPage })))
 
 function PageLoader() {
   return (
@@ -117,8 +120,10 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <SkinProvider>
       <ToastProvider>
+      <ErrorBoundary>
       <BrowserRouter>
         <ScrollToTop />
+        <BetaBanner />
         <Routes>
           {/* Public routes (outside AuthGuard) */}
           <Route path="/join/:code" element={<JoinCirclePage />} />
@@ -171,6 +176,9 @@ export default function App() {
               {/* Pantry Picks */}
               <Route path="/pantry-picks" element={<PantryPicksPage />} />
 
+              {/* Admin (server-side gated by is_app_admin RLS) */}
+              <Route path="/admin" element={<AdminPage />} />
+
               {/* Grocer OAuth callback */}
               <Route path="/grocer/callback/:provider" element={<GrocerCallbackPage />} />
 
@@ -191,6 +199,7 @@ export default function App() {
       </BrowserRouter>
       <ReviewPrompt />
       <UpdateBanner />
+      </ErrorBoundary>
       </ToastProvider>
       </SkinProvider>
     </QueryClientProvider>

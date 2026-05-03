@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Sparkles, X, ChevronLeft, Trash2, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Sparkles, X, ChevronLeft, Trash2, MessageCircle, Plus } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/Button'
@@ -19,7 +19,13 @@ import { Input } from '@/components/ui/Input'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import { useToast } from '@/components/ui/Toast'
-import { getEvent } from '@/services/events'
+import {
+  getEvent,
+  getEventItems,
+  addEventItem,
+  deleteEventItem,
+  type EventItem,
+} from '@/services/events'
 import { supabase } from '@/services/supabase'
 import { logAIUsage } from '@/services/ai-usage'
 import { EventPlanEngine } from '@/engine/event/EventPlanEngine'
@@ -64,6 +70,10 @@ export function EventPlannerPage() {
   const [isRevising, setIsRevising] = useState(false)
   const [tellMoreOpen, setTellMoreOpen] = useState(false)
   const [tellMoreText, setTellMoreText] = useState('')
+  // manage-mode is computed UI state (NOT persisted in engine state). It
+  // overrides phase rendering when there are already applied event_items —
+  // i.e. the user has used the planner before and wants to edit, not re-plan.
+  const [manageMode, setManageMode] = useState(false)
 
   // ─── Event lookup (for header) ──────────────────────────────────────────
   const { data: event } = useQuery({
@@ -82,14 +92,33 @@ export function EventPlannerPage() {
     let cancelled = false
 
     void (async () => {
-      const initial = await engine.start(eventId, { circleId: event?.circle_id ?? null })
-      if (cancelled) return
-      setState(initial)
-      setDraft(engine.getPlan(eventId))
-      off1 = engine.on('state', (s) => setState({ ...s }))
-      off2 = engine.on('next-question', (p) => setNextQuestionId(p.questionId))
-      off3 = engine.on('plan', (p) => setDraft({ ...p }))
-      off4 = engine.on('error', (p) => setErrorMessage(p.message))
+      try {
+        const initial = await engine.start(eventId, { circleId: event?.circle_id ?? null })
+        if (cancelled) return
+        setState(initial)
+        setDraft(engine.getPlan(eventId))
+
+        // Probe for existing applied items. If anything is already on the
+        // event, default to manage-mode — that's the only way to avoid the
+        // blank-page when the engine state says "applied" but the in-memory
+        // draft is null (apply() clears events.draft_plan).
+        try {
+          const items = await getEventItems(eventId)
+          if (!cancelled && (items.length > 0 || initial.phase === 'applied')) {
+            setManageMode(true)
+          }
+        } catch {
+          // non-fatal — keep the flow open
+        }
+
+        off1 = engine.on('state', (s) => setState({ ...s }))
+        off2 = engine.on('next-question', (p) => setNextQuestionId(p.questionId))
+        off3 = engine.on('plan', (p) => setDraft({ ...p }))
+        off4 = engine.on('error', (p) => setErrorMessage(p.message))
+      } catch (err) {
+        if (cancelled) return
+        setErrorMessage((err as Error).message ?? 'Failed to load planner')
+      }
     })()
 
     return () => {
@@ -277,7 +306,19 @@ export function EventPlannerPage() {
           </div>
         )}
 
-        {phase === 'intake' && (
+        {manageMode && eventId ? (
+          <PlanManage
+            eventId={eventId}
+            circleId={event?.circle_id ?? null}
+            onStartFresh={() => {
+              setManageMode(false)
+              // Reset draft so the propose path can run again
+              setDraft(null)
+            }}
+          />
+        ) : null}
+
+        {!manageMode && phase === 'intake' && (
           <PlannerIntake
             initialText={state?.freeText ?? ''}
             onSubmit={(text) => handleIntakeSubmit(text)}
@@ -285,7 +326,7 @@ export function EventPlannerPage() {
           />
         )}
 
-        {phase === 'questionnaire' && nextQuestionId && state && (
+        {!manageMode && phase === 'questionnaire' && nextQuestionId && state && (
           <QuestionTurn
             key={nextQuestionId}
             question={getQuestion(nextQuestionId)!}
@@ -301,7 +342,7 @@ export function EventPlannerPage() {
           />
         )}
 
-        {phase === 'questionnaire' && !nextQuestionId && (
+        {!manageMode && phase === 'questionnaire' && !nextQuestionId && (
           <Card className="p-6 text-center space-y-4">
             <Sparkles className="h-10 w-10 text-rp-brand mx-auto" />
             <p className="font-display text-2xl italic text-rp-ink">
@@ -316,7 +357,7 @@ export function EventPlannerPage() {
           </Card>
         )}
 
-        {phase === 'proposing' && (
+        {!manageMode && phase === 'proposing' && (
           <Card className="p-8 text-center space-y-4">
             <div className="h-12 w-12 mx-auto rounded-full bg-gradient-to-br from-rp-brand to-purple-500 flex items-center justify-center">
               <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -330,7 +371,7 @@ export function EventPlannerPage() {
           </Card>
         )}
 
-        {(phase === 'proposal' || phase === 'applying' || phase === 'applied') && draft && (
+        {!manageMode && (phase === 'proposal' || phase === 'applying' || phase === 'applied') && draft && (
           <PlanReview
             draft={draft}
             engine={engine}
@@ -344,7 +385,7 @@ export function EventPlannerPage() {
           />
         )}
 
-        {phase === 'error' && (
+        {!manageMode && phase === 'error' && (
           <Card className="p-6 space-y-3">
             <p className="font-display text-xl italic text-rp-ink">
               {t('event.planner.error.title')}
@@ -965,5 +1006,205 @@ function TellMoreSheet({
         </Button>
       </div>
     </div>
+  )
+}
+
+// ─── PlanManage ────────────────────────────────────────────────────────────
+//
+// Edit-existing-plan mode. Loads `event_items` directly (the source of
+// truth post-apply) and lets the user add/remove dishes, supplies, tasks,
+// and activities. Reuses the existing event-services CRUD so nothing
+// here needs new RPCs.
+//
+// Avoids the blank-page bug from EventPlanEngine.apply() clearing
+// events.draft_plan but keeping phase='applied' — when the engine is
+// loaded later, draft is null and the original PlanReview branch can't
+// render. PlanManage doesn't depend on draft at all.
+
+function PlanManage({
+  eventId,
+  circleId: _circleId,
+  onStartFresh,
+}: {
+  eventId: string
+  circleId: string | null
+  onStartFresh: () => void
+}) {
+  const { t } = useI18n()
+  const queryClient = useQueryClient()
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['event-items', eventId],
+    queryFn: () => getEventItems(eventId),
+  })
+
+  const dishes = items.filter((it) => it.type === 'dish')
+  const supplies = items.filter((it) => it.type === 'supply')
+  const tasks = items.filter((it) => it.type === 'task' && it.category !== 'activity')
+  const activities = items.filter((it) => it.type === 'task' && it.category === 'activity')
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['event-items', eventId] })
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-5 space-y-2">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-mono text-rp-brand">
+          <Sparkles className="h-3 w-3" />
+          {t('event.planner.manage.title')}
+        </div>
+        <p className="text-sm text-rp-ink-soft">
+          {isLoading ? t('common.loading') : t('event.planner.manage.subtitle')}
+        </p>
+      </Card>
+
+      <ManageSection
+        title={t('event.planner.review.dishes')}
+        type="dish"
+        items={dishes}
+        eventId={eventId}
+        onChanged={refresh}
+      />
+      <ManageSection
+        title={t('event.planner.review.supplies')}
+        type="supply"
+        items={supplies}
+        eventId={eventId}
+        onChanged={refresh}
+      />
+      <ManageSection
+        title={t('event.planner.review.tasks')}
+        type="task"
+        category="other"
+        items={tasks}
+        eventId={eventId}
+        onChanged={refresh}
+      />
+      <ManageSection
+        title={t('event.planner.review.activities')}
+        type="task"
+        category="activity"
+        items={activities}
+        eventId={eventId}
+        onChanged={refresh}
+      />
+
+      <Card className="p-4 space-y-2">
+        <p className="text-xs uppercase tracking-wider font-mono text-rp-ink-mute">
+          {t('event.planner.manage.startFreshTitle')}
+        </p>
+        <p className="text-xs text-rp-ink-soft">
+          {t('event.planner.manage.startFreshHelp')}
+        </p>
+        <Button variant="secondary" onClick={onStartFresh} className="w-full">
+          {t('event.planner.manage.startFresh')}
+        </Button>
+      </Card>
+    </div>
+  )
+}
+
+function ManageSection({
+  title,
+  type,
+  category,
+  items,
+  eventId,
+  onChanged,
+}: {
+  title: string
+  type: 'dish' | 'supply' | 'task'
+  category?: string
+  items: EventItem[]
+  eventId: string
+  onChanged: () => void
+}) {
+  const { t } = useI18n()
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function handleAdd() {
+    const name = draft.trim()
+    if (!name) return
+    setBusy(true)
+    try {
+      await addEventItem(eventId, {
+        type,
+        name,
+        category: category ?? (type === 'dish' ? 'other' : type === 'supply' ? 'other' : 'other'),
+      })
+      setDraft('')
+      setAdding(false)
+      onChanged()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRemove(itemId: string) {
+    setBusy(true)
+    try {
+      await deleteEventItem(itemId)
+      onChanged()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className="p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wider font-mono text-rp-ink-mute">{title}</p>
+        <button
+          type="button"
+          onClick={() => setAdding((v) => !v)}
+          className="p-1 rounded text-rp-ink-mute hover:text-rp-brand"
+          aria-label={t('event.planner.manage.add')}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {items.length === 0 && !adding && (
+        <p className="text-xs text-rp-ink-mute italic">{t('event.planner.manage.empty')}</p>
+      )}
+
+      <ul className="divide-y divide-rp-hairline">
+        {items.map((it) => (
+          <li key={it.id} className="flex items-start gap-2 py-2 text-sm">
+            <div className="flex-1 min-w-0">
+              <p className="text-rp-ink truncate">{it.name}</p>
+              {it.notes && <p className="text-xs text-rp-ink-mute truncate">{it.notes}</p>}
+            </div>
+            <button
+              type="button"
+              onClick={() => handleRemove(it.id)}
+              disabled={busy}
+              className="p-1 rounded text-rp-ink-mute hover:text-red-600 disabled:opacity-50"
+              aria-label={t('common.delete')}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {adding && (
+        <div className="flex items-center gap-2 pt-2">
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t('event.planner.manage.addPlaceholder')}
+            className="flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAdd()
+            }}
+          />
+          <Button onClick={handleAdd} disabled={busy || !draft.trim()}>
+            {t('event.planner.manage.add')}
+          </Button>
+        </div>
+      )}
+    </Card>
   )
 }

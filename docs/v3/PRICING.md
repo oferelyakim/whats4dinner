@@ -22,7 +22,6 @@ The whole app — meal planning, shopping lists, events, chores, activities — 
 - ✓ Drag-and-drop week planning
 - ✓ Quick fill (one-tap week)
 - ✓ Shared shopping lists with real-time sync
-- ✓ Walmart cart export *(v3.1)*
 - ✓ Events, potlucks, dinner parties
 - ✓ Chores rotation
 - ✓ Activities calendar
@@ -78,7 +77,6 @@ Default the toggle to **Annual** — that's the trial path.
 | Shared shopping lists | ✓ | ✓ |
 | Real-time sync across household | ✓ | ✓ |
 | Department sorting + store routes | ✓ | ✓ |
-| Walmart cart export *(v3.1)* | ✓ | ✓ |
 | Smart shopping consolidation (AI) | — | ✓ |
 | **Recipes** | | |
 | Save your own recipes | ✓ (unlimited) | ✓ (unlimited) |

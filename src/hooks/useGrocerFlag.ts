@@ -1,6 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
-import { useAuth } from './useAuth'
-import { getGrocerFlag } from '@/services/grocers/service'
+// v3.4.0 — grocer integrations (Walmart/Kroger/Instacart cart export) are
+// HARD-DISABLED for the soft launch. Per app_config the flag may say
+// otherwise, but until the cart-export UX is shipped end-to-end we don't
+// surface ANY grocer affordances in the app — better to under-promise.
+//
+// Backend code (services/grocers/, kroger-* edge fns, mig 023) is preserved
+// for the v3.5+ unlock — flip this single function to re-enable consultation
+// with `app_config.grocer_v2_enabled`.
 
 export interface GrocerFlagResult {
   enabled: boolean
@@ -8,20 +13,5 @@ export interface GrocerFlagResult {
 }
 
 export function useGrocerFlag(): GrocerFlagResult {
-  const { session } = useAuth()
-  const userId = session?.user?.id
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['grocer-flag', userId],
-    queryFn: getGrocerFlag,
-    staleTime: 60 * 1000, // 60 seconds
-    enabled: !!userId,
-  })
-
-  const enabled =
-    !!userId &&
-    !!data &&
-    (data.enabled || data.enabled_for_user_ids.includes(userId))
-
-  return { enabled, isLoading }
+  return { enabled: false, isLoading: false }
 }
