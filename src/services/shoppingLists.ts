@@ -87,13 +87,55 @@ export async function addListItem(
 export async function toggleListItem(itemId: string, isChecked: boolean): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Track the moment of check so the Done section can sort most-recently-
+  // checked first (lets users spot + undo a misclick at a glance). Cleared
+  // when the item is unchecked. The column comes from migration 041; the
+  // catch-and-retry below makes the client tolerant of older databases
+  // where the column doesn't exist yet — toggles still work, just without
+  // the recent-first ordering.
   const { error } = await supabase
+    .from('shopping_list_items')
+    .update({
+      is_checked: isChecked,
+      checked_by: isChecked ? user?.id ?? null : null,
+      checked_at: isChecked ? new Date().toISOString() : null,
+    })
+    .eq('id', itemId)
+
+  if (!error) return
+
+  // PG error 42703 = "undefined_column". Fall back to the pre-mig-041 shape.
+  // Any other error is real and should bubble up.
+  const isMissingColumn =
+    (error as { code?: string }).code === '42703' ||
+    /checked_at/.test(error.message ?? '')
+
+  if (!isMissingColumn) throw error
+
+  const { error: retryError } = await supabase
     .from('shopping_list_items')
     .update({
       is_checked: isChecked,
       checked_by: isChecked ? user?.id ?? null : null,
     })
     .eq('id', itemId)
+
+  if (retryError) throw retryError
+}
+
+/**
+ * Bulk-delete every checked item in a list. Used by the "Delete checked"
+ * CTA that appears in the Done section once the user has finished shopping.
+ *
+ * Returns the number of rows removed (best-effort — Supabase doesn't always
+ * include a count without `.select()`, so this just resolves on success).
+ */
+export async function removeCheckedItems(listId: string): Promise<void> {
+  const { error } = await supabase
+    .from('shopping_list_items')
+    .delete()
+    .eq('list_id', listId)
+    .eq('is_checked', true)
 
   if (error) throw error
 }

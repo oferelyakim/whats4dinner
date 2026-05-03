@@ -185,6 +185,10 @@ export interface ShoppingListItem {
   category: Department
   is_checked: boolean
   checked_by: string | null
+  /** When the item was last checked off. NULL when unchecked. Set to now()
+   *  on toggle-on, NULL on toggle-off. Used to sort the Done section so the
+   *  most-recently-checked item appears at the top (mig 041). */
+  checked_at: string | null
   sort_order: number
   notes: string | null
   added_by: string

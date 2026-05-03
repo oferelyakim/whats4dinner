@@ -25,7 +25,7 @@ import { Card } from '@/components/ui/Card'
 import * as Dialog from '@radix-ui/react-dialog'
 import { cn } from '@/lib/cn'
 import { formatQuantity } from '@/lib/format'
-import { getShoppingList, addListItem, toggleListItem, removeListItem, updateListItem, shareListWithUser, deleteShoppingList } from '@/services/shoppingLists'
+import { getShoppingList, addListItem, toggleListItem, removeListItem, updateListItem, shareListWithUser, deleteShoppingList, removeCheckedItems } from '@/services/shoppingLists'
 import { getIngredientSuggestions } from '@/services/recipes'
 import { getStores, getStoreRoutes } from '@/services/stores'
 import { getCircleMembers } from '@/services/circles'
@@ -61,6 +61,7 @@ export function ShoppingListPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showDeleteList, setShowDeleteList] = useState(false)
+  const [showDeleteChecked, setShowDeleteChecked] = useState(false)
   const [showStoreLinker, setShowStoreLinker] = useState(false)
   const [showCartPreview, setShowCartPreview] = useState(false)
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null)
@@ -68,6 +69,11 @@ export function ShoppingListPage() {
   const [editError, setEditError] = useState('')
   const [draftRows, setDraftRows] = useState<DraftRow[]>([])
   const [addError, setAddError] = useState('')
+  // Inline quick-add input — primary path for adding a single item without
+  // opening a modal. The modal flow ("more options" → showAdd) is kept for
+  // multi-item adds with quantity + department.
+  const [quickAddName, setQuickAddName] = useState('')
+  const [quickAddError, setQuickAddError] = useState('')
   const [sortBy, setSortBy] = useState<'default' | 'department' | 'route'>('default')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [sharedUsers, setSharedUsers] = useState<Set<string>>(new Set())
@@ -244,6 +250,33 @@ export function ShoppingListPage() {
     },
   })
 
+  // Quick-add: single item from the inline input at the top of the list.
+  // Adds with default category 'Other' — user can edit afterwards via the
+  // pencil icon if they want a different department/quantity.
+  const quickAddMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const trimmed = name.trim()
+      if (!trimmed) throw new Error(t('lists.itemName'))
+      await addListItem(id!, { name: trimmed, category: 'Other' })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
+      setQuickAddName('')
+      setQuickAddError('')
+    },
+    onError: (err: Error) => setQuickAddError(err.message),
+  })
+
+  // Bulk-delete every checked item in this list.
+  const removeCheckedMutation = useMutation({
+    mutationFn: () => removeCheckedItems(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
+      setShowDeleteChecked(false)
+    },
+    onError: (err: Error) => setMutationError(err.message),
+  })
+
   const openAddModal = useCallback(() => {
     setDraftRows([{ id: crypto.randomUUID(), name: '', quantity: '', category: 'Other' }])
     setAddError('')
@@ -320,7 +353,17 @@ export function ShoppingListPage() {
 
   const items = data.items ?? []
   const unchecked = items.filter((i) => !i.is_checked)
-  const checked = items.filter((i) => i.is_checked)
+  // Sort checked items so the most recently checked one lands on top — lets
+  // the user spot a misclick at a glance and undo it. NULL checked_at (rows
+  // pre-migration 041) fall to the end via created_at fallback.
+  const checked = items
+    .filter((i) => i.is_checked)
+    .slice()
+    .sort((a, b) => {
+      const aTime = a.checked_at ?? a.created_at
+      const bTime = b.checked_at ?? b.created_at
+      return bTime.localeCompare(aTime)
+    })
 
   // Build route order map for store-based sorting
   const routeOrderMap = storeRoutes.reduce<Record<string, number>>((acc, r, i) => {
@@ -378,10 +421,65 @@ export function ShoppingListPage() {
         <Button size="sm" variant="ghost" onClick={() => setShowShare(true)}>
           <Share2 className="h-4 w-4" />
         </Button>
-        <Button size="sm" onClick={openAddModal}>
-          <Plus className="h-4 w-4" />
-          {t('list.addItem')}
-        </Button>
+      </div>
+
+      {/* Inline quick-add — primary path. Type, hit Add (or Enter), it lands
+          on the list. Modal flow ("more options") still available for
+          multi-row adds with quantity + department. */}
+      <div className="space-y-1.5">
+        <div
+          className="flex items-center gap-2"
+          onKeyDown={(e) => {
+            // Enter from the input commits whatever the user typed. The
+            // AutocompleteInput itself swallows Enter only when a suggestion
+            // is highlighted — typing a fresh name and hitting Enter falls
+            // through to here.
+            if (
+              e.key === 'Enter' &&
+              !e.defaultPrevented &&
+              quickAddName.trim().length > 0 &&
+              !quickAddMutation.isPending
+            ) {
+              e.preventDefault()
+              quickAddMutation.mutate(quickAddName)
+            }
+          }}
+        >
+          <div className="flex-1 min-w-0 overflow-visible">
+            <AutocompleteInput
+              placeholder={t('list.quickAddPlaceholder')}
+              value={quickAddName}
+              onChange={setQuickAddName}
+              suggestions={ingredientSuggestions}
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => quickAddMutation.mutate(quickAddName)}
+            disabled={quickAddMutation.isPending || quickAddName.trim().length === 0}
+            aria-label={t('list.addItem')}
+          >
+            <Plus className="h-4 w-4" />
+            {t('common.add')}
+          </Button>
+        </div>
+        <div className="flex items-center justify-between gap-2 px-1">
+          {quickAddError ? (
+            <button
+              onClick={() => setQuickAddError('')}
+              className="text-xs text-danger text-start"
+            >
+              {quickAddError} (tap to dismiss)
+            </button>
+          ) : <span />}
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="text-xs text-rp-ink-mute hover:text-brand-500 transition-colors"
+          >
+            {t('list.addMoreOptions')}
+          </button>
+        </div>
       </div>
 
       {/* Grocer store chip + shop button (feature flagged) */}
@@ -476,7 +574,7 @@ export function ShoppingListPage() {
         <div className="flex flex-col items-center py-12 text-center">
           <ShoppingCart className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
           <p className="text-sm text-slate-400">{t('list.noItems')}</p>
-          <p className="text-xs text-slate-400 mt-1">Tap "Add" or add items from a recipe</p>
+          <p className="text-xs text-slate-400 mt-1">{t('list.emptyHint')}</p>
         </div>
       ) : (
         <>
@@ -521,24 +619,33 @@ export function ShoppingListPage() {
             </DndContext>
           )}
 
-          {/* Checked items */}
+          {/* Checked items — most recently checked first so misclicks are
+              easy to spot and undo. */}
           {checked.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-1.5 px-1">
+              <div className="flex items-center justify-between mb-1.5 px-1 gap-2">
                 <p className="text-xs font-semibold text-rp-ink-mute uppercase tracking-wider">
-                  Done ({checked.length})
+                  {t('list.done')} ({checked.length})
                 </p>
-                <button
-                  onClick={async () => {
-                    for (const item of checked) {
-                      await toggleListItem(item.id, false)
-                    }
-                    queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
-                  }}
-                  className="text-xs text-brand-500 font-medium"
-                >
-                  Uncheck all
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowDeleteChecked(true)}
+                    className="text-xs text-danger font-medium"
+                  >
+                    {t('list.deleteChecked')}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      for (const item of checked) {
+                        await toggleListItem(item.id, false)
+                      }
+                      queryClient.invalidateQueries({ queryKey: ['shopping-list', id] })
+                    }}
+                    className="text-xs text-brand-500 font-medium"
+                  >
+                    {t('list.uncheckAll')}
+                  </button>
+                </div>
               </div>
               <Card className="divide-y divide-slate-100 dark:divide-slate-800 opacity-60">
                 {checked.map((item) => (
@@ -812,6 +919,34 @@ export function ShoppingListPage() {
             <Button variant="secondary" className="w-full mt-4" onClick={() => setShowShare(false)}>
               {t('common.done')}
             </Button>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Delete checked items confirm */}
+      <Dialog.Root open={showDeleteChecked} onOpenChange={setShowDeleteChecked}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed bottom-0 left-0 right-0 z-50 bg-rp-card rounded-t-2xl p-6 max-w-lg mx-auto">
+            <Dialog.Title className="text-lg font-bold text-rp-ink mb-2">
+              {t('list.deleteChecked')}
+            </Dialog.Title>
+            <p className="text-sm text-rp-ink-mute mb-4">
+              {t('list.deleteCheckedConfirm').replace('{count}', String(checked.length))}
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setShowDeleteChecked(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                onClick={() => removeCheckedMutation.mutate()}
+                disabled={removeCheckedMutation.isPending}
+              >
+                {removeCheckedMutation.isPending ? t('common.loading') : t('common.delete')}
+              </Button>
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
