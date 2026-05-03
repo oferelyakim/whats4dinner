@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react'
@@ -77,8 +77,6 @@ export function RecipeFormPage() {
     }
   }, [existingRecipe, loaded])
 
-  const ingredientsEndRef = useRef<HTMLDivElement>(null)
-
   function addIngredient() {
     setIngredients((prev) => [
       ...prev,
@@ -91,10 +89,7 @@ export function RecipeFormPage() {
         notes: '',
       },
     ])
-    // Auto-scroll to the new ingredient after render
-    setTimeout(() => {
-      ingredientsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 100)
+    // scrollIntoView removed — it caused scroll jank and fought the user's scroll position
   }
 
   function updateIngredient(rowId: string, field: keyof IngredientRow, value: string) {
@@ -260,7 +255,7 @@ export function RecipeFormPage() {
                   <div className="p-2 min-h-[44px] min-w-[44px] shrink-0 cursor-grab touch-none flex items-center justify-center" aria-label="Drag to reorder">
                     <GripVertical className="h-5 w-5 text-slate-300 dark:text-slate-600" />
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 min-w-0 space-y-2">
                     <AutocompleteInput
                       placeholder="Ingredient name"
                       value={ing.name}
@@ -315,7 +310,7 @@ export function RecipeFormPage() {
                 </div>
               </Card>
             ))}
-            <div ref={ingredientsEndRef} />
+            <div />
           </div>
         )}
       </section>

@@ -12,6 +12,7 @@ import {
   X,
   Plus,
   Mail,
+  Bell,
 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { SkinPicker } from '@/components/skins/SkinPicker'
@@ -19,6 +20,7 @@ import { getSkin } from '@/lib/skins'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useAppStore } from '@/stores/appStore'
+import type { NotificationPrefs } from '@/stores/appStore'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/cn'
 import { useI18n, type Locale } from '@/lib/i18n'
@@ -452,12 +454,177 @@ function UpgradeCard({ onOpenModal }: { onOpenModal: () => void }) {
   )
 }
 
+// ─── Notifications card ──────────────────────────────────────────────────────
+
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string
+  checked: boolean
+  onChange: (v: boolean) => void
+  disabled?: boolean
+}) {
+  // RTL-aware thumb position. In RTL the thumb visually starts on the right
+  // and moves left when checked, so we flip the translate sign.
+  const isRtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl'
+  const thumbClass = isRtl
+    ? checked
+      ? '-translate-x-6'
+      : '-translate-x-1'
+    : checked
+      ? 'translate-x-6'
+      : 'translate-x-1'
+
+  return (
+    <div className={cn('flex items-center justify-between gap-3 py-2', disabled && 'opacity-50')}>
+      <span className="text-sm text-rp-ink">{label}</span>
+      <button
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => !disabled && onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rp-brand shrink-0',
+          checked ? 'bg-rp-brand' : 'bg-slate-200',
+          disabled && 'cursor-not-allowed'
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+            thumbClass
+          )}
+        />
+      </button>
+    </div>
+  )
+}
+
+function NotificationsCard({
+  prefs,
+  onSetPref,
+  permission,
+  onPermissionChange,
+}: {
+  prefs: NotificationPrefs
+  onSetPref: (key: keyof NotificationPrefs, value: boolean) => void
+  permission: NotificationPermission
+  onPermissionChange: (p: NotificationPermission) => void
+}) {
+  const { t } = useI18n()
+  const toast = useToast()
+
+  async function handleMasterToggle(enabled: boolean) {
+    if (!enabled) {
+      onSetPref('enabled', false)
+      return
+    }
+
+    // Need permission first
+    if (!('Notification' in window)) {
+      toast.error('Notifications are not supported in this browser.')
+      return
+    }
+
+    if (permission === 'denied') {
+      toast.error(t('notifications.settings.deniedHelp'))
+      return
+    }
+
+    if (permission !== 'granted') {
+      const result = await Notification.requestPermission()
+      onPermissionChange(result)
+      if (result !== 'granted') {
+        toast.error(t('notifications.settings.deniedHelp'))
+        return
+      }
+    }
+
+    onSetPref('enabled', true)
+  }
+
+  const permissionLabel =
+    permission === 'granted'
+      ? t('notifications.settings.granted')
+      : permission === 'denied'
+      ? t('notifications.settings.denied')
+      : t('notifications.settings.notAsked')
+
+  const permissionColor =
+    permission === 'granted'
+      ? 'text-emerald-600'
+      : permission === 'denied'
+      ? 'text-red-500'
+      : 'text-rp-ink-mute'
+
+  return (
+    <Card className="px-4 py-3 space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Bell className="h-5 w-5 text-slate-500 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-rp-ink">{t('notifications.settings.title')}</div>
+          <div className="text-xs text-rp-ink-mute">{t('notifications.settings.subtitle')}</div>
+        </div>
+      </div>
+
+      {/* Master enable toggle + permission badge */}
+      <div className="space-y-1">
+        <ToggleRow
+          label={t('notifications.settings.enable')}
+          checked={prefs.enabled}
+          onChange={handleMasterToggle}
+        />
+        <div className="flex items-center gap-2">
+          <span className={cn('text-xs font-medium', permissionColor)}>{permissionLabel}</span>
+          {permission === 'denied' && (
+            <span className="text-xs text-rp-ink-mute">— {t('notifications.settings.deniedHelp')}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Per-category toggles */}
+      <div className="border-t border-rp-hairline pt-2 space-y-0.5">
+        <ToggleRow
+          label={t('notifications.settings.chores')}
+          checked={prefs.chores}
+          onChange={(v) => onSetPref('chores', v)}
+          disabled={!prefs.enabled}
+        />
+        <ToggleRow
+          label={t('notifications.settings.activities')}
+          checked={prefs.activities}
+          onChange={(v) => onSetPref('activities', v)}
+          disabled={!prefs.enabled}
+        />
+        <ToggleRow
+          label={t('notifications.settings.lists')}
+          checked={prefs.lists}
+          onChange={(v) => onSetPref('lists', v)}
+          disabled={!prefs.enabled}
+        />
+      </div>
+
+      {/* Disclaimer */}
+      <p className="text-xs text-rp-ink-mute border-t border-rp-hairline pt-2">
+        {t('notifications.settings.tabOpenNote')}
+      </p>
+    </Card>
+  )
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function MorePage() {
   const navigate = useNavigate()
-  const { fontSize, setFontSize, keepScreenOn, setKeepScreenOn, profile, activeCircle, personalSkinId, setPersonalSkinId } = useAppStore()
+  const { fontSize, setFontSize, keepScreenOn, setKeepScreenOn, profile, activeCircle, personalSkinId, setPersonalSkinId, notificationPrefs, setNotificationPref } = useAppStore()
   const [showSkinPicker, setShowSkinPicker] = useState(false)
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    'Notification' in window ? Notification.permission : 'denied'
+  )
   const { session, signOut } = useAuth()
   const { t, locale, setLocale } = useI18n()
   const ai = useAIAccess()
@@ -532,6 +699,14 @@ export function MorePage() {
 
       {/* Grocer integrations (feature flagged) */}
       {grocerFlag.enabled && <ConnectedStoresSection />}
+
+      {/* Notifications */}
+      <NotificationsCard
+        prefs={notificationPrefs}
+        onSetPref={setNotificationPref}
+        permission={notifPermission}
+        onPermissionChange={setNotifPermission}
+      />
 
       {/* Personal skin override (per device) */}
       <Card className="px-4 py-3 space-y-2">

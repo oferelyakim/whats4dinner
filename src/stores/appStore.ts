@@ -4,6 +4,20 @@ import type { Profile, Circle } from '@/types'
 
 export type FontSize = 'sm' | 'md' | 'lg'
 
+export interface NotificationPrefs {
+  enabled: boolean
+  chores: boolean
+  activities: boolean
+  lists: boolean
+}
+
+const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  enabled: false,
+  chores: true,
+  activities: true,
+  lists: false,
+}
+
 interface AppState {
   // Theme
   theme: 'dark' | 'light' | 'system'
@@ -43,6 +57,14 @@ interface AppState {
   // null = use the circle's skin (default).
   personalSkinId: string | null
   setPersonalSkinId: (id: string | null) => void
+
+  // Notification preferences (persisted)
+  notificationPrefs: NotificationPrefs
+  setNotificationPref: (key: keyof NotificationPrefs, value: boolean) => void
+
+  // Plan-v2 view mode (persisted)
+  planMode: 'plan' | 'use'
+  setPlanMode: (mode: 'plan' | 'use') => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -82,6 +104,15 @@ export const useAppStore = create<AppState>()(
 
       personalSkinId: null,
       setPersonalSkinId: (id) => set({ personalSkinId: id }),
+
+      notificationPrefs: DEFAULT_NOTIFICATION_PREFS,
+      setNotificationPref: (key, value) =>
+        set((state) => ({
+          notificationPrefs: { ...state.notificationPrefs, [key]: value },
+        })),
+
+      planMode: 'plan',
+      setPlanMode: (mode) => set({ planMode: mode }),
     }),
     {
       name: 'w4d-app',
@@ -94,6 +125,8 @@ export const useAppStore = create<AppState>()(
         calendarDate: state.calendarDate,
         lastHouseholdTab: state.lastHouseholdTab,
         personalSkinId: state.personalSkinId,
+        notificationPrefs: state.notificationPrefs,
+        planMode: state.planMode,
       }),
     }
   )

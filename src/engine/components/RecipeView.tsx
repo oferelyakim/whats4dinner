@@ -15,6 +15,12 @@ interface Props {
    */
   slotId?: string | null
   onClose: () => void
+  /**
+   * When true the dialog is read-only — any edit/delete/swap affordances
+   * should be hidden. RecipeView currently has no such buttons, so this
+   * prop is plumbed for forward-compatibility only.
+   */
+  readOnly?: boolean
 }
 
 export function RecipeView({ recipeId, slotId, onClose }: Props) {

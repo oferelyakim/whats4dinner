@@ -159,6 +159,36 @@ export function FoodHubPage() {
             </motion.section>
           )}
 
+          {/* Pantry Picks banner — always visible */}
+          <motion.section variants={fadeUp}>
+            <button
+              onClick={() => navigate('/pantry-picks')}
+              className="group w-full text-start block"
+            >
+              <Card
+                className="relative overflow-hidden p-4 flex items-center gap-4 active:scale-[0.98] transition-transform"
+              >
+                <RingsOrnament
+                  className="absolute -top-10 -end-10"
+                  opacity={0.08}
+                  size={140}
+                />
+                <div className="h-10 w-10 rounded-xl bg-rp-brand/10 flex items-center justify-center shrink-0">
+                  <span className="text-xl" role="img" aria-label="pantry">🧺</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-display italic text-[18px] text-rp-ink leading-tight">
+                    {t('pantryPicks.banner.title')}
+                  </p>
+                  <p className="text-xs text-rp-ink-soft mt-0.5">
+                    {t('pantryPicks.banner.subtitle')}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-rp-ink-mute shrink-0 rtl-flip" />
+              </Card>
+            </button>
+          </motion.section>
+
           {/* This Week meal plan preview */}
           <motion.section variants={fadeUp}>
             <div className="flex items-center justify-between mb-2.5">

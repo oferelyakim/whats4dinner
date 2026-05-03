@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useAppStore } from '@/stores/appStore'
 import { getActivities, getUpcomingReminders, type Reminder } from '@/services/activities'
 import { getChores, type Chore } from '@/services/chores'
+import { getShoppingLists } from '@/services/shoppingLists'
+import { supabase } from '@/services/supabase'
 
 export interface AppNotification {
   id: string
@@ -17,10 +19,36 @@ export interface AppNotification {
  * Returns upcoming reminders and today's chores as notifications.
  * Also triggers browser Notification API when the app is focused
  * and new notifications are detected (requires permission).
+ *
+ * Per-category gating is applied to browser notifications only.
+ * The in-app bell dropdown shows all notifications regardless of prefs.
+ *
+ * Additional features (v3.2):
+ * - Chore due-time scheduler: fires a browser notification at the chore's
+ *   due_time today if the tab is open and `prefs.chores` is on.
+ * - Realtime list-item subscription: fires a browser notification when a
+ *   circle member adds an item to a shared list (`prefs.lists`).
  */
 export function useNotifications() {
-  const { activeCircle, profile } = useAppStore()
+  const { activeCircle, profile, notificationPrefs } = useAppStore()
   const sentRef = useRef<Set<string>>(new Set())
+  const choreTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const lastScheduledDayRef = useRef<string>('')
+
+  // Shopping lists — needed to filter the realtime subscription server-
+  // payloads to lists in the active circle. Fetched directly here so the
+  // cache is populated even on a fresh session before the user visits the
+  // Lists tab. RLS scopes `getShoppingLists()` to the user's circles, then
+  // we filter to the active circle below.
+  const { data: allShoppingLists = [] } = useQuery({
+    queryKey: ['shopping-lists'],
+    queryFn: getShoppingLists,
+    enabled: !!activeCircle?.id && notificationPrefs.enabled && notificationPrefs.lists,
+    staleTime: 60 * 1000,
+  })
+  const shoppingLists = activeCircle?.id
+    ? allShoppingLists.filter((l) => l.circle_id === activeCircle.id)
+    : []
 
   const { data: activities = [] } = useQuery({
     queryKey: ['activities', activeCircle?.id],
@@ -89,9 +117,14 @@ export function useNotifications() {
     if (sentRef.current.has(n.id)) return
     if (!('Notification' in window) || Notification.permission !== 'granted') return
 
+    // Per-category gating — master toggle + category toggle
+    if (!notificationPrefs.enabled) return
+    if (n.type === 'reminder' && !notificationPrefs.activities) return
+    if (n.type === 'chore' && !notificationPrefs.chores) return
+
     sentRef.current.add(n.id)
     new Notification(n.title, { body: n.body, icon: '/icons/icon-192.png' })
-  }, [])
+  }, [notificationPrefs])
 
   // Trigger browser notifications for today's items on mount/focus
   useEffect(() => {
@@ -100,6 +133,134 @@ export function useNotifications() {
       triggerBrowserNotification(n)
     }
   }, [notifications.length, today, triggerBrowserNotification])
+
+  // ── Chore due-time scheduler ───────────────────────────────────────────────
+  // Schedules a setTimeout for each chore with a due_time set for today.
+  // Re-computes on day rollover (checked every minute).
+  useEffect(() => {
+    function scheduleChoreTimers() {
+      const nowToday = new Date().toISOString().split('T')[0]
+      if (lastScheduledDayRef.current === nowToday) return
+      lastScheduledDayRef.current = nowToday
+
+      // Clear any existing timers before rescheduling
+      choreTimersRef.current.forEach((timer) => clearTimeout(timer))
+      choreTimersRef.current.clear()
+
+      if (!notificationPrefs.enabled || !notificationPrefs.chores) return
+      if (!('Notification' in window) || Notification.permission !== 'granted') return
+      if (!myName) return
+
+      const nowDate = new Date()
+      const todayDayOfWeek = nowDate.getDay()
+
+      const myDueChores = chores.filter((c: Chore) => {
+        if (!c.assigned_to) return false
+        if (c.assigned_to.toLowerCase() !== myName) return false
+        if (!c.due_time) return false
+        if (c.frequency === 'daily') return true
+        if (c.frequency === 'weekly' && c.recurrence_days?.includes(todayDayOfWeek)) return true
+        return false
+      })
+
+      for (const chore of myDueChores) {
+        if (!chore.due_time) continue
+        const [hours, minutes] = chore.due_time.split(':').map(Number)
+        const fireAt = new Date()
+        fireAt.setHours(hours, minutes, 0, 0)
+        const msUntilFire = fireAt.getTime() - nowDate.getTime()
+        if (msUntilFire <= 0) continue // already past due time today
+
+        const timerId = setTimeout(() => {
+          const fireId = `chore-due-${chore.id}-${nowToday}`
+          if (sentRef.current.has(fireId)) return
+          if (!('Notification' in window) || Notification.permission !== 'granted') return
+          if (!notificationPrefs.enabled || !notificationPrefs.chores) return
+          sentRef.current.add(fireId)
+          new Notification(`${chore.icon || '🧹'} ${chore.name}`, {
+            body: 'Due now',
+            icon: '/icons/icon-192.png',
+          })
+        }, msUntilFire)
+
+        choreTimersRef.current.set(chore.id, timerId)
+      }
+    }
+
+    scheduleChoreTimers()
+
+    // Re-check every minute for day rollovers and re-scheduling
+    const interval = setInterval(scheduleChoreTimers, 60_000)
+    return () => {
+      clearInterval(interval)
+      choreTimersRef.current.forEach((timer) => clearTimeout(timer))
+      choreTimersRef.current.clear()
+    }
+  }, [chores, myName, notificationPrefs.enabled, notificationPrefs.chores])
+
+  // ── Realtime shopping list subscription ───────────────────────────────────
+  // Subscribes to shopping_list_items INSERT events for lists in the active
+  // circle. Fires a browser notification when a circle member adds an item.
+  // Uses the locally-fetched `shoppingLists` (above) for circle scoping —
+  // not a global query cache — so filtering works on fresh sessions.
+  useEffect(() => {
+    if (!activeCircle?.id) return
+    if (!notificationPrefs.enabled || !notificationPrefs.lists) return
+    if (!('Notification' in window) || Notification.permission !== 'granted') return
+    if (shoppingLists.length === 0) return
+
+    const currentUserId = profile?.id
+    const listIdsInCircle = new Set(shoppingLists.map((l) => l.id))
+    const listsById = new Map(shoppingLists.map((l) => [l.id, l]))
+
+    const channel = supabase
+      .channel(`notif-lists-${activeCircle.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'shopping_list_items',
+        },
+        (payload) => {
+          const record = payload.new as {
+            id: string
+            list_id: string
+            name: string
+            added_by: string | null
+          }
+
+          // Skip if the current user added the item
+          if (currentUserId && record.added_by === currentUserId) return
+
+          // Filter to lists in the active circle
+          if (!listIdsInCircle.has(record.list_id)) return
+          const matchingList = listsById.get(record.list_id)
+          if (!matchingList) return
+
+          const fireId = `list-item-${record.id}`
+          if (sentRef.current.has(fireId)) return
+          if (!notificationPrefs.enabled || !notificationPrefs.lists) return
+          sentRef.current.add(fireId)
+
+          new Notification('Shopping list updated', {
+            body: `${record.name} was added to ${matchingList.name}`,
+            icon: '/icons/icon-192.png',
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [
+    activeCircle?.id,
+    profile?.id,
+    notificationPrefs.enabled,
+    notificationPrefs.lists,
+    shoppingLists,
+  ])
 
   return {
     notifications,

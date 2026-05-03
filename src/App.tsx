@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { ToastProvider } from '@/components/ui/Toast'
 import { SkinProvider } from '@/components/SkinProvider'
 import { ReviewPrompt } from '@/components/ReviewPrompt'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { supabase } from '@/services/supabase'
 import { probeEdgeVersions } from '@/services/edgeVersionProbe'
 
@@ -40,6 +41,7 @@ const SupplyKitFormPage = lazy(() => import('@/pages/SupplyKitFormPage').then(m 
 const FoodHubPage = lazy(() => import('@/pages/FoodHubPage').then(m => ({ default: m.FoodHubPage })))
 const HouseholdHubPage = lazy(() => import('@/pages/HouseholdHubPage').then(m => ({ default: m.HouseholdHubPage })))
 const GrocerCallbackPage = lazy(() => import('@/pages/GrocerCallbackPage').then(m => ({ default: m.GrocerCallbackPage })))
+const PantryPicksPage = lazy(() => import('@/pages/PantryPicksPage').then(m => ({ default: m.PantryPicksPage })))
 
 function PageLoader() {
   return (
@@ -113,6 +115,7 @@ export default function App() {
       <SkinProvider>
       <ToastProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           {/* Public routes (outside AuthGuard) */}
           <Route path="/join/:code" element={<JoinCirclePage />} />
@@ -159,6 +162,9 @@ export default function App() {
               <Route path="/profile/circles" element={<CirclesPage />} />
               <Route path="/profile/circles/:id" element={<CircleDetailPage />} />
               <Route path="/profile/settings" element={<ProfilePage />} />
+
+              {/* Pantry Picks */}
+              <Route path="/pantry-picks" element={<PantryPicksPage />} />
 
               {/* Grocer OAuth callback */}
               <Route path="/grocer/callback/:provider" element={<GrocerCallbackPage />} />

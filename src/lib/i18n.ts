@@ -969,6 +969,12 @@ const translations: Record<string, Record<Locale, string>> = {
     es: 'Todos los días, comidas y porciones de este plan se eliminarán. Esto no se puede deshacer.',
   },
 
+  'plan.mode.plan': { en: 'Plan', he: 'תכנון', es: 'Planear' },
+  'plan.mode.use': { en: 'Use', he: 'שימוש', es: 'Usar' },
+  'plan.mode.toggle.label': { en: 'View mode', he: 'מצב תצוגה', es: 'Modo de vista' },
+  'plan.use.empty': { en: 'Nothing planned for this week.', he: 'אין תכנון לשבוע זה.', es: 'Nada planeado esta semana.' },
+  'plan.use.dayEmpty': { en: 'Nothing planned', he: 'אין תכנון', es: 'Sin planear' },
+
   // Event AI planner
   'event.aiPlan': { en: 'AI Plan Event', he: 'תכנן עם AI', es: 'Planificar con IA' },
   'event.aiPlanTitle': { en: 'Plan this Event', he: 'תכנן את האירוע', es: 'Planificar este evento' },
@@ -1265,6 +1271,46 @@ const translations: Record<string, Record<Locale, string>> = {
   'plan.eyebrow': { en: 'the kitchen · {date}', he: 'המטבח · {date}', es: 'la cocina · {date}' },
   'plan.upNext': { en: 'up next', he: 'הבא', es: 'próximamente' },
   'plan.upNextDays': { en: '{n} days →', he: '{n} ימים →', es: '{n} días →' },
+
+  // ─── Pantry Picks page ───────────────────────────────────────────────────────
+  // `{count}` and `{ingredients}` interpolated at call site via .replace()
+  'pantryPicks.title': { en: 'Pantry Picks', he: 'מהמזווה', es: 'De la despensa' },
+  'pantryPicks.tagline': { en: 'Cook with what you\'ve got.', he: 'בישול עם מה שיש לך.', es: 'Cocina con lo que tienes.' },
+  'pantryPicks.banner.title': { en: 'Pantry Picks', he: 'מהמזווה', es: 'De la despensa' },
+  'pantryPicks.banner.subtitle': { en: 'Cook with what you\'ve got tonight.', he: 'בישול ערב מהמזווה.', es: 'Cocina con lo que tienes esta noche.' },
+  'pantryPicks.yourPicks': { en: 'Your picks ({count})', he: 'הבחירות שלך ({count})', es: 'Tus elecciones ({count})' },
+  'pantryPicks.clearAll': { en: 'Clear all', he: 'נקה הכל', es: 'Borrar todo' },
+  'pantryPicks.clearConfirm.title': { en: 'Clear all picks?', he: 'לנקות את כל הבחירות?', es: '¿Borrar todas las elecciones?' },
+  'pantryPicks.clearConfirm.body': { en: 'This removes all saved recipes from your Pantry Picks list. Your ingredients stay.', he: 'פעולה זו תסיר את כל המתכונים השמורים מהרשימה. המרכיבים יישארו.', es: 'Esto elimina todas las recetas guardadas. Los ingredientes se mantienen.' },
+  'pantryPicks.ingredients.title': { en: "What's on hand?", he: 'מה יש לך?', es: '¿Qué tienes?' },
+  'pantryPicks.ingredients.placeholder': { en: 'e.g. chicken, broccoli, rice', he: 'לדוגמה: עוף, ברוקולי, אורז', es: 'ej. pollo, brócoli, arroz' },
+  'pantryPicks.ingredients.clear': { en: 'Clear ingredients', he: 'נקה מרכיבים', es: 'Borrar ingredientes' },
+  'pantryPicks.findRecipes': { en: 'Find recipes', he: 'מצא מתכונים', es: 'Buscar recetas' },
+  'pantryPicks.findRecipes.withCount': { en: 'Find recipes ({count} ingredients)', he: 'מצא מתכונים ({count} מרכיבים)', es: 'Buscar recetas ({count} ingredientes)' },
+  'pantryPicks.results.empty': { en: 'No matches yet. Add a few ingredients and try again.', he: 'אין התאמות. הוסף מרכיבים ונסה שוב.', es: 'Sin coincidencias. Agrega ingredientes e intenta de nuevo.' },
+  'pantryPicks.results.loading': { en: 'Searching the pantry…', he: 'מחפש במזווה…', es: 'Buscando en la despensa…' },
+  'pantryPicks.added': { en: 'Added', he: 'נוסף', es: 'Agregado' },
+  'pantryPicks.addToPicks': { en: 'Add to picks', he: 'הוסף לבחירות', es: 'Agregar' },
+  'pantryPicks.removePick': { en: 'Remove', he: 'הסר', es: 'Quitar' },
+  'pantryPicks.empty.title': { en: 'Nothing here yet', he: 'עדיין אין כלום', es: 'Aún no hay nada' },
+  'pantryPicks.empty.subtitle': { en: 'Add some ingredients below to see what you can cook.', he: 'הוסף כמה מרכיבים למטה כדי לראות מה אפשר לבשל.', es: 'Agrega ingredientes para ver qué puedes cocinar.' },
+  'pantryPicks.matchedIngredients': { en: 'Uses: {ingredients}', he: 'משתמש ב: {ingredients}', es: 'Usa: {ingredients}' },
+
+  // ─── v3.2.0 — Notification preferences ────────────────────────────────────
+  'notifications.settings.title': { en: 'Notifications', he: 'התראות', es: 'Notificaciones' },
+  'notifications.settings.subtitle': { en: 'Get nudges for chores, activities, and shared lists.', he: 'קבל תזכורות למטלות, פעילויות ורשימות משותפות.', es: 'Recibe avisos de tareas, actividades y listas compartidas.' },
+  'notifications.settings.enable': { en: 'Enable notifications', he: 'הפעל התראות', es: 'Activar notificaciones' },
+  'notifications.settings.chores': { en: 'Chores assigned to me', he: 'מטלות שהוקצו לי', es: 'Tareas asignadas a mí' },
+  'notifications.settings.activities': { en: 'Activity reminders', he: 'תזכורות לפעילויות', es: 'Recordatorios de actividades' },
+  'notifications.settings.lists': { en: 'When someone adds to a list', he: 'כשמישהו מוסיף לרשימה', es: 'Cuando alguien agrega a una lista' },
+  'notifications.settings.granted': { en: '✓ Granted', he: '✓ אושר', es: '✓ Concedido' },
+  'notifications.settings.denied': { en: 'Browser denied', he: 'הדפדפן חוסם', es: 'Bloqueado por el navegador' },
+  'notifications.settings.notAsked': { en: 'Not asked yet', he: 'טרם נשאל', es: 'Aún sin solicitar' },
+  'notifications.settings.deniedHelp': { en: 'Enable in your device or browser settings to use this.', he: 'הפעל בהגדרות המכשיר או הדפדפן.', es: 'Habilítalo en la configuración del dispositivo o navegador.' },
+  'notifications.settings.tabOpenNote': { en: 'Notifications fire while the app is open. Background notifications coming soon.', he: 'ההתראות פועלות כשהאפליקציה פתוחה. התראות רקע בקרוב.', es: 'Las notificaciones funcionan con la app abierta. Próximamente notificaciones en segundo plano.' },
+  'notifications.list.itemAdded': { en: '{actor} added {item} to {list}', he: '{actor} הוסיף {item} ל{list}', es: '{actor} agregó {item} a {list}' },
+  'notifications.list.title': { en: 'Shopping list updated', he: 'הרשימה עודכנה', es: 'Lista actualizada' },
+  'notifications.chore.dueNow': { en: 'Due now', he: 'זמן ביצוע', es: 'Pendiente ahora' },
 }
 
 export const useI18n = create<I18nState>()(

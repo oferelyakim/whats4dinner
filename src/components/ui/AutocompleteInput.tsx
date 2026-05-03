@@ -103,12 +103,17 @@ export function AutocompleteInput({
           className
         )}
       />
+      {/*
+        Dropdown constraint: z-[100] ensures the list renders above drawers and
+        modals. The parent container must NOT use overflow-hidden (use
+        overflow-visible instead) or the dropdown will be clipped.
+      */}
       {isOpen && (
         <div
           ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-1.5 bg-rp-card border border-rp-hairline rounded-xl shadow-lg z-50 overflow-hidden"
+          className="absolute left-0 right-0 top-full mt-1.5 bg-rp-card border border-rp-hairline rounded-xl shadow-lg z-[100] overflow-hidden"
         >
           {filtered.map((suggestion, index) => (
             <button

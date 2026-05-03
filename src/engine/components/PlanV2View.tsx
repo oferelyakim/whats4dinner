@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Trash2, ChevronLeft, ChevronRight, Sparkles, Refrigerator } from 'lucide-react'
+import { Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEngine } from '../hooks/useEngine'
 import { usePlan } from '../hooks/usePlan'
 import type { MealPlan } from '../types'
 import { DayCard } from './DayCard'
+import { DayCardUse } from './DayCardUse'
 import { RecipeView } from './RecipeView'
 import { ShopFromPlanV2Sheet } from '@/components/plan/ShopFromPlanV2Sheet'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -12,12 +13,11 @@ import { useAppStore } from '@/stores/appStore'
 import { useAIAccess } from '@/hooks/useAIAccess'
 import { WeeklyDropDrawer, type DrawerDensity } from '@/components/plan/WeeklyDropDrawer'
 import { FloatingShoppingBar } from '@/components/plan/FloatingShoppingBar'
-import { PantryRerollSheet } from '@/components/plan/PantryRerollSheet'
+// PantryRerollSheet intentionally not imported — entry point moved to /pantry-picks page.
 import { SmartConsolidateSheet } from '@/components/plan/SmartConsolidateSheet'
 import { AIUpgradeModal } from '@/components/ui/UpgradePrompt'
 import { useToast } from '@/components/ui/Toast'
 import type { WeeklyDropEntry } from '@/services/recipe-bank'
-import type { PantryMatch } from '@/services/recipe-bank'
 import { MonoLabel, RingsOrnament } from '@/components/ui/hearth'
 
 // ── Week helpers ──────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ function readStoredDensity(): DrawerDensity {
 export function PlanV2View() {
   const engine = useEngine()
   const t = useI18n((s) => s.t)
-  const { activeCircle } = useAppStore()
+  const { activeCircle, planMode, setPlanMode } = useAppStore()
   const ai = useAIAccess()
   const toast = useToast()
 
@@ -98,7 +98,6 @@ export function PlanV2View() {
   const [openSlotId, setOpenSlotId] = useState<string | null>(null)
   const [showWeekShopSheet, setShowWeekShopSheet] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showPantrySheet, setShowPantrySheet] = useState(false)
   const [showSmartConsolidate, setShowSmartConsolidate] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [drawerDensity, setDrawerDensity] = useState<DrawerDensity>(readStoredDensity)
@@ -213,20 +212,6 @@ export function PlanV2View() {
     }
   }
 
-  async function handlePantryAdd(match: PantryMatch) {
-    if (!activePlanId) return
-    const todayIso = isoToday()
-    const targetDay = visibleDays.find((d) => d.date === todayIso) ?? visibleDays[0]
-    if (!targetDay) return
-    const meal = targetDay.meals[0] ?? (await engine.addMeal(targetDay.id, 'dinner'))
-    const emptySlot = meal.slots?.find((s) => s.status === 'empty')
-    const slotId = emptySlot?.id ?? (await engine.addSlot(meal.id, 'main')).id
-    await engine.addFromBank(slotId, match.id)
-    toast.success(`Added ${match.title}.`)
-    setShowPantrySheet(false)
-    await refresh()
-  }
-
   function handleSmartConsolidate() {
     if (weekReadySlots.length === 0) {
       toast.error(t('consolidate.empty'))
@@ -239,22 +224,19 @@ export function PlanV2View() {
     setShowSmartConsolidate(true)
   }
 
-  function handlePantryClick() {
-    if (!ai.checkAIAccess()) {
-      setShowUpgrade(true)
-      return
-    }
-    setShowPantrySheet(true)
-  }
-
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  const isUseMode = planMode === 'use'
+
+  // In Use mode there's no drawer, so we don't need the extra bottom padding.
+  const bottomPadding = isUseMode
+    ? 'calc(64px + env(safe-area-inset-bottom, 0px))'
+    : `calc(${drawerHeightPx + 64 + 24}px + env(safe-area-inset-bottom, 0px))`
+
   return (
     <div
       className="max-w-3xl mx-auto"
-      style={{
-        // Reserve room for the drawer + bottom nav so day cards never sit under them.
-        paddingBottom: `calc(${drawerHeightPx + 64 + 24}px + env(safe-area-inset-bottom, 0px))`,
-      }}
+      style={{ paddingBottom: bottomPadding }}
     >
       <div className="px-4 pt-4 pb-2">
         {/* Header */}
@@ -268,38 +250,61 @@ export function PlanV2View() {
             </h1>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={handlePantryClick}
-              aria-label={t('pantry.title')}
-              title={t('pantry.title')}
-              className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft relative"
-            >
-              <Refrigerator className="h-4 w-4" />
-              {!ai.hasAI && (
-                <Sparkles className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5" style={{ color: '#f2c14e' }} />
-              )}
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              aria-label={t('common.delete')}
-              className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            {!isUseMode && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                aria-label={t('common.delete')}
+                className="p-2 rounded-lg text-rp-ink-mute hover:bg-rp-bg-soft"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
-        <ConfirmDialog
-          open={showDeleteConfirm}
-          onOpenChange={setShowDeleteConfirm}
-          title={t('plan.week.deleteConfirm.title')}
-          description={t('plan.week.deleteConfirm.body')}
-          confirmLabel={t('confirm.delete')}
-          cancelLabel={t('confirm.cancel')}
-          onConfirm={async () => {
-            await clearPlan()
-          }}
-        />
+        {/* Plan / Use mode toggle */}
+        <div
+          className="flex rounded-full bg-rp-bg-soft p-1 gap-1 mb-3"
+          role="group"
+          aria-label={t('plan.mode.toggle.label')}
+        >
+          <button
+            onClick={() => setPlanMode('plan')}
+            className={
+              'flex-1 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ' +
+              (!isUseMode
+                ? 'bg-rp-brand text-white'
+                : 'text-rp-ink-mute hover:text-rp-ink')
+            }
+          >
+            {t('plan.mode.plan')}
+          </button>
+          <button
+            onClick={() => setPlanMode('use')}
+            className={
+              'flex-1 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ' +
+              (isUseMode
+                ? 'bg-rp-brand text-white'
+                : 'text-rp-ink-mute hover:text-rp-ink')
+            }
+          >
+            {t('plan.mode.use')}
+          </button>
+        </div>
+
+        {!isUseMode && (
+          <ConfirmDialog
+            open={showDeleteConfirm}
+            onOpenChange={setShowDeleteConfirm}
+            title={t('plan.week.deleteConfirm.title')}
+            description={t('plan.week.deleteConfirm.body')}
+            confirmLabel={t('confirm.delete')}
+            cancelLabel={t('confirm.cancel')}
+            onConfirm={async () => {
+              await clearPlan()
+            }}
+          />
+        )}
 
         {/* Week navigation row */}
         <div className="flex items-center justify-between gap-2 mt-2 mb-3">
@@ -326,73 +331,97 @@ export function PlanV2View() {
         </div>
       </div>
 
-      {/* Day cards */}
-      <div className="px-4 space-y-3">
-        {visibleDays.map((day) => (
-          <DayCard
-            key={day.id}
-            day={day}
-            weekStart={visibleWeekStart(viewWeekOffset)}
-            onOpenRecipe={setOpenRecipeId}
-            onOpenSlot={setOpenSlotId}
-          />
-        ))}
-      </div>
+      {/* Day cards — Plan mode */}
+      {!isUseMode && (
+        <div className="px-4 space-y-3">
+          {visibleDays.map((day) => (
+            <DayCard
+              key={day.id}
+              day={day}
+              weekStart={visibleWeekStart(viewWeekOffset)}
+              onOpenRecipe={setOpenRecipeId}
+              onOpenSlot={setOpenSlotId}
+            />
+          ))}
+        </div>
+      )}
 
-      <RecipeView
-        recipeId={openRecipeId}
-        slotId={openSlotId}
-        onClose={() => {
-          setOpenRecipeId(null)
-          setOpenSlotId(null)
-        }}
-      />
+      {/* Day cards — Use mode */}
+      {isUseMode && (
+        <div className="px-4 space-y-3">
+          {visibleDays.length === 0 && (
+            <p className="text-sm text-rp-ink-mute text-center py-8">
+              {t('plan.use.empty')}
+            </p>
+          )}
+          {visibleDays.map((day) => (
+            <DayCardUse key={day.id} day={day} />
+          ))}
+        </div>
+      )}
 
-      {plans.length > 0 && (
+      {/* Recipe viewer — Plan mode only (Use mode has its own internal RecipeView per DayCardUse) */}
+      {!isUseMode && (
+        <RecipeView
+          recipeId={openRecipeId}
+          slotId={openSlotId}
+          onClose={() => {
+            setOpenRecipeId(null)
+            setOpenSlotId(null)
+          }}
+        />
+      )}
+
+      {!isUseMode && plans.length > 0 && (
         <p className="text-[11px] text-rp-ink-mute text-center pt-4 px-4">
           {plans.length} plan{plans.length === 1 ? '' : 's'} stored locally
         </p>
       )}
 
-      <ShopFromPlanV2Sheet
-        open={showWeekShopSheet}
-        onClose={() => setShowWeekShopSheet(false)}
-        slots={weekReadySlots}
-        circleId={activeCircle?.id}
-      />
+      {!isUseMode && (
+        <ShopFromPlanV2Sheet
+          open={showWeekShopSheet}
+          onClose={() => setShowWeekShopSheet(false)}
+          slots={weekReadySlots}
+          circleId={activeCircle?.id}
+        />
+      )}
 
-      <PantryRerollSheet
-        open={showPantrySheet}
-        onClose={() => setShowPantrySheet(false)}
-        onAdd={(m) => void handlePantryAdd(m)}
-      />
+      {/* PantryRerollSheet intentionally unwired — entry point moved to /pantry-picks page.
+          Component kept as dead code for potential reuse. */}
 
-      <SmartConsolidateSheet
-        open={showSmartConsolidate}
-        onClose={() => setShowSmartConsolidate(false)}
-        slots={weekReadySlots}
-        circleId={activeCircle?.id}
-      />
+      {!isUseMode && (
+        <SmartConsolidateSheet
+          open={showSmartConsolidate}
+          onClose={() => setShowSmartConsolidate(false)}
+          slots={weekReadySlots}
+          circleId={activeCircle?.id}
+        />
+      )}
 
       <AIUpgradeModal open={showUpgrade} onOpenChange={setShowUpgrade} />
 
-      {/* Floating shopping bar — sits above the drawer */}
-      <FloatingShoppingBar
-        drawerHeightPx={drawerHeightPx}
-        hidden={drawerDensity === 'hero'}
-        dishCount={weekReadySlots.length}
-        itemCount={weekReadySlots.length * 5 /* heuristic — avg 5 ingredients/dish */}
-        onOpenList={() => setShowWeekShopSheet(true)}
-        onSmartConsolidate={handleSmartConsolidate}
-      />
+      {/* Floating shopping bar — Plan mode only */}
+      {!isUseMode && (
+        <FloatingShoppingBar
+          drawerHeightPx={drawerHeightPx}
+          hidden={drawerDensity === 'hero'}
+          dishCount={weekReadySlots.length}
+          itemCount={weekReadySlots.length * 5 /* heuristic — avg 5 ingredients/dish */}
+          onOpenList={() => setShowWeekShopSheet(true)}
+          onSmartConsolidate={handleSmartConsolidate}
+        />
+      )}
 
-      {/* Bottom-pinned weekly drop drawer — fetches the visible week's drop */}
-      <WeeklyDropDrawer
-        density={drawerDensity}
-        onDensityChange={setDrawerDensity}
-        onAdd={(entry) => void handleDropAdd(entry)}
-        weekStart={visibleWeekStart(viewWeekOffset)}
-      />
+      {/* Bottom-pinned weekly drop drawer — Plan mode only */}
+      {!isUseMode && (
+        <WeeklyDropDrawer
+          density={drawerDensity}
+          onDensityChange={setDrawerDensity}
+          onAdd={(entry) => void handleDropAdd(entry)}
+          weekStart={visibleWeekStart(viewWeekOffset)}
+        />
+      )}
     </div>
   )
 }
