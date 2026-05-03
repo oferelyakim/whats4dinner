@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
@@ -39,6 +39,7 @@ import { APP_VERSION } from '@/lib/version'
 import { useAppUpdate } from '@/hooks/useAppUpdate'
 import { Link } from 'react-router-dom'
 import { BugReportDialog } from '@/components/BugReportDialog'
+import { isIosSafariNotInstalled } from '@/lib/pushUtils'
 import { isAppAdmin } from '@/services/bugReports'
 import { AI_PRICING, SEAT_CAP } from '@/lib/subscription'
 import {
@@ -525,6 +526,9 @@ function NotificationsCard({
 }) {
   const { t } = useI18n()
   const toast = useToast()
+  // Evaluated once per mount — navigator.userAgent doesn't change at runtime.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const showIosHint = useMemo(() => isIosSafariNotInstalled(), [])
 
   async function handleMasterToggle(enabled: boolean) {
     if (!enabled) {
@@ -579,6 +583,16 @@ function NotificationsCard({
           <div className="text-xs text-rp-ink-mute">{t('notifications.settings.subtitle')}</div>
         </div>
       </div>
+
+      {/* iOS install hint — shown only on iPhone/iPad Safari outside standalone */}
+      {showIosHint && (
+        <div className="rounded-lg bg-rp-bg-soft px-3 py-2 flex items-start gap-2">
+          <span className="text-base leading-none mt-0.5" aria-hidden>⬆</span>
+          <p className="text-sm italic text-rp-ink-mute leading-snug">
+            {t('notifications.iosInstallHint')}
+          </p>
+        </div>
+      )}
 
       {/* Master enable toggle + permission badge */}
       <div className="space-y-1">

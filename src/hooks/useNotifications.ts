@@ -80,14 +80,24 @@ export function useNotifications() {
     })
   }
 
-  // Today's chores for current user
+  // Today's chores for current user.
+  // Chores are assigned via the free-text `assigned_name` column (the
+  // AutocompleteInput suggests circle-member names but allows custom strings);
+  // the UUID `assigned_to` column is currently never written by createChore.
   const myName = profile?.display_name?.toLowerCase()
-  if (myName) {
+  const myUserId = profile?.id
+  const isAssignedToMe = useCallback(
+    (c: Chore): boolean => {
+      if (myUserId && c.assigned_to === myUserId) return true
+      if (myName && c.assigned_name?.toLowerCase() === myName) return true
+      return false
+    },
+    [myName, myUserId]
+  )
+  if (myName || myUserId) {
     const todayDay = new Date().getDay()
     const myChores = chores.filter((c: Chore) => {
-      if (!c.assigned_to) return false
-      const assignee = c.assigned_to.toLowerCase()
-      if (assignee !== myName) return false
+      if (!isAssignedToMe(c)) return false
       // Check if chore is scheduled for today based on frequency
       if (c.frequency === 'daily') return true
       if (c.frequency === 'weekly' && c.recurrence_days?.includes(todayDay)) return true
@@ -123,7 +133,10 @@ export function useNotifications() {
     if (n.type === 'chore' && !notificationPrefs.chores) return
 
     sentRef.current.add(n.id)
-    new Notification(n.title, { body: n.body, icon: '/icons/icon-192.png' })
+    // `tag` matches the SW push handler's tag convention so OS dedups when both
+    // the in-tab path and a push for the same event arrive close together.
+    const tag = n.type === 'chore' ? `chore:${n.id}` : `activity:${n.activityId ?? n.id}`
+    new Notification(n.title, { body: n.body, icon: '/icons/icon-192.png', tag })
   }, [notificationPrefs])
 
   // Trigger browser notifications for today's items on mount/focus
@@ -140,7 +153,6 @@ export function useNotifications() {
   useEffect(() => {
     function scheduleChoreTimers() {
       const nowToday = new Date().toISOString().split('T')[0]
-      if (lastScheduledDayRef.current === nowToday) return
       lastScheduledDayRef.current = nowToday
 
       // Clear any existing timers before rescheduling
@@ -149,14 +161,13 @@ export function useNotifications() {
 
       if (!notificationPrefs.enabled || !notificationPrefs.chores) return
       if (!('Notification' in window) || Notification.permission !== 'granted') return
-      if (!myName) return
+      if (!myName && !myUserId) return
 
       const nowDate = new Date()
       const todayDayOfWeek = nowDate.getDay()
 
       const myDueChores = chores.filter((c: Chore) => {
-        if (!c.assigned_to) return false
-        if (c.assigned_to.toLowerCase() !== myName) return false
+        if (!isAssignedToMe(c)) return false
         if (!c.due_time) return false
         if (c.frequency === 'daily') return true
         if (c.frequency === 'weekly' && c.recurrence_days?.includes(todayDayOfWeek)) return true
@@ -180,6 +191,7 @@ export function useNotifications() {
           new Notification(`${chore.icon || '🧹'} ${chore.name}`, {
             body: 'Due now',
             icon: '/icons/icon-192.png',
+            tag: `chore:${chore.id}`,
           })
         }, msUntilFire)
 
@@ -196,7 +208,7 @@ export function useNotifications() {
       choreTimersRef.current.forEach((timer) => clearTimeout(timer))
       choreTimersRef.current.clear()
     }
-  }, [chores, myName, notificationPrefs.enabled, notificationPrefs.chores])
+  }, [chores, myName, myUserId, isAssignedToMe, notificationPrefs.enabled, notificationPrefs.chores])
 
   // ── Realtime shopping list subscription ───────────────────────────────────
   // Subscribes to shopping_list_items INSERT events for lists in the active
@@ -246,6 +258,7 @@ export function useNotifications() {
           new Notification('Shopping list updated', {
             body: `${record.name} was added to ${matchingList.name}`,
             icon: '/icons/icon-192.png',
+            tag: `list-update:${record.list_id}`,
           })
         }
       )

@@ -13,6 +13,7 @@ import { BetaBanner } from '@/components/BetaBanner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/services/supabase'
 import { probeEdgeVersions } from '@/services/edgeVersionProbe'
+import { usePushSubscription } from '@/hooks/usePushSubscription'
 
 // Lazy-loaded pages for code splitting
 const HomePage = lazy(() => import('@/pages/HomePage').then(m => ({ default: m.HomePage })))
@@ -55,6 +56,15 @@ function PageLoader() {
       <div className="h-6 w-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
+}
+
+/**
+ * Must be mounted inside <BrowserRouter> so useNavigate is available.
+ * Renders nothing — exists only to run the push subscription lifecycle.
+ */
+function PushSubscriptionMount() {
+  usePushSubscription()
+  return null
 }
 
 const queryClient = new QueryClient({
@@ -124,6 +134,7 @@ export default function App() {
       <BrowserRouter>
         <ScrollToTop />
         <BetaBanner />
+        <PushSubscriptionMount />
         <Routes>
           {/* Public routes (outside AuthGuard) */}
           <Route path="/join/:code" element={<JoinCirclePage />} />
