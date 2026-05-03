@@ -2,15 +2,9 @@
 // Used by generate-meal-plan, plan-event, ai-chat to ground prompts in the
 // circle's onboarding answers.
 
-interface SupabaseLike {
-  from: (table: string) => {
-    select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        maybeSingle: () => Promise<{ data: CircleRow | null; error: unknown }>
-      }
-    }
-  }
-}
+// Looser SupabaseLike — accepts the full client; we only call narrow shapes.
+// deno-lint-ignore no-explicit-any
+type SupabaseLike = any
 
 interface CircleRow {
   name?: string
@@ -20,8 +14,16 @@ interface CircleRow {
   context?: Record<string, unknown> | null
 }
 
+interface EventRow {
+  id: string
+  name: string
+  event_date: string | null
+  location: string | null
+}
+
 export interface CircleContextSummary {
   row: CircleRow | null
+  events: EventRow[]
   block: string
 }
 
@@ -35,12 +37,43 @@ export async function loadCircleContext(
     .eq('id', circleId)
     .maybeSingle()
 
-  return { row: data ?? null, block: renderCircleContextBlock(data ?? null) }
+  // Pull upcoming events so the assistant can resolve names like
+  // "Sarah's birthday" → a real /events/{id}/plan link without guessing.
+  // Best-effort: any error or missing rows just means no events block.
+  let events: EventRow[] = []
+  try {
+    const todayIso = new Date().toISOString().slice(0, 10)
+    const { data: rows } = await supabase
+      .from('events')
+      .select('id, name, event_date, location')
+      .eq('circle_id', circleId)
+      .or(`event_date.gte.${todayIso},event_date.is.null`)
+      .order('event_date', { ascending: true, nullsFirst: false })
+      .limit(15)
+    if (Array.isArray(rows)) events = rows as EventRow[]
+  } catch {
+    // ignore
+  }
+
+  return {
+    row: data ?? null,
+    events,
+    block: renderCircleContextBlock(data ?? null, events),
+  }
 }
 
-export function renderCircleContextBlock(circle: CircleRow | null): string {
-  if (!circle) return ''
+export function renderCircleContextBlock(
+  circle: CircleRow | null,
+  events: EventRow[] = [],
+): string {
+  if (!circle && events.length === 0) return ''
   const lines: string[] = ['<circle_context>']
+  if (!circle) {
+    // events-only block (still useful so the assistant can resolve names)
+    lines.push(...renderEventLines(events))
+    lines.push('</circle_context>')
+    return lines.length > 2 ? lines.join('\n') : ''
+  }
   if (circle.name) lines.push(`Name: ${circle.name}`)
   if (circle.circle_type) lines.push(`Type: ${circle.circle_type}`)
   if (circle.purpose) lines.push(`Purpose: ${circle.purpose}`)
@@ -89,6 +122,19 @@ export function renderCircleContextBlock(circle: CircleRow | null): string {
   if (ctx.cadence) lines.push(`Cadence: ${ctx.cadence}`)
   if (ctx.notes) lines.push(`Notes: ${ctx.notes}`)
 
+  lines.push(...renderEventLines(events))
+
   lines.push('</circle_context>')
   return lines.length > 2 ? lines.join('\n') : ''
+}
+
+function renderEventLines(events: EventRow[]): string[] {
+  if (!events.length) return []
+  const out: string[] = ['', 'Events in this circle (use these IDs to navigate to /events/{id}/plan):']
+  for (const e of events) {
+    const date = e.event_date ? ` (${e.event_date})` : ''
+    const loc = e.location ? ` @ ${e.location}` : ''
+    out.push(`  - ${e.name}${date}${loc} [id: ${e.id}]`)
+  }
+  return out
 }

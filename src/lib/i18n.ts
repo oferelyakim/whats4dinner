@@ -586,8 +586,10 @@ const translations: Record<string, Record<Locale, string>> = {
   'chat.suggestNavigation': { en: 'Where do I find...?', he: 'איפה אני מוצא...?', es: '¿Dónde encuentro...?' },
   'chat.suggestPlanMeals': { en: 'Plan meals for the week', he: 'תכנן ארוחות לשבוע', es: 'Planificar comidas de la semana' },
   'chat.suggestCreateActivity': { en: 'Create an activity', he: 'צור פעילות', es: 'Crear una actividad' },
-  'chat.recipeImported': { en: 'Recipe imported successfully!', he: 'המתכון יובא בהצלחה!', es: '¡Receta importada con éxito!' },
-  'chat.recipeImportFailed': { en: 'Failed to import recipe. Try again or check the URL.', he: 'ייבוא המתכון נכשל. נסה שוב או בדוק את הקישור.', es: 'Error al importar receta. Intenta de nuevo o verifica la URL.' },
+  'chat.suggestPlanEvent': { en: 'Help me plan an event', he: 'עזור לתכנן אירוע', es: 'Ayúdame a planear un evento' },
+  'chat.recipeImporting': { en: 'Importing the recipe — this can take 10-30 seconds…', he: 'מייבא את המתכון — זה יכול לקחת 10-30 שניות…', es: 'Importando la receta — puede tardar 10-30 segundos…' },
+  'chat.recipeImported': { en: 'Recipe saved.', he: 'המתכון נשמר.', es: 'Receta guardada.' },
+  'chat.recipeImportFailed': { en: 'Couldn\'t import that one. The page might not be a recipe, or the site blocked the fetch. Try a different URL, or add it manually from Food → Recipes.', he: 'לא הצלחתי לייבא. ייתכן שהדף אינו מתכון או שהאתר חוסם. נסה קישור אחר או הוסף ידנית מ-אוכל → מתכונים.', es: 'No pude importar esa. La página quizá no sea una receta, o el sitio bloqueó la solicitud. Prueba otra URL o agrégala manualmente desde Comida → Recetas.' },
   'chat.errorGeneric': { en: 'Sorry, something went wrong. Please try again.', he: 'מצטער, משהו השתבש. נסה שוב.', es: 'Lo siento, algo salió mal. Intenta de nuevo.' },
 
   // Chat plan review
@@ -1049,6 +1051,16 @@ const translations: Record<string, Record<Locale, string>> = {
   'event.planner.review.clarifyingBanner': { en: 'AI raised one question:', he: 'ה-AI שאל שאלה אחת:', es: 'La IA tiene una pregunta:' },
   'event.planner.error.title': { en: 'Something went wrong', he: 'משהו השתבש', es: 'Algo salió mal' },
   'event.planner.error.retry': { en: 'Try again', he: 'נסה שוב', es: 'Intentar de nuevo' },
+
+  // Manage existing plan (post-apply edit mode)
+  'event.planner.manage.title': { en: 'Edit your plan', he: 'ערוך את התכנית', es: 'Editar el plan' },
+  'event.planner.manage.subtitle': { en: 'Add or remove items. Changes save instantly.', he: 'הוסף או הסר פריטים. השינויים נשמרים מיד.', es: 'Agrega o elimina elementos. Los cambios se guardan al instante.' },
+  'event.planner.manage.add': { en: 'Add', he: 'הוסף', es: 'Agregar' },
+  'event.planner.manage.addPlaceholder': { en: 'e.g. "Vegan lasagna" or "Folding chairs"', he: 'למשל: "לזניה טבעונית" או "כיסאות מתקפלים"', es: 'p.ej. "Lasaña vegana" o "Sillas plegables"' },
+  'event.planner.manage.empty': { en: 'Nothing yet — tap + to add.', he: 'עדיין אין כלום — הקש + להוספה.', es: 'Nada todavía — toca + para agregar.' },
+  'event.planner.manage.startFreshTitle': { en: 'Start a new plan', he: 'התחל תכנית חדשה', es: 'Iniciar nuevo plan' },
+  'event.planner.manage.startFreshHelp': { en: 'Run the questionnaire again. Your existing items stay on the event.', he: 'הרץ את השאלון שוב. הפריטים הקיימים יישארו באירוע.', es: 'Vuelve a hacer el cuestionario. Tus elementos actuales se mantienen.' },
+  'event.planner.manage.startFresh': { en: 'New plan', he: 'תכנית חדשה', es: 'Nuevo plan' },
 
   // Question prompts
   'event.planner.q.archetype': { en: "What kind of gathering?", he: 'איזה סוג אירוע?', es: '¿Qué tipo de reunión?' },
