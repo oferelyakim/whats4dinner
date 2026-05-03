@@ -17,6 +17,7 @@
 // Cost: ~$0.02 per cell × ≤20 cells = ~$0.40 worst case.
 
 import { createClient } from '@supabase/supabase-js'
+import { logBankSeedUsage } from './_log-bank-usage.mjs'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -116,7 +117,11 @@ async function generateLinks(diet, mealType, slotRole) {
   const tool = (data.content || []).find(
     (b) => b.type === 'tool_use' && b.name === 'submit_links',
   )
-  return tool?.input?.candidates ?? []
+  return {
+    candidates: tool?.input?.candidates ?? [],
+    tokensIn: data.usage?.input_tokens ?? 0,
+    tokensOut: data.usage?.output_tokens ?? 0,
+  }
 }
 
 function domainFromUrl(u) {
@@ -198,10 +203,11 @@ async function run() {
     const { diet, meal_type, slot_role, deficit } = cell
     console.log(`[${processed}/${Math.min(cells.length, LIMIT)}] ${diet}/${meal_type}/${slot_role} (deficit=${deficit})`)
     try {
-      const candidates = await generateLinks(diet, meal_type, slot_role)
+      const { candidates, tokensIn, tokensOut } = await generateLinks(diet, meal_type, slot_role)
       const n = await insertCandidates(diet, meal_type, slot_role, candidates)
       added += n
-      console.log(`  → +${n} rows`)
+      await logBankSeedUsage(sb, { tokensIn, tokensOut, feature: `seed-urls:${diet}/${meal_type}/${slot_role}` })
+      console.log(`  → +${n} rows (in=${tokensIn} out=${tokensOut})`)
     } catch (err) {
       console.warn(`  failed: ${err.message}`)
     }

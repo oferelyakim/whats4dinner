@@ -27,9 +27,36 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
-const APP_VERSION = '3.2.2'
-const DEPLOYED_AT = '2026-04-26T18:00:00Z'
+const APP_VERSION = '2.1.0'
+const DEPLOYED_AT = '2026-05-03T00:00:00Z'
 const MODEL = 'claude-haiku-4-5-20251001'
+
+// Per-million-token pricing for Haiku 4.5 (matches the cost calc in logRun).
+const PRICE_IN_PER_M = 1.0
+const PRICE_OUT_PER_M = 5.0
+
+async function logBankUsage(
+  supabase: ReturnType<typeof createClient>,
+  bucket: 'bank_refresh' | 'auditor',
+  tokensIn: number,
+  tokensOut: number,
+  feature: string,
+): Promise<void> {
+  if (tokensIn === 0 && tokensOut === 0) return
+  const cost = (tokensIn / 1_000_000) * PRICE_IN_PER_M
+             + (tokensOut / 1_000_000) * PRICE_OUT_PER_M
+  const { error } = await supabase.from('ai_usage').insert({
+    user_id: null,
+    action_type: bucket,
+    api_cost_usd: cost,
+    model_used: MODEL,
+    tokens_in: tokensIn,
+    tokens_out: tokensOut,
+    period_start: new Date().toISOString(),
+    feature_context: feature,
+  })
+  if (error) console.warn('[bank-refresh] logBankUsage failed:', error.message)
+}
 
 const INVOCATION_BUDGET_MS = 60_000
 // Each cell aims for at least TARGET_PER_CELL recipes. Cron tops up cells
@@ -387,7 +414,6 @@ async function insertWebRows(
     source_kind_v2: 'web',
     quality_score: Math.max(0, Math.min(100, c.quality_score ?? 70)),
   }))
-
   // Mig 034's uniqueness constraint is a PARTIAL index:
   //   recipe_bank_url_uniq ON (source_url, slot_role) WHERE source_url IS NOT NULL
   // PostgREST emits ON CONFLICT (cols) without the WHERE predicate, so PG
@@ -598,11 +624,13 @@ serve(async (req) => {
         added = 1
         stats.tokensIn += tokensIn
         stats.tokensOut += tokensOut
+        await logBankUsage(supabase, 'bank_refresh', tokensIn, tokensOut, `compose:${cell.cuisine}/${cell.mealType}/${cell.slotRole}`)
       } else {
         // 'link-first' or 'composed-fallback': try web search first.
         const links = await generateLinks(cell)
         stats.tokensIn += links.tokensIn
         stats.tokensOut += links.tokensOut
+        await logBankUsage(supabase, 'bank_refresh', links.tokensIn, links.tokensOut, `link:${cell.cuisine}/${cell.mealType}/${cell.slotRole}`)
         added = await insertWebRows(supabase, cell, links.candidates)
         // Fallback if no usable URLs returned and mode allows.
         if (added === 0 && BANK_MODE === 'composed-fallback') {
@@ -612,6 +640,7 @@ serve(async (req) => {
             added = 1
             stats.tokensIn += tokensIn
             stats.tokensOut += tokensOut
+            await logBankUsage(supabase, 'bank_refresh', tokensIn, tokensOut, `compose-fallback:${cell.cuisine}/${cell.mealType}/${cell.slotRole}`)
           } catch (err) {
             if (err instanceof AnthropicRateLimitError) throw err
             console.warn(`[refresher] composed fallback failed for cell:`, err)

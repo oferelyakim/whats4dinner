@@ -17,6 +17,30 @@
 // in + 1K out per recipe = ~2.5K tokens × 50 recipes = 125K tokens ≈ $0.25
 // input + $0.25 output).
 
+async function logBankSeedUsageHttp({ tokensIn, tokensOut, feature }) {
+  if (!tokensIn && !tokensOut) return
+  const cost = (tokensIn / 1_000_000) * 1.0 + (tokensOut / 1_000_000) * 5.0
+  await fetch(`${SUPABASE_URL}/rest/v1/ai_usage`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'apikey': SERVICE_KEY,
+      'authorization': `Bearer ${SERVICE_KEY}`,
+      'prefer': 'return=minimal',
+    },
+    body: JSON.stringify({
+      user_id: null,
+      action_type: 'bank_seed',
+      api_cost_usd: cost,
+      model_used: 'claude-haiku-4-5-20251001',
+      tokens_in: tokensIn,
+      tokens_out: tokensOut,
+      period_start: new Date().toISOString(),
+      feature_context: feature,
+    }),
+  }).catch((err) => console.warn('[bank-seed] usage log failed:', err.message))
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL || ''
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ''
@@ -253,6 +277,7 @@ async function main() {
       stats.recipesAdded++
       stats.tokensIn += tokensIn
       stats.tokensOut += tokensOut
+      await logBankSeedUsageHttp({ tokensIn, tokensOut, feature: `seed:${label}` })
       console.log(`OK "${recipe.title}" (Q=${recipe.quality_score}, in=${tokensIn} out=${tokensOut})`)
     } catch (err) {
       console.log(`FAIL ${err.message}`)

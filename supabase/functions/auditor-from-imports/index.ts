@@ -24,8 +24,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
-const APP_VERSION = '2.0.0'
-const DEPLOYED_AT = '2026-04-26T18:00:00Z'
+const APP_VERSION = '2.1.0'
+const DEPLOYED_AT = '2026-05-03T00:00:00Z'
 const MODEL = 'claude-haiku-4-5-20251001'
 const PROMOTIONS_PER_USER_PER_DAY = 3
 
@@ -115,7 +115,13 @@ interface AuditOutput {
   pii_concern?: boolean
 }
 
-async function auditUrl(url: string, title: string): Promise<AuditOutput> {
+interface AuditCallResult {
+  output: AuditOutput
+  tokensIn: number
+  tokensOut: number
+}
+
+async function auditUrl(url: string, title: string): Promise<AuditCallResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -148,7 +154,32 @@ async function auditUrl(url: string, title: string): Promise<AuditOutput> {
     (b: { type: string; name?: string }) => b.type === 'tool_use' && b.name === 'audit_recipe_url',
   )
   if (!tool || !tool.input) throw new Error('No audit_recipe_url tool_use returned')
-  return tool.input as AuditOutput
+  return {
+    output: tool.input as AuditOutput,
+    tokensIn: data.usage?.input_tokens ?? 0,
+    tokensOut: data.usage?.output_tokens ?? 0,
+  }
+}
+
+async function logAuditorUsage(
+  sb: ReturnType<typeof createClient>,
+  tokensIn: number,
+  tokensOut: number,
+  feature: string,
+): Promise<void> {
+  if (tokensIn === 0 && tokensOut === 0) return
+  const cost = (tokensIn / 1_000_000) * 1.0 + (tokensOut / 1_000_000) * 5.0
+  const { error } = await sb.from('ai_usage').insert({
+    user_id: null,
+    action_type: 'auditor',
+    api_cost_usd: cost,
+    model_used: MODEL,
+    tokens_in: tokensIn,
+    tokens_out: tokensOut,
+    period_start: new Date().toISOString(),
+    feature_context: feature,
+  })
+  if (error) console.warn('[auditor] logAuditorUsage failed:', error.message)
 }
 
 // ─── DB helpers ────────────────────────────────────────────────────────────
@@ -331,7 +362,9 @@ serve(async (req) => {
   // 5. Audit via Haiku.
   let audit: AuditOutput
   try {
-    audit = await auditUrl(recipe.source_url, recipe.title)
+    const result = await auditUrl(recipe.source_url, recipe.title)
+    audit = result.output
+    await logAuditorUsage(sb, result.tokensIn, result.tokensOut, `audit:${recipe.id}`)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     await logDecision(sb, recipe.id, 'error', null, message.slice(0, 200))

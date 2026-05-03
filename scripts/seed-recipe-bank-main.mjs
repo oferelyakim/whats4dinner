@@ -23,6 +23,7 @@
 //     node scripts/seed-recipe-bank-main.mjs [--dry-run]
 
 import { createClient } from '@supabase/supabase-js'
+import { logBankSeedUsage } from './_log-bank-usage.mjs'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -169,7 +170,11 @@ async function generateLinks({ meal_type, slot_role, diet, cuisine }) {
   const tool = (data.content || []).find(
     (b) => b.type === 'tool_use' && b.name === 'submit_links',
   )
-  return tool?.input?.candidates ?? []
+  return {
+    candidates: tool?.input?.candidates ?? [],
+    tokensIn: data.usage?.input_tokens ?? 0,
+    tokensOut: data.usage?.output_tokens ?? 0,
+  }
 }
 
 function domainFromUrl(u) {
@@ -239,10 +244,11 @@ async function run() {
     const tag = `${cell.meal_type}/${cell.slot_role}/${cell.diet}/${cell.cuisine}`
     console.log(`[${processed}/${cells.length}] ${tag}`)
     try {
-      const candidates = await generateLinks(cell)
+      const { candidates, tokensIn, tokensOut } = await generateLinks(cell)
       const n = await insertCandidates(cell, candidates)
       added += n
-      console.log(`  → +${n} rows`)
+      await logBankSeedUsage(sb, { tokensIn, tokensOut, feature: `seed-main:${tag}` })
+      console.log(`  → +${n} rows (in=${tokensIn} out=${tokensOut})`)
     } catch (err) {
       console.warn(`  failed: ${err.message}`)
     }
