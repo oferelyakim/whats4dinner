@@ -13,6 +13,9 @@ import {
   Plus,
   Mail,
   Bell,
+  RefreshCw,
+  Shield,
+  FileText,
 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { SkinPicker } from '@/components/skins/SkinPicker'
@@ -31,6 +34,8 @@ import { ConnectedStoresSection } from '@/components/grocers/ConnectedStoresSect
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/Toast'
 import { APP_VERSION } from '@/lib/version'
+import { useAppUpdate } from '@/hooks/useAppUpdate'
+import { Link } from 'react-router-dom'
 import { AI_PRICING, SEAT_CAP } from '@/lib/subscription'
 import {
   listMySeats,
@@ -629,6 +634,7 @@ export function MorePage() {
   const { t, locale, setLocale } = useI18n()
   const ai = useAIAccess()
   const grocerFlag = useGrocerFlag()
+  const update = useAppUpdate()
 
   const menuItems = [
     {
@@ -865,6 +871,70 @@ export function MorePage() {
             ))}
           </div>
         </div>
+      </Card>
+
+      {/* App updates */}
+      <Card className="px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <RefreshCw className={cn(
+              'h-5 w-5 text-slate-500 shrink-0',
+              update.isCheckingForUpdate && 'animate-spin',
+            )} />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-rp-ink truncate">
+                {t('more.updates.title')}
+              </div>
+              <div className="text-xs text-rp-ink-mute truncate">
+                {update.needRefresh
+                  ? t('more.updates.available')
+                  : t('more.updates.upToDate')}
+              </div>
+            </div>
+          </div>
+          {update.needRefresh ? (
+            <Button size="sm" onClick={update.applyUpdate}>
+              {t('update.available.refresh')}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={update.checkForUpdate}
+              disabled={update.isCheckingForUpdate}
+            >
+              {update.isCheckingForUpdate
+                ? t('more.updates.checking')
+                : t('more.updates.checkNow')}
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Legal */}
+      <Card className="divide-y divide-slate-100 dark:divide-slate-800">
+        <Link
+          to="/legal/privacy"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 dark:active:bg-surface-dark-overlay transition-colors"
+        >
+          <Shield className="h-5 w-5 text-rp-ink-mute shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-rp-ink">{t('more.legal.privacy')}</p>
+            <p className="text-xs text-slate-400 truncate">{t('more.legal.privacyDesc')}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
+        </Link>
+        <Link
+          to="/legal/terms"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 dark:active:bg-surface-dark-overlay transition-colors"
+        >
+          <FileText className="h-5 w-5 text-rp-ink-mute shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-rp-ink">{t('more.legal.terms')}</p>
+            <p className="text-xs text-slate-400 truncate">{t('more.legal.termsDesc')}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 shrink-0 rtl-flip" />
+        </Link>
       </Card>
 
       {/* Sign out */}

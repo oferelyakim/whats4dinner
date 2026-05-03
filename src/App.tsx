@@ -8,6 +8,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { SkinProvider } from '@/components/SkinProvider'
 import { ReviewPrompt } from '@/components/ReviewPrompt'
 import { ScrollToTop } from '@/components/ScrollToTop'
+import { UpdateBanner } from '@/components/UpdateBanner'
 import { supabase } from '@/services/supabase'
 import { probeEdgeVersions } from '@/services/edgeVersionProbe'
 
@@ -42,6 +43,8 @@ const FoodHubPage = lazy(() => import('@/pages/FoodHubPage').then(m => ({ defaul
 const HouseholdHubPage = lazy(() => import('@/pages/HouseholdHubPage').then(m => ({ default: m.HouseholdHubPage })))
 const GrocerCallbackPage = lazy(() => import('@/pages/GrocerCallbackPage').then(m => ({ default: m.GrocerCallbackPage })))
 const PantryPicksPage = lazy(() => import('@/pages/PantryPicksPage').then(m => ({ default: m.PantryPicksPage })))
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })))
+const TermsPage = lazy(() => import('@/pages/TermsPage').then(m => ({ default: m.TermsPage })))
 
 function PageLoader() {
   return (
@@ -122,6 +125,8 @@ export default function App() {
           <Route path="/join-event/:code" element={<JoinEventPage />} />
           <Route path="/r/:code" element={<SharedRecipePage />} />
           <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPasswordPage /></Suspense>} />
+          <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><PrivacyPage /></Suspense>} />
+          <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
         </Routes>
         <AuthGuard>
           <Suspense fallback={<PageLoader />}>
@@ -185,6 +190,7 @@ export default function App() {
         </AuthGuard>
       </BrowserRouter>
       <ReviewPrompt />
+      <UpdateBanner />
       </ToastProvider>
       </SkinProvider>
     </QueryClientProvider>

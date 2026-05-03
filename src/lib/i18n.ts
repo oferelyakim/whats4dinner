@@ -434,7 +434,24 @@ const translations: Record<string, Record<Locale, string>> = {
   'common.areYouSure': { en: 'Are you sure?', he: 'האם את/ה בטוח/ה?', es: '¿Estás seguro/a?' },
   'common.tapToDismiss': { en: 'tap to dismiss', he: 'לחץ לסגירה', es: 'toca para cerrar' },
   'common.close': { en: 'Close', he: 'סגור', es: 'Cerrar' },
+  'common.dismiss': { en: 'Dismiss', he: 'סגור', es: 'Descartar' },
   'common.skipToContent': { en: 'Skip to main content', he: 'דלג לתוכן הראשי', es: 'Saltar al contenido principal' },
+
+  // App updates (PWA)
+  'update.available.title': { en: 'Update available', he: 'עדכון זמין', es: 'Actualización disponible' },
+  'update.available.body': { en: 'Refresh to get the latest version.', he: 'רענן כדי לקבל את הגרסה האחרונה.', es: 'Recarga para obtener la última versión.' },
+  'update.available.refresh': { en: 'Refresh', he: 'רענן', es: 'Recargar' },
+  'more.updates.title': { en: 'App version', he: 'גרסת אפליקציה', es: 'Versión de la app' },
+  'more.updates.upToDate': { en: 'You\'re on the latest version.', he: 'את/ה משתמש/ת בגרסה העדכנית.', es: 'Estás en la última versión.' },
+  'more.updates.available': { en: 'A new version is ready to install.', he: 'גרסה חדשה מוכנה להתקנה.', es: 'Hay una nueva versión lista para instalar.' },
+  'more.updates.checkNow': { en: 'Check now', he: 'בדוק כעת', es: 'Buscar' },
+  'more.updates.checking': { en: 'Checking…', he: 'בודק…', es: 'Buscando…' },
+
+  // Legal
+  'more.legal.privacy': { en: 'Privacy Policy', he: 'מדיניות פרטיות', es: 'Política de Privacidad' },
+  'more.legal.privacyDesc': { en: 'How we handle your data', he: 'איך אנחנו מטפלים במידע שלך', es: 'Cómo gestionamos tus datos' },
+  'more.legal.terms': { en: 'Terms of Service', he: 'תנאי שירות', es: 'Términos de Servicio' },
+  'more.legal.termsDesc': { en: 'The agreement for using Replanish', he: 'ההסכם לשימוש ב-Replanish', es: 'El acuerdo para usar Replanish' },
   'common.error': { en: 'Error', he: 'שגיאה', es: 'Error' },
   'common.items': { en: 'items', he: 'פריטים', es: 'artículos' },
   'common.today': { en: 'Today', he: 'היום', es: 'Hoy' },
