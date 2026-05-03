@@ -65,6 +65,11 @@ interface AppState {
   // Plan-v2 view mode (persisted)
   planMode: 'plan' | 'use'
   setPlanMode: (mode: 'plan' | 'use') => void
+
+  // Push notification subscription endpoint (persisted so we can unsubscribe
+  // and detect stale endpoints without a fresh subscribe call).
+  pushEndpoint: string | null
+  setPushEndpoint: (endpoint: string | null) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -113,6 +118,9 @@ export const useAppStore = create<AppState>()(
 
       planMode: 'plan',
       setPlanMode: (mode) => set({ planMode: mode }),
+
+      pushEndpoint: null,
+      setPushEndpoint: (endpoint) => set({ pushEndpoint: endpoint }),
     }),
     {
       name: 'w4d-app',
@@ -127,6 +135,7 @@ export const useAppStore = create<AppState>()(
         personalSkinId: state.personalSkinId,
         notificationPrefs: state.notificationPrefs,
         planMode: state.planMode,
+        pushEndpoint: state.pushEndpoint,
       }),
     }
   )

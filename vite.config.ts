@@ -8,6 +8,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      // injectManifest: Vite compiles src/sw.ts and injects __WB_MANIFEST at
+      // build time. skipWaiting + clientsClaim are now declared inside sw.ts.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'apple-touch-icon.png', 'logo-icon.png', 'favicon.svg'],
       manifest: {
@@ -39,26 +44,12 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // v2.5.0: activate new bundles immediately on update — without these,
-        // PWA users stayed on the cached v2.4 bundle and never picked up
-        // the v2.5 schema fix until they fully closed all tabs.
-        skipWaiting: true,
-        clientsClaim: true,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              networkTimeoutSeconds: 3,
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24,
-              },
-            },
-          },
-        ],
+      // NOTE: no workbox block — that config is now in src/sw.ts
+      devOptions: {
+        // Keep SW active in dev so push + notificationclick can be tested
+        // with the browser DevTools "Application → Service Workers" panel.
+        enabled: true,
+        type: 'module',
       },
     }),
   ],

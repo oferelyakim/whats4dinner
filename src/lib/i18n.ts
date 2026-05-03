@@ -1380,10 +1380,27 @@ const translations: Record<string, Record<Locale, string>> = {
   'notifications.settings.denied': { en: 'Browser denied', he: 'הדפדפן חוסם', es: 'Bloqueado por el navegador' },
   'notifications.settings.notAsked': { en: 'Not asked yet', he: 'טרם נשאל', es: 'Aún sin solicitar' },
   'notifications.settings.deniedHelp': { en: 'Enable in your device or browser settings to use this.', he: 'הפעל בהגדרות המכשיר או הדפדפן.', es: 'Habilítalo en la configuración del dispositivo o navegador.' },
-  'notifications.settings.tabOpenNote': { en: 'Notifications fire while the app is open. Background notifications coming soon.', he: 'ההתראות פועלות כשהאפליקציה פתוחה. התראות רקע בקרוב.', es: 'Las notificaciones funcionan con la app abierta. Próximamente notificaciones en segundo plano.' },
+  'notifications.settings.tabOpenNote': { en: 'Notifications fire on your device even when the app is closed.', he: 'ההתראות מופיעות במכשיר גם כשהאפליקציה סגורה.', es: 'Las notificaciones aparecen en tu dispositivo incluso cuando la app está cerrada.' },
   'notifications.list.itemAdded': { en: '{actor} added {item} to {list}', he: '{actor} הוסיף {item} ל{list}', es: '{actor} agregó {item} a {list}' },
   'notifications.list.title': { en: 'Shopping list updated', he: 'הרשימה עודכנה', es: 'Lista actualizada' },
   'notifications.chore.dueNow': { en: 'Due now', he: 'זמן ביצוע', es: 'Pendiente ahora' },
+
+  // ─── v3.6.0 — Push notification hints ────────────────────────────────────
+  'notifications.iosInstallHint': {
+    en: 'To receive notifications on iPhone, add Replanish to your Home Screen first.',
+    he: 'כדי לקבל התראות באייפון, הוסף את Replanish למסך הבית תחילה.',
+    es: 'Para recibir notificaciones en iPhone, primero añade Replanish a la pantalla de inicio.',
+  },
+  'notifications.permissionDenied': {
+    en: 'Notifications are blocked. Enable them in your browser settings.',
+    he: 'ההתראות חסומות. הפעל אותן בהגדרות הדפדפן.',
+    es: 'Las notificaciones están bloqueadas. Actívalas en la configuración del navegador.',
+  },
+  'notifications.unsupported': {
+    en: 'Push notifications are not supported on this device.',
+    he: 'התראות פוש אינן נתמכות במכשיר זה.',
+    es: 'Las notificaciones push no son compatibles con este dispositivo.',
+  },
 }
 
 export const useI18n = create<I18nState>()(
