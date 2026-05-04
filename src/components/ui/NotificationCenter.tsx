@@ -100,7 +100,7 @@ export function NotificationCenter() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute end-0 top-11 w-80 max-h-96 overflow-y-auto rounded-2xl bg-rp-card border border-rp-hairline shadow-xl z-50"
+            className="absolute end-0 top-11 w-[min(20rem,calc(100vw-1.5rem))] max-h-96 overflow-y-auto rounded-2xl bg-rp-card border border-rp-hairline shadow-xl z-50"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
               <h3 className="text-sm font-semibold text-rp-ink">
