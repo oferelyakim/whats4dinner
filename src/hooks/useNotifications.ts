@@ -16,6 +16,34 @@ export interface AppNotification {
 }
 
 /**
+ * Show a local browser notification using the SW path when available.
+ *
+ * Installed PWAs on Android Chrome forbid `new Notification(...)` at the
+ * window scope and throw `Illegal constructor. Use ServiceWorkerRegistration.
+ * showNotification() instead.` Calling the SW path works on both installed
+ * PWAs and regular browser tabs (when a SW is registered, which we always
+ * have via vite-plugin-pwa). Fall back to the Notification constructor only
+ * when no SW is available (extremely rare, e.g. dev with SW disabled).
+ *
+ * Wrapped in try/catch as defense-in-depth: a notification failure must
+ * never bubble into React's render tree and trigger ErrorBoundary.
+ */
+async function showLocalNotification(title: string, options: NotificationOptions): Promise<void> {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready
+      await reg.showNotification(title, options)
+      return
+    }
+    // No SW — try the constructor. Some browsers (older Firefox) allow it.
+    new Notification(title, options)
+  } catch (err) {
+    console.warn('[useNotifications] failed to show notification:', err)
+  }
+}
+
+/**
  * Returns upcoming reminders and today's chores as notifications.
  * Also triggers browser Notification API when the app is focused
  * and new notifications are detected (requires permission).
@@ -136,7 +164,15 @@ export function useNotifications() {
     // `tag` matches the SW push handler's tag convention so OS dedups when both
     // the in-tab path and a push for the same event arrive close together.
     const tag = n.type === 'chore' ? `chore:${n.id}` : `activity:${n.activityId ?? n.id}`
-    new Notification(n.title, { body: n.body, icon: '/icons/icon-192.png', tag })
+    // Installed PWAs on Android Chrome forbid `new Notification(...)` and require
+    // ServiceWorkerRegistration.showNotification(). Fire via SW; fall back to
+    // the constructor only if no SW is registered. Wrapped in try/catch as
+    // defense-in-depth so a notification failure never crashes the React tree.
+    void showLocalNotification(n.title, {
+      body: n.body,
+      icon: '/icons/icon-192.png',
+      tag,
+    })
   }, [notificationPrefs])
 
   // Trigger browser notifications for today's items on mount/focus
@@ -188,7 +224,7 @@ export function useNotifications() {
           if (!('Notification' in window) || Notification.permission !== 'granted') return
           if (!notificationPrefs.enabled || !notificationPrefs.chores) return
           sentRef.current.add(fireId)
-          new Notification(`${chore.icon || '🧹'} ${chore.name}`, {
+          void showLocalNotification(`${chore.icon || '🧹'} ${chore.name}`, {
             body: 'Due now',
             icon: '/icons/icon-192.png',
             tag: `chore:${chore.id}`,
@@ -255,7 +291,7 @@ export function useNotifications() {
           if (!notificationPrefs.enabled || !notificationPrefs.lists) return
           sentRef.current.add(fireId)
 
-          new Notification('Shopping list updated', {
+          void showLocalNotification('Shopping list updated', {
             body: `${record.name} was added to ${matchingList.name}`,
             icon: '/icons/icon-192.png',
             tag: `list-update:${record.list_id}`,
